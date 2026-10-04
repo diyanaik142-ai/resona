@@ -1,0 +1,125 @@
+import express from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import { getAccountData, saveAccountData } from '../db/storage.js';
+
+import { getPlatformSettings } from '../services/platformSettings.js';
+
+const router = express.Router();
+router.use(requireAuth);
+
+/**
+ * GET /api/creator
+ * Fetch creator dashboard data for authenticated user
+ */
+router.get('/', async (req, res) => {
+  try {
+    const settings = await getPlatformSettings();
+    if (settings.creator?.enableCreatorHub === false) {
+      return res.status(403).json({ error: 'Creator Hub is currently disabled by platform settings.' });
+    }
+
+    const creator = (await getAccountData(req.user.id, 'creator.json')) || {
+      isCreator: false,
+      artistName: '',
+      stats: { uploads: 0, plays: '0', followers: '0' },
+      uploads: [],
+      songRequests: []
+    };
+    return res.json(creator);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/creator/upload
+ * Publish or draft a new track for this user
+ */
+router.post('/upload', async (req, res) => {
+  try {
+    const settings = await getPlatformSettings();
+    if (settings.creator?.allowCreatorUploads === false) {
+      return res.status(403).json({ error: 'Creator uploads are currently disabled by platform settings.' });
+    }
+
+    const { title, genre, audioFileName, coverUrl } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Track title is required.' });
+    }
+
+    if (settings.creator?.requireCoverArt && !coverUrl) {
+      return res.status(400).json({ error: 'Cover art is required by platform settings.' });
+    }
+
+    const creator = (await getAccountData(req.user.id, 'creator.json')) || {
+      isCreator: true,
+      artistName: 'Artist',
+      stats: { uploads: 0, plays: '0', followers: '0' },
+      uploads: [],
+      songRequests: []
+    };
+
+    const status = settings.creator?.requirePublishingApproval ? 'Pending' : 'Published';
+
+    const newTrack = {
+      id: `usr_trk_${Date.now()}`,
+      title: title.trim(),
+      genre: genre || 'indie',
+      status: status,
+      plays: '0 plays',
+      date: 'Just now',
+      audioFile: audioFileName || 'uploaded_audio.mp3',
+      cover: coverUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
+      createdAt: new Date().toISOString()
+    };
+
+    creator.uploads.unshift(newTrack);
+    creator.stats.uploads = (creator.stats.uploads || 0) + 1;
+    await saveAccountData(req.user.id, 'creator.json', creator);
+
+    return res.status(201).json({ message: 'Track published successfully to your account', track: newTrack, creator });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/creator/request
+ * Submit a song request
+ */
+router.post('/request', async (req, res) => {
+  try {
+    const settings = await getPlatformSettings();
+    if (settings.catalog?.allowSongRecommendations === false) {
+      return res.status(403).json({ error: 'Song recommendations are currently disabled by platform settings.' });
+    }
+
+    const { songTitle, artist, notes } = req.body;
+    if (!songTitle) return res.status(400).json({ error: 'Song title is required.' });
+
+    const creator = (await getAccountData(req.user.id, 'creator.json')) || {
+      isCreator: false,
+      uploads: [],
+      songRequests: []
+    };
+
+    const requestItem = {
+      id: `req_${Date.now()}`,
+      songTitle,
+      artist: artist || 'Unknown',
+      notes: notes || '',
+      status: 'In Review',
+      submittedAt: new Date().toISOString()
+    };
+
+    creator.songRequests = creator.songRequests || [];
+    creator.songRequests.unshift(requestItem);
+    await saveAccountData(req.user.id, 'creator.json', creator);
+
+    return res.status(201).json({ message: 'Song request submitted', request: requestItem });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;
