@@ -710,25 +710,38 @@ export const api = {
       'Authorization': `Bearer ${localStorage.getItem('adminToken')}`,
       'Content-Type': 'application/json'
     }),
+    fetch: async (url, options = {}) => {
+      const headers = api.admin.getHeaders();
+      // Remove content-type if it's explicitly null/undefined (e.g. FormData)
+      if (options.headers && options.headers['Content-Type'] === undefined) {
+          delete headers['Content-Type'];
+      }
+      const res = await fetch(url, { ...options, headers: { ...headers, ...options.headers } });
+      if (res.status === 401) {
+        localStorage.removeItem('adminToken');
+        window.location.reload();
+      }
+      return res;
+    },
     getSystemStatus: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/system/status`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/system/status`);
       if (!res.ok) throw new Error('Failed to fetch status');
       return res.json();
     },
     getUsers: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/users`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/users`);
       if (!res.ok) throw new Error('Failed to fetch users');
       return res.json();
     },
     getPlanChangeRequests: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/plan-change-requests`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/plan-change-requests`);
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Failed to fetch plan change requests');
       return json;
     },
     reviewPlanChangeRequest: async (id, decision, adminNote = '') => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/plan-change-requests/${encodeURIComponent(id)}/review`, {
-        method: 'POST', headers: api.admin.getHeaders(), body: JSON.stringify({ decision, adminNote })
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/plan-change-requests/${encodeURIComponent(id)}/review`, {
+        method: 'POST', body: JSON.stringify({ decision, adminNote })
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Failed to review request');
@@ -737,64 +750,63 @@ export const api = {
     updateUser: async (id, data) => {
       // Data might contain { role } or { disabled }
       if (data.role !== undefined) {
-        const res = await fetch(`${getApiBaseUrl()}/api/admin/users/${id}/role`, {
-          method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify({ role: data.role })
+        const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/users/${id}/role`, {
+          method: 'PUT', body: JSON.stringify({ role: data.role })
         });
         if (!res.ok) throw new Error('Failed to update role');
       }
       if (data.status !== undefined) {
         const disabled = data.status === 'disabled';
-        const res = await fetch(`${getApiBaseUrl()}/api/admin/users/${id}/disable`, {
-          method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify({ disabled })
+        const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/users/${id}/disable`, {
+          method: 'PUT', body: JSON.stringify({ disabled })
         });
         if (!res.ok) throw new Error('Failed to update status');
       }
       if (data.planId !== undefined) {
-        const res = await fetch(`${getApiBaseUrl()}/api/admin/users/${id}/plan`, {
-          method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify({ planId: data.planId })
+        const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/users/${id}/plan`, {
+          method: 'PUT', body: JSON.stringify({ planId: data.planId })
         });
         if (!res.ok) throw new Error('Failed to update plan');
       }
       if (data.overrides !== undefined) {
-        const res = await fetch(`${getApiBaseUrl()}/api/admin/users/${id}/overrides`, {
-          method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify({ overrides: data.overrides })
+        const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/users/${id}/overrides`, {
+          method: 'PUT', body: JSON.stringify({ overrides: data.overrides })
         });
         if (!res.ok) throw new Error('Failed to update overrides');
       }
       return { id, ...data };
     },
     deleteUser: async (id) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/users/${id}`, {
-        method: 'DELETE', headers: api.admin.getHeaders()
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/users/${id}`, {
+        method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to delete user');
       return { success: true };
     },
     getFeatures: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/features`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/features`);
       if (!res.ok) throw new Error('Failed to fetch feature registry');
       return res.json();
     },
     getPlans: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/plans`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/plans`);
       if (!res.ok) throw new Error('Failed to fetch plans');
       return res.json();
     },
     updatePlanFeatures: async (planId, features) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/plans/${planId}/features`, {
-        method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify({ features })
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/plans/${planId}/features`, {
+        method: 'PUT', body: JSON.stringify({ features })
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update plan features');
       return res.json();
     },
     getCatalog: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/catalog`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog`);
       return res.json();
     },
     uploadTrack: async (formData) => {
-      const headers = { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` };
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/catalog`, {
-        method: 'POST', headers, body: formData
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog`, {
+        method: 'POST', headers: { 'Content-Type': undefined }, body: formData
       });
       return res.json();
     },
