@@ -137,7 +137,7 @@ export default function App() {
   const playbackSessionRef = useRef({ trackId: null, startedAt: null, completed: false });
 
   const recordActivity = (event) => {
-    if (!isAuthenticated || !event?.trackId) return;
+    if (!isAuthenticated || user?.role === 'admin' || !event?.trackId) return;
     api.user.recordActivity(event).catch((err) => {
       console.warn('[Recommendations] Could not record activity:', err.message);
     });
@@ -145,7 +145,7 @@ export default function App() {
 
   // Synchronize Real-time Notifications & Presence
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
+    if (!isAuthenticated || !user?.id || user?.role === 'admin') {
       setNotifications([]);
       return;
     }
@@ -197,13 +197,13 @@ export default function App() {
       unsubInvite();
       unsubCancelled();
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, user?.role]);
 
   const unreadNotificationsCount = notifications.filter(n => !n.read && n.status === 'pending').length;
 
   // Synchronize Active Huddle Session from Backend
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || user?.role === 'admin') {
       setActiveHuddle(null);
       return;
     }

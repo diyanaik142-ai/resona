@@ -56,6 +56,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Check for admin token first
+    const adminToken = localStorage.getItem('adminToken');
+    if (adminToken) {
+      // Very basic validation - assume valid until getMe fails
+      setUser({
+        id: 'admin',
+        email: 'admin',
+        name: 'Administrator',
+        role: 'admin',
+        preferences: {}
+      });
+      setLoading(false);
+      return;
+    }
+
     if (import.meta.env?.PROD) {
       const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
         if (!firebaseUser) {
@@ -74,19 +88,6 @@ export function AuthProvider({ children }) {
         }
       });
       return unsubscribe;
-    }
-    const adminToken = localStorage.getItem('adminToken');
-    if (adminToken) {
-      // Very basic validation - assume valid until getMe fails
-      setUser({
-        id: 'admin',
-        email: 'admin',
-        name: 'Administrator',
-        role: 'admin',
-        preferences: {}
-      });
-      setLoading(false);
-      return;
     }
 
     const savedToken = localStorage.getItem('authToken') || localStorage.getItem('resona_token');

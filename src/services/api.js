@@ -48,12 +48,10 @@ export function setToken(token) {
 import { auth } from '../firebase';
 
 export const getAuthHeaders = async () => {
-  const adminToken = localStorage.getItem('adminToken');
-  if (adminToken) {
-    return {
-      'Authorization': `Bearer ${adminToken}`,
-      'Content-Type': 'application/json'
-    };
+  // If an admin session is active, NEVER send normal user tokens or admin tokens
+  // to normal user endpoints to prevent interference and leaks.
+  if (localStorage.getItem('adminToken')) {
+    return { 'Content-Type': 'application/json' };
   }
 
   // Obtain fresh Firebase ID token if user is logged in
