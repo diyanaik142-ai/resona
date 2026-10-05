@@ -79,7 +79,6 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync(p
 const loginAttempts = new Map();
 
 router.post('/auth/login', async (req, res) => {
-  if (process.env.NODE_ENV === 'production') return res.status(410).json({ error: 'Use Firebase Authentication to sign in to the production service.' });
   const { username, password } = req.body;
   const ip = req.ip;
 
