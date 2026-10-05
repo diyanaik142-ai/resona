@@ -45,11 +45,22 @@ export function setToken(token) {
   }
 }
 
+import { auth } from '../firebase';
+
 export const getAuthHeaders = async () => {
   const adminToken = localStorage.getItem('adminToken');
   if (adminToken) {
     return {
       'Authorization': `Bearer ${adminToken}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  // Obtain fresh Firebase ID token if user is logged in
+  if (auth?.currentUser) {
+    const token = await auth.currentUser.getIdToken(true);
+    return {
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
   }
