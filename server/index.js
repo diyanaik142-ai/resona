@@ -27,9 +27,12 @@ import { userStatusTracker } from './services/userStatusTracker.js';
 const app = express();
 
 const server = http.createServer(app);
+const baseIoOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost,https://resona.anchorlyhms.com').split(',').map((value) => value.trim());
+const ioOrigins = [...new Set([...baseIoOrigins, 'capacitor://localhost', 'https://localhost'])];
+
 const io = new SocketIOServer(server, {
   cors: {
-    origin: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,capacitor://localhost,http://localhost').split(',').map((value) => value.trim()),
+    origin: ioOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   }
@@ -92,7 +95,9 @@ io.on('connection', (socket) => {
   });
 });
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,capacitor://localhost,http://localhost').split(',').map((value) => value.trim());
+const baseAppOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost,https://resona.anchorlyhms.com').split(',').map((value) => value.trim());
+const allowedOrigins = [...new Set([...baseAppOrigins, 'capacitor://localhost', 'https://localhost'])];
+
 app.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
