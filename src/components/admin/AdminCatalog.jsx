@@ -8,6 +8,9 @@ export default function AdminCatalog() {
   const [loading, setLoading] = useState(true);
   
   const [isAdding, setIsAdding] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
   const [newTrack, setNewTrack] = useState({ title: '', artist: '', genre: 'pop', status: 'Published', duration: '0:00' });
   const [audioFile, setAudioFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
@@ -47,6 +50,9 @@ export default function AdminCatalog() {
 
   const handleAddTrack = async (e) => {
     e.preventDefault();
+    setUploadError('');
+    setUploadSuccess('');
+    setIsUploading(true);
     const formData = new FormData();
     formData.append('title', newTrack.title);
     formData.append('artist', newTrack.artist);
@@ -58,13 +64,20 @@ export default function AdminCatalog() {
 
     try {
       await api.admin.uploadTrack(formData);
-      setIsAdding(false);
+      setUploadSuccess('Track uploaded successfully!');
+      setTimeout(() => {
+        setIsAdding(false);
+        setUploadSuccess('');
+      }, 1500);
       setNewTrack({ title: '', artist: '', genre: 'pop', status: 'Published', duration: '0:00' });
       setAudioFile(null);
       setCoverFile(null);
       fetchCatalog();
     } catch (err) {
       console.error(err);
+      setUploadError(err.message || 'Failed to upload track');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -80,25 +93,25 @@ export default function AdminCatalog() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Music className="text-purple-400 w-6 h-6" /> Music Catalog
         </h2>
-        <div className="flex gap-4">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <div className="relative w-full sm:w-auto">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
               placeholder="Search catalog..." 
-              className="bg-slate-900/50 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+              className="w-full bg-slate-900/50 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
             />
           </div>
           <button 
-            onClick={() => setIsAdding(!isAdding)}
-            className="flex items-center gap-2 bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-purple-400 transition"
+            onClick={() => { setIsAdding(!isAdding); setUploadError(''); setUploadSuccess(''); }}
+            className="w-full sm:w-auto flex justify-center items-center gap-2 bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-purple-400 transition"
           >
             {isAdding ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {isAdding ? 'Cancel' : 'Add Track'}
+            {isAdding ? 'Cancel' : 'Upload Music'}
           </button>
         </div>
       </div>
@@ -106,18 +119,30 @@ export default function AdminCatalog() {
       {isAdding && (
         <form onSubmit={handleAddTrack} className="bg-slate-900/50 p-4 sm:p-6 rounded-2xl border border-purple-500/20 space-y-4">
           <h3 className="text-lg font-bold text-white">Add New Track</h3>
+          
+          {uploadError && (
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl text-sm font-bold">
+              {uploadError}
+            </div>
+          )}
+          {uploadSuccess && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl text-sm font-bold">
+              {uploadSuccess}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Title</label>
-              <input required value={newTrack.title} onChange={e => setNewTrack({...newTrack, title: e.target.value})} type="text" className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none" placeholder="Track title..." />
+              <input disabled={isUploading} required value={newTrack.title} onChange={e => setNewTrack({...newTrack, title: e.target.value})} type="text" className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50" placeholder="Track title..." />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Artist</label>
-              <input required value={newTrack.artist} onChange={e => setNewTrack({...newTrack, artist: e.target.value})} type="text" className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none" placeholder="Artist name..." />
+              <input disabled={isUploading} required value={newTrack.artist} onChange={e => setNewTrack({...newTrack, artist: e.target.value})} type="text" className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50" placeholder="Artist name..." />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Genre</label>
-              <select required value={newTrack.genre} onChange={e => setNewTrack({...newTrack, genre: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none">
+              <select disabled={isUploading} required value={newTrack.genre} onChange={e => setNewTrack({...newTrack, genre: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50">
                 {GENRES.map(g => (
                   <option key={g.id} value={g.id}>{g.name}</option>
                 ))}
@@ -125,7 +150,7 @@ export default function AdminCatalog() {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Status</label>
-              <select value={newTrack.status} onChange={e => setNewTrack({...newTrack, status: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none">
+              <select disabled={isUploading} value={newTrack.status} onChange={e => setNewTrack({...newTrack, status: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50">
                 <option value="Published">Published</option>
                 <option value="Draft">Draft</option>
               </select>
@@ -133,17 +158,22 @@ export default function AdminCatalog() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Audio File</label>
-                <input required type="file" accept="audio/*" onChange={handleAudioChange} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 w-full" />
+                <input disabled={isUploading} required type="file" accept="audio/*" onChange={handleAudioChange} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 w-full disabled:opacity-50" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cover Image</label>
-                <input required type="file" accept="image/*" onChange={e => setCoverFile(e.target.files[0])} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 w-full" />
+                <input disabled={isUploading} required type="file" accept="image/*" onChange={e => setCoverFile(e.target.files[0])} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 w-full disabled:opacity-50" />
               </div>
             </div>
           </div>
           <div className="flex justify-end pt-2">
-            <button type="submit" className="w-full sm:w-auto bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-[0_0_20px_rgba(168,85,247,0.3)]">
-              Upload Track
+            <button disabled={isUploading} type="submit" className="w-full sm:w-auto bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-[0_0_20px_rgba(168,85,247,0.3)] disabled:opacity-50 flex justify-center items-center gap-2">
+              {isUploading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                  Uploading...
+                </>
+              ) : 'Upload Track'}
             </button>
           </div>
         </form>
