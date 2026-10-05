@@ -800,14 +800,18 @@ export const api = {
       return res.json();
     },
     getCatalog: async () => {
-      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog`);
-      return res.json();
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog?_t=${Date.now()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch catalog');
+      return data;
     },
     uploadTrack: async (formData) => {
       const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog`, {
         method: 'POST', body: formData
       });
-      return res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to upload track');
+      return data;
     },
     updateTrack: async (id, data) => {
       const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog/${id}`, {
