@@ -711,12 +711,11 @@ export const api = {
       'Content-Type': 'application/json'
     }),
     fetch: async (url, options = {}) => {
-      const headers = api.admin.getHeaders();
-      // Remove content-type if it's explicitly null/undefined (e.g. FormData)
-      if (options.headers && options.headers['Content-Type'] === undefined) {
-          delete headers['Content-Type'];
+      const finalHeaders = { ...api.admin.getHeaders(), ...(options.headers || {}) };
+      if (options.body instanceof FormData) {
+          delete finalHeaders['Content-Type'];
       }
-      const res = await fetch(url, { ...options, headers: { ...headers, ...options.headers } });
+      const res = await fetch(url, { ...options, headers: finalHeaders });
       if (res.status === 401) {
         localStorage.removeItem('adminToken');
         window.location.reload();
@@ -806,7 +805,7 @@ export const api = {
     },
     uploadTrack: async (formData) => {
       const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog`, {
-        method: 'POST', headers: { 'Content-Type': undefined }, body: formData
+        method: 'POST', body: formData
       });
       return res.json();
     },

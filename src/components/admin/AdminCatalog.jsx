@@ -98,39 +98,39 @@ export default function AdminCatalog() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 relative z-10 pointer-events-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-20 pointer-events-auto">
         <h2 className="text-xl font-bold text-white flex items-center gap-2 shrink-0">
           <Music className="text-purple-400 w-6 h-6" /> Music Catalog
         </h2>
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto relative z-30 pointer-events-auto">
           <div className="relative w-full sm:w-64 shrink-0">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input 
               type="text" 
               placeholder="Search catalog..." 
-              className="w-full bg-slate-900/50 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+              className="w-full bg-slate-900/50 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors relative z-40 pointer-events-auto"
             />
           </div>
           {!isAdding && (
             <button 
               type="button"
-              onClick={handleOpenUpload}
-              className="relative z-10 w-full sm:w-auto flex justify-center items-center gap-2 bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-purple-400 transition shrink-0 whitespace-nowrap"
+              onClick={() => setIsAdding(true)}
+              className="relative z-[100] cursor-pointer pointer-events-auto w-full sm:w-auto flex justify-center items-center gap-2 bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-purple-400 transition shrink-0"
             >
-              <Plus className="w-4 h-4 shrink-0" />
-              Upload Music
+              <Plus className="w-4 h-4 pointer-events-none" />
+              <span className="pointer-events-none">Upload Music</span>
             </button>
           )}
         </div>
       </div>
 
       {isAdding && (
-        <form onSubmit={handleAddTrack} className="bg-slate-900/50 p-4 sm:p-6 rounded-2xl border border-purple-500/20 space-y-4">
-          <div className="flex justify-between items-center">
+        <form onSubmit={handleAddTrack} className="relative z-50 pointer-events-auto bg-slate-900/50 p-4 sm:p-6 rounded-2xl border border-purple-500/20 space-y-4">
+          <div className="flex justify-between items-center relative z-50 pointer-events-auto">
             <h3 className="text-lg font-bold text-white">Add New Track</h3>
-            <button type="button" onClick={() => setIsAdding(false)} className="p-2 bg-slate-800 text-slate-400 rounded-full hover:bg-slate-700 hover:text-white transition">
-              <X className="w-4 h-4" />
+            <button type="button" onClick={() => setIsAdding(false)} className="relative z-[100] cursor-pointer pointer-events-auto p-2 bg-slate-800 text-slate-400 rounded-full hover:bg-slate-700 hover:text-white transition">
+              <X className="w-4 h-4 pointer-events-none" />
             </button>
           </div>
           
@@ -180,14 +180,16 @@ export default function AdminCatalog() {
               </div>
             </div>
           </div>
-          <div className="flex justify-end pt-2">
-            <button disabled={isUploading} type="submit" className="w-full sm:w-auto bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-[0_0_20px_rgba(168,85,247,0.3)] disabled:opacity-50 flex justify-center items-center gap-2">
+          <div className="flex justify-end pt-2 relative z-50 pointer-events-auto">
+            <button disabled={isUploading} type="submit" className="relative z-[100] pointer-events-auto cursor-pointer w-full sm:w-auto bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-[0_0_20px_rgba(168,85,247,0.3)] disabled:opacity-50 flex justify-center items-center gap-2">
               {isUploading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                  Uploading...
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin pointer-events-none"></div>
+                  <span className="pointer-events-none">Uploading...</span>
                 </>
-              ) : 'Upload Track'}
+              ) : (
+                <span className="pointer-events-none">Upload Track</span>
+              )}
             </button>
           </div>
         </form>
