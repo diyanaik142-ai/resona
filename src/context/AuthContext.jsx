@@ -115,10 +115,20 @@ export function AuthProvider({ children }) {
         return { user: credential.user };
       }
       const res = await api.auth.login(email, password);
-      setToken(res.token);
-      setUser(res.user);
-      setPreferences(res.preferences);
-      await refreshAccountData();
+      
+      if (email === 'admin' || res.user?.role === 'admin') {
+        // For admin, api.auth.login already sets 'adminToken' in localStorage.
+        // We skip setToken() so we don't overwrite the normal user 'authToken'.
+        // We also skip refreshAccountData() so we don't trigger normal user endpoints.
+        setUser(res.user);
+        setPreferences(res.preferences || {});
+      } else {
+        setToken(res.token);
+        setUser(res.user);
+        setPreferences(res.preferences);
+        await refreshAccountData();
+      }
+      
       return res;
     } catch (err) {
       setAuthError(err.message);

@@ -811,56 +811,55 @@ export const api = {
       return res.json();
     },
     updateTrack: async (id, data) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/catalog/${id}`, {
-        method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify(data)
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog/${id}`, {
+        method: 'PUT', body: JSON.stringify(data)
       });
       return res.json();
     },
     deleteTrack: async (id) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/catalog/${id}`, {
-        method: 'DELETE', headers: api.admin.getHeaders()
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog/${id}`, {
+        method: 'DELETE'
       });
       return res.json();
     },
     getRequests: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/requests`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/requests`);
       return res.json();
     },
     updateRequest: async (id, data) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/requests/${id}`, {
-        method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify(data)
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/requests/${id}`, {
+        method: 'PUT', body: JSON.stringify(data)
       });
       return res.json();
     },
     getCreators: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/creators`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/creators`);
       if (!res.ok) throw new Error('Failed to fetch creator applications');
       return res.json();
     },
     updateCreator: async (id, data) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/creators/${id}`, {
-        method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify(data)
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/creators/${id}`, {
+        method: 'PUT', body: JSON.stringify(data)
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to update application');
       return res.json();
     },
     getSettings: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/settings`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/settings`);
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to fetch platform settings');
       return res.json();
     },
     updateSettings: async (data) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/settings`, {
-        method: 'PUT', headers: api.admin.getHeaders(), body: JSON.stringify(data)
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/settings`, {
+        method: 'PUT', body: JSON.stringify(data)
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Failed to save settings');
       return json;
     },
     dangerAction: async (action, data = {}) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/danger/${action}`, {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/danger/${action}`, {
         method: 'POST',
-        headers: api.admin.getHeaders(),
         body: JSON.stringify(data)
       });
       const json = await res.json().catch(() => ({}));
@@ -868,27 +867,27 @@ export const api = {
       return json;
     },
     getAuditLogs: async (limit = 200) => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/audit-logs?limit=${limit}`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/audit-logs?limit=${limit}`);
       if (!res.ok) throw new Error('Failed to fetch audit logs');
       return res.json();
     },
     getOverview: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/overview`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/overview`);
       if (!res.ok) throw new Error(`Overview request failed (${res.status})`);
       return res.json();
     },
     getHealth: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/health`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/health`);
       if (!res.ok) throw new Error(`Health check failed (${res.status})`);
       return res.json();
     },
     getStorage: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/storage`, { headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/storage`);
       if (!res.ok) throw new Error(`Storage measurement failed (${res.status})`);
       return res.json();
     },
     verifyCatalog: async () => {
-      const res = await fetch(`${getApiBaseUrl()}/api/admin/catalog/verify`, { method: 'POST', headers: api.admin.getHeaders() });
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/catalog/verify`, { method: 'POST' });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Catalog verification failed');
       return res.json();
     },
