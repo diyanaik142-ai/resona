@@ -78,31 +78,39 @@ export default function AdminDashboard() {
       </div>
 
       {/* Mobile Navigation Header & Tab Strip (Hidden on desktop) */}
-      <div className="md:hidden flex flex-col border-b border-white/5 bg-slate-950/95 backdrop-blur-xl shrink-0 z-20">
+      <div className="md:hidden flex flex-col border-b border-white/5 bg-slate-950/95 backdrop-blur-xl shrink-0 z-20 sticky top-0">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4 text-teal-400" />
             </div>
-            <div>
-              <h2 className="font-bold text-white text-sm">Resona Admin</h2>
-              <p className="text-[9px] text-teal-400 font-mono uppercase">System Control</p>
+            <div className="min-w-0">
+              <h2 className="font-bold text-white text-sm truncate">Resona Admin</h2>
+              <div className="flex items-center gap-2">
+                <p className="text-[9px] text-teal-400 font-mono uppercase truncate">System Control</p>
+                {environment && (
+                  <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full border flex items-center gap-1 ${ENV_STYLES[environment.name] || ENV_STYLES.development}`}>
+                    <span className="w-1 h-1 rounded-full bg-current" />
+                    {environment.name}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button
             onClick={logout}
-            className="p-2 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition border border-rose-500/20"
+            className="p-2 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition border border-rose-500/20 shrink-0 ml-2"
             title="Sign Out"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto px-3 pb-2.5 no-scrollbar">
+        <div className="flex gap-1.5 overflow-x-auto px-3 pb-2.5 no-scrollbar touch-pan-x">
           {TABS.map(item => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-semibold transition ${activeTab === item.id
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-semibold transition shrink-0 ${activeTab === item.id
                   ? 'bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30'
                   : 'text-slate-400 hover:bg-white/5'
                 }`}
@@ -120,8 +128,8 @@ export default function AdminDashboard() {
         <div className="absolute top-0 right-0 w-72 h-72 md:w-[500px] md:h-[500px] bg-teal-500/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-0 left-1/4 w-72 h-72 md:w-[600px] md:h-[600px] bg-purple-500/5 rounded-full blur-[150px] pointer-events-none" />
 
-        <header className="h-16 md:h-20 px-4 md:px-10 flex items-center justify-between border-b border-white/5 bg-slate-900/30 backdrop-blur-xl z-10 sticky top-0">
-          <h1 className="text-xl md:text-2xl font-black text-white tracking-tight">
+        <header className="hidden md:flex h-20 px-10 items-center justify-between border-b border-white/5 bg-slate-900/30 backdrop-blur-xl z-10 sticky top-0">
+          <h1 className="text-2xl font-black text-white tracking-tight">
             {activeLabel}
           </h1>
 
@@ -141,6 +149,13 @@ export default function AdminDashboard() {
             </div>
           </div>
         </header>
+        
+        {/* Mobile active label (optional, can be part of page content) */}
+        <div className="md:hidden px-4 pt-4 pb-2 z-10">
+           <h1 className="text-xl font-black text-white tracking-tight">
+            {activeLabel}
+          </h1>
+        </div>
 
         <main className="flex-1 p-4 sm:p-6 md:p-10 z-10">
           {activeTab === 'overview' && <AdminOverview onNavigate={setActiveTab} />}

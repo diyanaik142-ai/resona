@@ -279,8 +279,8 @@ export default function AdminSettings() {
       {/* Main Layout: Settings Navigation Sidebar + Content Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Settings Navigation Sidebar */}
-        <div className="lg:col-span-4 bg-slate-900/40 border border-white/5 rounded-2xl p-2 space-y-1 backdrop-blur-xl">
-          <div className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
+        <div className="lg:col-span-4 bg-slate-900/40 border border-white/5 rounded-2xl p-2 flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar touch-pan-x backdrop-blur-xl">
+          <div className="hidden lg:block px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-500">
             Configuration Sections
           </div>
           {CATEGORIES.map(cat => {
@@ -291,7 +291,7 @@ export default function AdminSettings() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`w-full text-left px-3.5 py-2.5 rounded-xl transition flex items-center justify-between group ${
+                className={`shrink-0 lg:w-full text-left px-3.5 py-2.5 rounded-xl transition flex items-center justify-between group ${
                   isActive
                     ? cat.danger
                       ? 'bg-rose-500/15 text-rose-300 font-bold border border-rose-500/30'
@@ -308,7 +308,7 @@ export default function AdminSettings() {
                   </div>
                 </div>
                 {isDirty && (
-                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Unsaved changes in this section" />
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0 ml-2" title="Unsaved changes in this section" />
                 )}
               </button>
             );

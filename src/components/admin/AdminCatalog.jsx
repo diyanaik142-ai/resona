@@ -104,9 +104,9 @@ export default function AdminCatalog() {
       </div>
 
       {isAdding && (
-        <form onSubmit={handleAddTrack} className="bg-slate-900/50 p-6 rounded-2xl border border-purple-500/20 space-y-4">
+        <form onSubmit={handleAddTrack} className="bg-slate-900/50 p-4 sm:p-6 rounded-2xl border border-purple-500/20 space-y-4">
           <h3 className="text-lg font-bold text-white">Add New Track</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Title</label>
               <input required value={newTrack.title} onChange={e => setNewTrack({...newTrack, title: e.target.value})} type="text" className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none" placeholder="Track title..." />
@@ -130,26 +130,27 @@ export default function AdminCatalog() {
                 <option value="Draft">Draft</option>
               </select>
             </div>
-            <div className="grid grid-cols-2 gap-4 col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Audio File</label>
-                <input required type="file" accept="audio/*" onChange={handleAudioChange} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20" />
+                <input required type="file" accept="audio/*" onChange={handleAudioChange} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 w-full" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cover Image</label>
-                <input required type="file" accept="image/*" onChange={e => setCoverFile(e.target.files[0])} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20" />
+                <input required type="file" accept="image/*" onChange={e => setCoverFile(e.target.files[0])} className="text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-500/10 file:text-purple-400 hover:file:bg-purple-500/20 w-full" />
               </div>
             </div>
           </div>
           <div className="flex justify-end pt-2">
-            <button type="submit" className="bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-[0_0_20px_rgba(168,85,247,0.3)]">
+            <button type="submit" className="w-full sm:w-auto bg-purple-500 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-400 transition shadow-[0_0_20px_rgba(168,85,247,0.3)]">
               Upload Track
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-white/5 border-b border-white/5 text-slate-400">
             <tr>
@@ -195,6 +196,46 @@ export default function AdminCatalog() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {catalog.map(track => (
+          <div key={track.id} className="bg-slate-900/50 rounded-xl border border-white/5 p-4 flex gap-3 hover:bg-white/[0.02] transition">
+            <div className="w-12 h-12 shrink-0">
+              {track.cover ? (
+                <img src={track.cover} alt="Cover" className="w-full h-full rounded-md object-cover" />
+              ) : (
+                <div className="w-full h-full rounded-md bg-white/5 flex items-center justify-center">
+                  <Music className="w-5 h-5 text-slate-500" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-white text-sm truncate">{track.title}</div>
+              <div className="text-xs text-slate-400 truncate">{track.artist}</div>
+              <div className="flex flex-wrap gap-2 mt-2 items-center">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${track.status === 'Draft' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                  {track.status || 'Published'}
+                </span>
+                {track.duration && (
+                  <span className="text-[10px] text-slate-500">{track.duration}</span>
+                )}
+                <span className="text-[10px] text-slate-500 ml-auto">{new Date(track.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+            <div className="flex items-center shrink-0 border-l border-white/5 pl-3">
+              <button onClick={() => handleDelete(track.id)} className="p-2 bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {catalog.length === 0 && !loading && (
+          <div className="p-8 text-center text-slate-500 text-sm bg-slate-900/50 rounded-xl border border-white/5">
+            Catalog is empty. Add a track to get started.
+          </div>
+        )}
       </div>
     </div>
   );

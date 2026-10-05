@@ -15,32 +15,37 @@ const ACCENTS = {
 function Card({ accent = 'teal', icon: Icon, title, source, children }) {
   const a = ACCENTS[accent];
   return (
-    <div className={`bg-slate-900/50 border border-white/5 rounded-2xl p-6 relative overflow-hidden transition-all ${a.hover}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-400 mb-1">{title}</p>
+    <div className={`bg-slate-900/50 border border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden transition-all ${a.hover}`}>
+      <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-2 sm:gap-3">
+        <div className="min-w-0 w-full">
+          <div className="flex items-center justify-between sm:block mb-1">
+             <p className="text-[11px] sm:text-sm font-medium text-slate-400 truncate pr-2 sm:pr-0">{title}</p>
+             <div className={`p-1.5 sm:hidden rounded-lg shrink-0 ${a.icon}`}>
+               <Icon className="w-3.5 h-3.5" />
+             </div>
+          </div>
           {children}
         </div>
-        <div className={`p-3 rounded-xl shrink-0 ${a.icon}`}>
+        <div className={`hidden sm:block p-3 rounded-xl shrink-0 ${a.icon}`}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
-      {source && <p className="mt-3 text-[11px] uppercase tracking-wider text-slate-600">Source: {source}</p>}
+      {source && <p className="hidden sm:block mt-3 text-[11px] uppercase tracking-wider text-slate-600 truncate">Source: {source}</p>}
     </div>
   );
 }
 
 function Value({ loading, error, children }) {
-  if (loading) return <div className="h-9 flex items-center text-slate-500 text-lg"><Loader2 className="w-4 h-4 animate-spin mr-2" />Loading…</div>;
-  if (error) return <div className="text-2xl font-black text-rose-400">Unavailable</div>;
-  return <h3 className="text-3xl font-black text-white">{children}</h3>;
+  if (loading) return <div className="h-7 sm:h-9 flex items-center text-slate-500 text-sm sm:text-lg"><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin mr-1.5 sm:mr-2" />…</div>;
+  if (error) return <div className="text-lg sm:text-2xl font-black text-rose-400">Error</div>;
+  return <h3 className="text-xl sm:text-3xl font-black text-white">{children}</h3>;
 }
 
 function ErrorLine({ error, onRetry }) {
   return (
-    <div className="mt-4 text-xs text-rose-300 flex items-start gap-2">
-      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-      <span className="flex-1">{error}</span>
+    <div className="mt-2 sm:mt-4 text-[10px] sm:text-xs text-rose-300 flex items-start gap-1.5 sm:gap-2">
+      <AlertTriangle className="w-3 h-3 sm:w-3.5 sm:h-3.5 mt-0.5 shrink-0" />
+      <span className="flex-1 line-clamp-2 sm:line-clamp-none">{error}</span>
       {onRetry && <button onClick={onRetry} className="underline hover:text-white">Retry</button>}
     </div>
   );
@@ -114,32 +119,32 @@ export default function AdminOverview({ onNavigate }) {
   const firestore = healthData?.components.find(c => c.id === 'firestore');
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-slate-500">
-          {lastUpdated ? <>Updated {timeAgo(lastUpdated)} · auto-refresh every {POLL_MS / 1000}s</> : 'Fetching live data…'}
+        <p className="text-[11px] sm:text-sm text-slate-500 truncate">
+          {lastUpdated ? <>Updated {timeAgo(lastUpdated)}</> : 'Fetching live data…'}
         </p>
         <button
           onClick={refresh}
           disabled={refreshing}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-slate-200 hover:bg-white/10 disabled:opacity-60 transition"
+          className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm font-medium text-slate-200 hover:bg-white/10 disabled:opacity-60 transition"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Updating…' : 'Refresh'}
         </button>
       </div>
 
       {failedAll && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-sm flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5" />
-          <span className="flex-1">Unable to load dashboard data from the backend: {overviewError}</span>
-          <button onClick={refresh} className="underline">Retry</button>
+        <div className="p-3 sm:p-4 rounded-lg sm:rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs sm:text-sm flex items-center gap-3">
+          <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+          <span className="flex-1">Unable to load dashboard data: {overviewError}</span>
+          <button onClick={refresh} className="underline shrink-0">Retry</button>
         </div>
       )}
 
       {/* Primary metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-6">
         <Card icon={Users} title="Total Users" source="Firebase Authentication" accent="teal">
           <Value loading={loading} error={failedAll || (users && !users.ok)}>{users?.data?.total}</Value>
           {users?.ok && (() => {

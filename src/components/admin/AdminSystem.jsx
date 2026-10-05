@@ -47,11 +47,11 @@ export default function AdminSystem() {
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Activity className="text-emerald-400 w-6 h-6" /> System Status
         </h2>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <span className="text-xs text-slate-500">{lastUpdated ? `Checked ${timeAgo(lastUpdated)} · every ${POLL_MS / 1000}s` : ''}</span>
           <button onClick={refresh} disabled={refreshing} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm hover:bg-white/10 disabled:opacity-60">
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> {refreshing ? 'Updating…' : 'Refresh'}

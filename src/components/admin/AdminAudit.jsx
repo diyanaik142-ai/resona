@@ -78,36 +78,61 @@ export default function AdminAudit() {
           <div className="p-12 text-center text-slate-500"><Inbox className="w-10 h-10 mx-auto mb-3 text-slate-700" />
             {data.total === 0 ? 'No audit events have been recorded yet.' : 'No entries match this filter.'}</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white/[0.02] border-b border-white/5 text-slate-400">
-                <tr>
-                  <th className="p-3 font-medium">Time</th>
-                  <th className="p-3 font-medium">Action</th>
-                  <th className="p-3 font-medium">Actor</th>
-                  <th className="p-3 font-medium">Target</th>
-                  <th className="p-3 font-medium">Result</th>
-                  <th className="p-3 font-medium">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {entries.map(e => (
-                  <tr key={e.id} className="hover:bg-white/[0.02] align-top">
-                    <td className="p-3 text-slate-400 whitespace-nowrap font-mono text-xs">{new Date(e.timestamp).toLocaleString()}</td>
-                    <td className="p-3 text-white">{ACTION_LABELS[e.action] || e.action}</td>
-                    <td className="p-3 text-slate-300">{e.adminId || '—'}</td>
-                    <td className="p-3 text-slate-400 font-mono text-xs break-all">{e.target || '—'}</td>
-                    <td className="p-3">
-                      {e.result
-                        ? <span className={`text-xs px-2 py-0.5 rounded-full ${e.result === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{e.result}</span>
-                        : <span className="text-xs text-slate-600" title="Recorded before result tracking was added">not recorded</span>}
-                    </td>
-                    <td className="p-3 text-slate-500 text-xs break-all max-w-md">{summarize(e.details)}</td>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-white/[0.02] border-b border-white/5 text-slate-400">
+                  <tr>
+                    <th className="p-3 font-medium">Time</th>
+                    <th className="p-3 font-medium">Action</th>
+                    <th className="p-3 font-medium">Actor</th>
+                    <th className="p-3 font-medium">Target</th>
+                    <th className="p-3 font-medium">Result</th>
+                    <th className="p-3 font-medium">Details</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {entries.map(e => (
+                    <tr key={e.id} className="hover:bg-white/[0.02] align-top">
+                      <td className="p-3 text-slate-400 whitespace-nowrap font-mono text-xs">{new Date(e.timestamp).toLocaleString()}</td>
+                      <td className="p-3 text-white">{ACTION_LABELS[e.action] || e.action}</td>
+                      <td className="p-3 text-slate-300">{e.adminId || '—'}</td>
+                      <td className="p-3 text-slate-400 font-mono text-xs break-all">{e.target || '—'}</td>
+                      <td className="p-3">
+                        {e.result
+                          ? <span className={`text-xs px-2 py-0.5 rounded-full ${e.result === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{e.result}</span>
+                          : <span className="text-xs text-slate-600" title="Recorded before result tracking was added">not recorded</span>}
+                      </td>
+                      <td className="p-3 text-slate-500 text-xs break-all max-w-md">{summarize(e.details)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-white/5">
+              {entries.map(e => (
+                <div key={e.id} className="p-4 flex flex-col gap-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="font-bold text-white text-sm">{ACTION_LABELS[e.action] || e.action}</div>
+                      <div className="text-slate-400 text-xs mt-0.5">{e.adminId || '—'}</div>
+                    </div>
+                    {e.result
+                      ? <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full ${e.result === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>{e.result}</span>
+                      : <span className="shrink-0 text-[10px] text-slate-600">not recorded</span>}
+                  </div>
+                  <div className="text-slate-500 text-xs font-mono break-all">{e.target || '—'}</div>
+                  {summarize(e.details) && (
+                    <div className="text-slate-500 text-xs bg-black/20 p-2 rounded break-all">{summarize(e.details)}</div>
+                  )}
+                  <div className="text-slate-600 font-mono text-[10px] text-right mt-1">{new Date(e.timestamp).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -610,7 +610,8 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      <div className="bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
+      {/* Desktop Table View */}
+      <div className="hidden md:block bg-slate-900/50 rounded-2xl border border-white/5 overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-white/5 border-b border-white/5 text-slate-400">
             <tr>
@@ -661,6 +662,51 @@ export default function AdminUsers() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {filteredUsers.map(u => (
+          <div 
+            key={u.id}
+            onClick={() => setSelectedUserId(u.id)}
+            className="bg-slate-900/50 rounded-xl border border-white/5 p-4 flex gap-3 cursor-pointer hover:bg-white/[0.02] transition"
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+              {u.avatar || u.photoURL ? (
+                <img src={resolveMediaUrl(u.avatar || u.photoURL)} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <Users className="w-5 h-5 text-slate-500" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start mb-1">
+                <div className="truncate pr-2">
+                  <div className="font-bold text-white text-sm truncate">{u.displayName || 'No Name'}</div>
+                  <div className="text-xs text-slate-400 truncate">{u.email}</div>
+                </div>
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold border ${PLAN_COLORS[u.planId] || PLAN_COLORS.resona}`}>
+                  {PLAN_NAMES[u.planId] || 'Resona'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {u.role === 'admin' && (
+                  <span className="flex items-center gap-1 text-purple-400 text-[10px] font-bold bg-purple-400/10 px-2 py-0.5 rounded-full w-fit">
+                    <Shield className="w-2.5 h-2.5" /> Admin
+                  </span>
+                )}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${u.status === 'disabled' ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                  {u.status === 'disabled' ? 'Disabled' : 'Active'}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filteredUsers.length === 0 && (
+          <div className="p-8 text-center text-slate-500 text-sm bg-slate-900/50 rounded-xl border border-white/5">
+            No registered users found.
+          </div>
+        )}
       </div>
     </div>
   );

@@ -48,10 +48,10 @@ export default function AdminCreators() {
         </button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar touch-pan-x pb-2 -mb-2">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-sm capitalize border transition ${filter === f ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'border-white/10 text-slate-400 hover:text-white'}`}>
+            className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm capitalize border transition ${filter === f ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'border-white/10 text-slate-400 hover:text-white'}`}>
             {f}{apps && <span className="ml-1.5 text-xs opacity-70">{counts[f]}</span>}
           </button>
         ))}
