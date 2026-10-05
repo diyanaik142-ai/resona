@@ -48,6 +48,12 @@ export default function AdminCatalog() {
     }
   };
 
+  const handleOpenUpload = () => {
+    setIsAdding(true);
+    setUploadError('');
+    setUploadSuccess('');
+  };
+
   const handleAddTrack = async (e) => {
     e.preventDefault();
     setUploadError('');
@@ -106,26 +112,27 @@ export default function AdminCatalog() {
               className="w-full bg-slate-900/50 border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
             />
           </div>
-          <button 
-            type="button"
-            onClick={(e) => { 
-              e.preventDefault();
-              e.stopPropagation();
-              setIsAdding((prev) => !prev); 
-              setUploadError(''); 
-              setUploadSuccess(''); 
-            }}
-            className="w-full sm:w-auto flex justify-center items-center gap-2 bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-purple-400 transition shrink-0 whitespace-nowrap"
-          >
-            {isAdding ? <X className="w-4 h-4 shrink-0" /> : <Plus className="w-4 h-4 shrink-0" />}
-            {isAdding ? 'Cancel' : 'Upload Music'}
-          </button>
+          {!isAdding && (
+            <button 
+              type="button"
+              onClick={handleOpenUpload}
+              className="relative z-10 w-full sm:w-auto flex justify-center items-center gap-2 bg-purple-500 text-white px-4 py-2 rounded-full font-bold text-sm hover:bg-purple-400 transition shrink-0 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              Upload Music
+            </button>
+          )}
         </div>
       </div>
 
       {isAdding && (
         <form onSubmit={handleAddTrack} className="bg-slate-900/50 p-4 sm:p-6 rounded-2xl border border-purple-500/20 space-y-4">
-          <h3 className="text-lg font-bold text-white">Add New Track</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-white">Add New Track</h3>
+            <button type="button" onClick={() => setIsAdding(false)} className="p-2 bg-slate-800 text-slate-400 rounded-full hover:bg-slate-700 hover:text-white transition">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
           
           {uploadError && (
             <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl text-sm font-bold">
