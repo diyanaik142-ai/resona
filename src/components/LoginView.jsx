@@ -27,17 +27,15 @@ export default function LoginView({ onGoToGetStarted }) {
 
 
   return (
-    <div className="w-full h-full min-h-full overflow-y-auto no-scrollbar bg-[#08090E] text-slate-100 flex items-center justify-center p-3 sm:p-4 relative">
+    <div className="w-full min-h-[100dvh] overflow-y-auto no-scrollbar bg-[#08090E] text-slate-100 flex flex-col p-3 sm:p-4 relative">
       {/* Background ambient lighting */}
       <div className="absolute top-1/4 left-1/3 w-72 h-72 bg-teal-500/15 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/3 w-72 h-72 bg-purple-600/15 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="w-full max-w-sm glass-panel rounded-3xl border border-white/10 p-5 sm:p-6 shadow-2xl relative z-10 space-y-4 my-auto">
+      <div className="m-auto w-full max-w-sm glass-panel rounded-3xl border border-white/10 p-5 sm:p-6 shadow-2xl relative z-10 space-y-4">
         {/* Brand Header */}
         <div className="text-center space-y-1.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center mx-auto text-slate-950 font-black text-xl shadow-xl shadow-teal-500/20">
-            R
-          </div>
+          <img src="/branding/resona-icon.png" alt="Resona" className="w-12 h-12 object-contain mx-auto drop-shadow-[0_4px_6px_rgba(45,212,191,0.2)]" />
           <h1 className="text-xl font-black text-white tracking-tight">
             Sign in to <span className="bg-gradient-to-r from-teal-400 to-cyan-300 bg-clip-text text-transparent">Resona</span>
           </h1>

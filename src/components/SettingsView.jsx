@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import PlanBadge from './PlanBadge';
-import { api } from '../services/api';
+import { api, resolveMediaUrl } from '../services/api';
 import AuthModal from './AuthModal';
 import ChangePasswordModal from './ChangePasswordModal';
 import {
@@ -257,7 +257,7 @@ export default function SettingsView({ onNavigate }) {
                 <div className="p-4 rounded-2xl glass-card border border-white/10 space-y-3">
                   {profileLoadError && <div role="alert" className="text-xs text-rose-300">{profileLoadError} <button className="underline" onClick={() => refreshAccountData().catch(err => setProfileLoadError(err.message || 'Could not load profile'))}>Retry</button></div>}
                   <div className="flex items-center gap-3 min-w-0">
-                    {user?.avatar ? <img src={user.avatar} alt="Avatar" className="w-12 h-12 rounded-full border-2 border-teal-400 object-cover shrink-0" /> : <div className="w-12 h-12 rounded-full border-2 border-teal-400 bg-slate-800 shrink-0 flex items-center justify-center text-teal-300"><User className="w-5 h-5" /></div>}
+                    {user?.avatar ? <img src={resolveMediaUrl(user.avatar)} alt="Avatar" className="w-12 h-12 rounded-full border-2 border-teal-400 object-cover shrink-0" /> : <div className="w-12 h-12 rounded-full border-2 border-teal-400 bg-slate-800 shrink-0 flex items-center justify-center text-teal-300"><User className="w-5 h-5" /></div>}
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-white text-sm truncate">{user?.name || 'Name not provided'}</h3>
                       <p className="text-xs text-slate-400 truncate">{user?.uid || user?.handle ? `@${(user.uid || user.handle).toString().replace(/^@+/, '')}` : 'UID not added'}</p>
@@ -265,6 +265,33 @@ export default function SettingsView({ onNavigate }) {
                     <button onClick={openProfileEditor} className="shrink-0 px-3 py-2 rounded-xl bg-teal-500 text-slate-950 text-xs font-bold">Edit Profile</button>
                   </div>
                   {user?.id && editingProfile && <div className="max-h-[65vh] overflow-y-auto mt-3 p-3 rounded-2xl bg-slate-950/60 border border-white/10 space-y-3">
+                    <div className="flex gap-4 items-center mb-4">
+                      {user?.avatar ? <img src={resolveMediaUrl(user.avatar)} className="w-16 h-16 rounded-full object-cover shrink-0 border border-white/20" /> : <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0 flex items-center justify-center"><User className="w-6 h-6 text-slate-400" /></div>}
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg cursor-pointer text-center text-white transition">
+                          Change Picture
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            if (file.size > 5 * 1024 * 1024) { setProfileError('Image must be under 5MB'); return; }
+                            setProfileSaving(true);
+                            try {
+                              const res = await api.user.uploadProfilePicture(file);
+                              await refreshAccountData();
+                              triggerToast('Profile picture updated');
+                            } catch (err) { setProfileError(err.message); } finally { setProfileSaving(false); e.target.value = ''; }
+                          }} />
+                        </label>
+                        {user?.avatar && <button onClick={async () => {
+                          setProfileSaving(true);
+                          try {
+                            await api.user.removeProfilePicture();
+                            await refreshAccountData();
+                            triggerToast('Profile picture removed');
+                          } catch (err) { setProfileError(err.message); } finally { setProfileSaving(false); }
+                        }} className="text-xs text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-lg bg-rose-500/10 transition">Remove</button>}
+                      </div>
+                    </div>
                     {[['Display Name','name'],['UID','uid'],['Phone','phone']].map(([label,key]) => <label key={key} className="block text-xs text-slate-400">{label}{key==='phone' && ' (optional)'}<input value={profileDraft[key]} onChange={e=>setProfileDraft(d=>({...d,[key]:e.target.value}))} className="mt-1 w-full min-w-0 bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm" /></label>)}
                     <p className="text-[11px] text-slate-400">Email: {user?.email || 'Not provided'} (managed by your sign-in provider)</p>
                     {profileError && <p role="alert" className="text-xs text-rose-300">{profileError}</p>}
@@ -1181,9 +1208,7 @@ export default function SettingsView({ onNavigate }) {
               <p className="text-xs text-slate-400 text-center">App information and acknowledgements.</p>
 
               <div className="text-center space-y-2">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-2xl mx-auto shadow-xl shadow-teal-500/20">
-                  R
-                </div>
+                <img src="/branding/resona-icon.png" alt="Resona" className="w-16 h-16 object-contain mx-auto drop-shadow-xl" />
                 <div>
                   <h2 className="font-extrabold text-white text-lg">Resona</h2>
                   <p className="text-xs text-slate-400">Music That Feels Like You</p>

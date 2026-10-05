@@ -10,6 +10,26 @@ import { PLANS_FILE, OVERRIDES_FILE } from '../config.js';
 import { normalizePlans, computeEntitlements } from '../services/entitlements.js';
 import { getPlatformSettings, getGlobalFeatureMap } from '../services/platformSettings.js';
 import { getDailyDose, getRecommendations, recordListeningEvent } from '../services/recommendationService.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import multer from 'multer';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only JPG, PNG, and WebP are allowed.'));
+    }
+  }
+});
 
 const router = express.Router();
 const PLAN_OPTIONS = ['resona', 'resona_silver', 'resona_gold', 'resona_platinum'];
@@ -219,6 +239,68 @@ router.put('/profile', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * POST /api/user/profile/picture
+ */
+router.post('/profile/picture', upload.single('picture'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No picture uploaded.' });
+    
+    const profilesDir = path.resolve(__dirname, '..', 'data', 'media', 'profiles');
+    await fs.mkdir(profilesDir, { recursive: true });
+    
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const filename = `usr_${req.user.id}_${Date.now()}${ext}`;
+    const filePath = path.join(profilesDir, filename);
+    
+    await fs.writeFile(filePath, req.file.buffer);
+    const photoUrl = `/media/profiles/${filename}`;
+    
+    const current = (await getResonaProfile(req.user.id)) || {};
+    const updated = {
+      ...current,
+      avatar: photoUrl,
+      id: req.user.id,
+      updatedAt: new Date().toISOString()
+    };
+    await saveAccountData(req.user.id, 'profile.json', updated);
+    
+    return res.json({ message: 'Profile picture updated', avatar: photoUrl, profile: serializeProfile(updated) });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/user/profile/picture
+ */
+router.delete('/profile/picture', async (req, res) => {
+  try {
+    const current = (await getResonaProfile(req.user.id)) || {};
+    if (current.avatar && current.avatar.startsWith('/media/profiles/')) {
+      const filename = path.basename(current.avatar);
+      if (filename) {
+        const filePath = path.resolve(__dirname, '..', 'data', 'media', 'profiles', filename);
+        if (filePath.startsWith(path.resolve(__dirname, '..', 'data', 'media', 'profiles'))) {
+          await fs.unlink(filePath).catch(() => {});
+        }
+      }
+    }
+    
+    const updated = {
+      ...current,
+      avatar: null,
+      id: req.user.id,
+      updatedAt: new Date().toISOString()
+    };
+    await saveAccountData(req.user.id, 'profile.json', updated);
+    return res.json({ message: 'Profile picture removed', profile: serializeProfile(updated) });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 
 /**
  * GET /api/user/preferences

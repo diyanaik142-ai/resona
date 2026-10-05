@@ -4,7 +4,7 @@ import {
   Plus, Disc, Heart, Play, Share2, ChevronRight, X, UserCheck, Shield
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import StartHuddleModal from '../StartHuddleModal';
 
 export default function MobileSocialView({
@@ -212,7 +212,7 @@ export default function MobileSocialView({
                       <div className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 shadow-md border border-white/10 bg-slate-800">
                         {f.avatar || f.photoURL ? (
                           <img
-                            src={f.avatar || f.photoURL}
+                            src={resolveMediaUrl(f.avatar || f.photoURL)}
                             alt={f.name}
                             className="w-full h-full object-cover"
                           />

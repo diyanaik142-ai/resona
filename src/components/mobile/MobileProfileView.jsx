@@ -4,7 +4,7 @@ import {
   Users, Radio, Shield, LogOut, Disc, Sparkles, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import PlanBadge from '../PlanBadge';
 
 export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }) {
@@ -101,7 +101,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
           <div className="w-16 h-16 rounded-full border-2 border-teal-400 overflow-hidden bg-slate-800 shadow-xl shadow-teal-500/20 shrink-0">
             {user?.avatar || user?.photoURL ? (
               <img
-                src={user.avatar || user.photoURL}
+                src={resolveMediaUrl(user.avatar || user.photoURL)}
                 alt="Profile Avatar"
                 className="w-full h-full object-cover"
               />
@@ -150,6 +150,35 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
 
         {isEditing && (
           <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/50 p-3 space-y-3">
+            <div className="flex gap-4 items-center">
+              {user?.avatar ? <img src={resolveMediaUrl(user.avatar)} className="w-16 h-16 rounded-full object-cover shrink-0 border border-white/20" /> : <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0 flex items-center justify-center"><User className="w-6 h-6 text-slate-400" /></div>}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg cursor-pointer text-center text-white transition">
+                  Change Picture
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { setUidMessage('Image must be under 5MB'); setUidState('error'); return; }
+                    setUidMessage('Uploading...'); setUidState('idle');
+                    try {
+                      await api.user.uploadProfilePicture(file);
+                      setUidMessage('Profile picture updated'); setUidState('success');
+                      // trigger re-fetch by calling getMe indirectly or reload
+                      const me = await api.auth.getMe();
+                      if (me.user) updateProfile(me.user); // if context supports this, or we just let useAuth sync
+                    } catch (err) { setUidMessage(err.message); setUidState('error'); } finally { e.target.value = ''; }
+                  }} />
+                </label>
+                {user?.avatar && <button onClick={async () => {
+                  try {
+                    await api.user.removeProfilePicture();
+                    setUidMessage('Profile picture removed'); setUidState('success');
+                    const me = await api.auth.getMe();
+                    if (me.user) updateProfile(me.user);
+                  } catch (err) { setUidMessage(err.message); setUidState('error'); }
+                }} className="text-xs text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-lg bg-rose-500/10">Remove</button>}
+              </div>
+            </div>
             <div>
               <label className="text-[10px] uppercase tracking-[0.2em] text-slate-400 block mb-1">Display Name</label>
               <input

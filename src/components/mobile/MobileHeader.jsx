@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bell, Sparkles, Radio, Search, Library, Users, Settings, Disc, Shield } from 'lucide-react';
+import { resolveMediaUrl } from '../../services/api';
 
 export default function MobileHeader({
   activeTab,
@@ -31,9 +32,7 @@ export default function MobileHeader({
         className="flex items-center gap-2 cursor-pointer active:scale-95 transition"
         onClick={() => onNavigate('pulse')}
       >
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-xs shadow-md shadow-teal-500/20">
-          R
-        </div>
+        <img src="/branding/resona-icon.png" alt="Resona" className="w-7 h-7 object-contain drop-shadow-[0_2px_4px_rgba(45,212,191,0.2)]" />
         <span className="font-black text-sm tracking-wider text-white">RESONA</span>
       </div>
 
@@ -69,7 +68,7 @@ export default function MobileHeader({
         >
           {user?.avatar || user?.photoURL ? (
             <img
-              src={user.avatar || user.photoURL}
+              src={resolveMediaUrl(user.avatar || user.photoURL)}
               alt="Profile"
               className="w-full h-full object-cover"
             />

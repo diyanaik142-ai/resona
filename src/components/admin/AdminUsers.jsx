@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import { Users, Search, Edit2, Check, X, Trash2, Ban, Shield, Settings2, PlayCircle, Music, Star, Zap, Crown, Speaker, ChevronLeft, Loader2 } from 'lucide-react';
 import { FEATURE_REGISTRY, FEATURE_CATEGORIES } from '../../../shared/featureRegistry.js';
 import PlanBadge from '../PlanBadge';
@@ -228,8 +228,8 @@ export default function AdminUsers() {
         {/* IDENTITY CARD */}
         <div className="bg-slate-900/50 rounded-2xl border border-white/5 p-6 flex items-start gap-6">
           <div className="w-24 h-24 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-            {selectedUser.photoURL ? (
-              <img src={selectedUser.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+            {selectedUser.avatar || selectedUser.photoURL ? (
+              <img src={resolveMediaUrl(selectedUser.avatar || selectedUser.photoURL)} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <Users className="w-10 h-10 text-slate-500" />
             )}

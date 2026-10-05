@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import PlanBadge from '../PlanBadge';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 
 export default function MobileSettingsView({ onNavigate, onOpenAuthModal }) {
   const { user, logout, refreshPlan } = useAuth();
@@ -74,7 +74,7 @@ export default function MobileSettingsView({ onNavigate, onOpenAuthModal }) {
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="w-12 h-12 rounded-full border-2 border-teal-400 overflow-hidden bg-slate-800 shrink-0">
                     <img
-                      src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
+                      src={user?.avatar ? resolveMediaUrl(user.avatar) : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
                       alt="Avatar"
                       className="w-full h-full object-cover"
                     />

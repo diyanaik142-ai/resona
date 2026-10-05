@@ -413,9 +413,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-[100dvh] w-full bg-[#08090E] flex flex-col items-center justify-center space-y-4 select-none">
-        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-2xl shadow-2xl shadow-teal-500/20 animate-pulse">
-          R
-        </div>
+        <img src="/branding/resona-icon.png" alt="Resona" className="w-16 h-16 object-contain drop-shadow-[0_10px_15px_rgba(45,212,191,0.2)] animate-pulse" />
         <p className="text-xs font-bold text-teal-400 tracking-widest uppercase">Initializing Resona Studio...</p>
       </div>
     );
@@ -651,9 +649,7 @@ export default function App() {
         <header className="hidden md:flex fixed top-0 left-0 h-14 w-full glass-panel border-b border-white/5 px-6 items-center justify-between z-50 backdrop-blur-2xl bg-slate-950/80">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab('pulse')}>
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center font-black text-slate-950 text-sm shadow-md shadow-teal-500/20">
-                R
-              </div>
+              <img src="/branding/resona-icon.png" alt="Resona" className="w-8 h-8 object-contain drop-shadow-[0_4px_6px_rgba(45,212,191,0.2)]" />
               <span className="font-black text-base tracking-wider text-white">RESONA</span>
               <span className="text-[10px] text-teal-400 font-mono px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20">
                 STUDIO PRO

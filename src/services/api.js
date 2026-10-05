@@ -171,6 +171,27 @@ export const api = {
       if (!res.ok) throw new Error(json.error || 'Failed to load plan request');
       return json;
     },
+    uploadProfilePicture: async (file) => {
+      const headers = await getAuthHeaders();
+      delete headers['Content-Type']; // Let browser set multipart/form-data boundary
+      const formData = new FormData();
+      formData.append('picture', file);
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/picture`, {
+        method: 'POST', headers, body: formData
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to upload picture');
+      return json;
+    },
+    removeProfilePicture: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/picture`, {
+        method: 'DELETE', headers
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to remove picture');
+      return json;
+    },
     requestPlanChange: async (requestedPlan) => {
       const headers = await getAuthHeaders();
       const res = await fetch(`${getApiBaseUrl()}/api/user/plan-request`, { method: 'POST', headers, body: JSON.stringify({ requestedPlan }) });

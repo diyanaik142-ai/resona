@@ -62,9 +62,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }) {
 
         {/* Modal Header */}
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center mx-auto text-slate-950 font-black shadow-lg shadow-teal-500/20 mb-2">
-            R
-          </div>
+          <img src="/branding/resona-icon.png" alt="Resona" className="w-12 h-12 object-contain mx-auto drop-shadow-lg mb-2" />
           <h2 className="text-xl font-extrabold text-white">
             {mode === 'login' ? 'Welcome Back' : 'Join Resona'}
           </h2>

