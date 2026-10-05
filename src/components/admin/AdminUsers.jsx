@@ -221,8 +221,8 @@ export default function AdminUsers() {
           <ChevronLeft className="w-4 h-4" /> Back to Users
         </button>
 
-        <h2 className="text-xl md:text-2xl font-bold text-white flex flex-col md:flex-row md:items-center gap-1 md:gap-2">
-          <span className="text-slate-400 text-sm md:text-2xl">User Management /</span>
+        <h2 className="text-xl md:text-2xl font-bold text-white flex flex-col md:flex-row md:items-center gap-1 md:gap-2 min-w-0">
+          <span className="text-slate-400 text-sm md:text-2xl shrink-0">User Management /</span>
           <span className="truncate">{selectedUser.displayName || 'Unknown'}</span>
         </h2>
 
@@ -261,7 +261,7 @@ export default function AdminUsers() {
               <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Account</h3>
             </div>
             <div className="p-4 space-y-4">
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 bg-white/5 p-4 rounded-xl">
                 <div>
                   <div className="text-sm text-slate-400">Status</div>
                   <div className="font-medium text-white">{selectedUser.status === 'disabled' ? 'Disabled' : 'Active'}</div>
@@ -275,19 +275,19 @@ export default function AdminUsers() {
                   {selectedUser.status === 'disabled' ? 'Enable Account' : 'Disable Account'}
                 </button>
               </div>
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 bg-white/5 p-4 rounded-xl">
                 <div>
                   <div className="text-sm text-slate-400">Email Verification</div>
                   <div className="font-medium text-white">{selectedUser.emailVerified ? 'Verified' : 'Unverified'}</div>
                 </div>
               </div>
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 bg-white/5 p-4 rounded-xl">
                 <div>
                   <div className="text-sm text-slate-400">Joined</div>
                   <div className="font-medium text-white">{selectedUser.creationTime ? new Date(selectedUser.creationTime).toLocaleString() : 'N/A'}</div>
                 </div>
               </div>
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-4 bg-white/5 p-4 rounded-xl">
                 <div>
                   <div className="text-sm text-slate-400">Last Sign In</div>
                   <div className="font-medium text-white">{selectedUser.lastSignInTime ? new Date(selectedUser.lastSignInTime).toLocaleString() : 'N/A'}</div>
@@ -302,14 +302,14 @@ export default function AdminUsers() {
               <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Role</h3>
             </div>
             <div className="p-4">
-              <div className="bg-white/5 p-4 rounded-xl flex items-center justify-between gap-4">
+              <div className="bg-white/5 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="text-sm text-slate-400">Current Role</div>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <select 
                     value={selectedUser.role || 'user'}
                     onChange={updateRole}
                     disabled={isUpdatingRole}
-                    className="appearance-none bg-slate-800 border border-white/10 rounded-lg pl-4 pr-10 py-2 text-white text-sm font-medium outline-none focus:border-cyan-500 disabled:opacity-50"
+                    className="appearance-none bg-slate-800 border border-white/10 rounded-lg pl-4 pr-10 py-2 text-white text-sm font-medium outline-none focus:border-cyan-500 disabled:opacity-50 w-full sm:w-auto"
                   >
                     <option value="user">User</option>
                     <option value="admin">Administrator</option>
@@ -651,8 +651,11 @@ export default function AdminUsers() {
           <div className="divide-y divide-white/5">
             {planRequests.map(request => (
               <div key={request.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-white text-sm">{request.userName} <span className="font-normal text-slate-400 ml-1 truncate">{request.uid ? `@${request.uid}` : request.email}</span></p>
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <div className="font-bold text-white text-sm flex flex-col sm:flex-row sm:items-center gap-1">
+                    <span className="truncate">{request.userName}</span>
+                    <span className="font-normal text-slate-400 text-xs truncate">{request.uid ? `@${request.uid}` : request.email}</span>
+                  </div>
                   <p className="mt-1 text-xs text-slate-300">
                     Current: <span className="text-slate-400">{PLAN_NAMES[request.currentPlan] || request.currentPlan}</span> → Requested: <strong>{PLAN_NAMES[request.requestedPlan] || request.requestedPlan}</strong>
                   </p>
