@@ -593,20 +593,27 @@ router.post('/catalog', requireAdmin, upload.fields([{ name: 'audio', maxCount: 
       }
     }
 
-    const { bucket } = await import('../firebaseAdmin.js');
-    const uploadToStorage = async (file, destination) => {
+    const uploadDir = '/opt/resona/media/catalog/';
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const saveLocally = async (file, type) => {
       if (!file) return null;
-      const object = bucket.file(destination);
+      const uploadId = randomUUID();
+      const ext = path.extname(file.originalname || '');
+      const filename = `${type}_${uploadId}${ext}`;
+      const destination = path.join(uploadDir, filename);
+      
       const bytes = file.buffer || await fs.readFile(file.path);
-      await object.save(bytes, { metadata: { contentType: file.mimetype, cacheControl: 'public, max-age=31536000' }, resumable: false });
-      return `https://storage.googleapis.com/${bucket.name}/${destination}`;
+      await fs.writeFile(destination, bytes);
+      return `/media/catalog/${filename}`;
     };
-    const uploadId = randomUUID();
+
     const audioFile = req.files?.audio?.[0];
     const coverFile = req.files?.cover?.[0];
+    
     const [audioUrl, coverUrl] = await Promise.all([
-      audioFile ? uploadToStorage(audioFile, `catalog/${uploadId}/audio${path.extname(audioFile.originalname || '')}`) : null,
-      coverFile ? uploadToStorage(coverFile, `catalog/${uploadId}/cover${path.extname(coverFile.originalname || '')}`) : null
+      saveLocally(audioFile, 'audio'),
+      saveLocally(coverFile, 'cover')
     ]);
 
     const genreId = req.body.genre;
