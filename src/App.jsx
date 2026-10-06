@@ -39,6 +39,7 @@ import MobileTrackActionSheet from './components/mobile/MobileTrackActionSheet';
 import MobileQueueSheet from './components/mobile/MobileQueueSheet';
 import MobileProfileView from './components/mobile/MobileProfileView';
 import PublicProfileView from './components/PublicProfileView';
+import PlaylistView from './components/PlaylistView';
 import Avatar from './components/Avatar';
 
 import {
@@ -81,7 +82,7 @@ export default function App() {
     const rawPath = window.location.pathname.replace(/^\/+/, '');
     if (rawPath.startsWith('song/')) return 'onair';
     const path = rawPath.split('/')[0].toLowerCase();
-    const validTabs = ['pulse', 'seek', 'onair', 'shelf', 'social', 'creator', 'settings', 'profile', 'tuned', 'curated'];
+    const validTabs = ['pulse', 'seek', 'onair', 'shelf', 'social', 'creator', 'settings', 'profile', 'tuned', 'curated', 'playlist'];
     return validTabs.includes(path) ? path : 'pulse';
   };
 
@@ -205,6 +206,17 @@ export default function App() {
       showToast(`Added to queue — ${track.title}`);
     } catch (err) {
       showToast("Couldn't add to queue");
+    }
+  };
+
+  const handleAddToHuddleQueue = async (track) => {
+    if (!track || !activeHuddle) return;
+    try {
+      await api.huddle.addToQueue(activeHuddle.id, track.id);
+      showToast(`Added to Huddle Queue — ${track.title}`);
+      setMobileTrackAction(null);
+    } catch (err) {
+      showToast("Couldn't add to Huddle Queue");
     }
   };
 
@@ -633,6 +645,25 @@ export default function App() {
           const username = activeTab.split('/')[1];
           return <PublicProfileView username={username} onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
         }
+        if (activeTab.startsWith('playlist/')) {
+          const pId = activeTab.split('/')[1];
+          return (
+            <PlaylistView 
+              playlistId={pId}
+              onPlayTrack={handlePlayTrack}
+              onPlayPlaylist={(tracks, shuffle) => {
+                if (!tracks || tracks.length === 0) return;
+                let toPlay = [...tracks];
+                if (shuffle) toPlay = toPlay.sort(() => 0.5 - Math.random());
+                handlePlayTrack(toPlay[0]);
+                setPlayQueue(toPlay.map(t => ({ ...t, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` })));
+              }}
+              isPlaying={isPlaying}
+              currentTrack={currentTrack}
+              onNavigate={setActiveTab}
+            />
+          );
+        }
         return <PulseView onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} onOpenNotifications={() => setShowNotificationDrawer(true)} unreadCount={unreadNotificationsCount} />;
     }
   };
@@ -737,6 +768,25 @@ export default function App() {
         if (activeTab.startsWith('profile/')) {
           const username = activeTab.split('/')[1];
           return <PublicProfileView username={username} onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
+        }
+        if (activeTab.startsWith('playlist/')) {
+          const pId = activeTab.split('/')[1];
+          return (
+            <PlaylistView 
+              playlistId={pId}
+              onPlayTrack={handlePlayTrack}
+              onPlayPlaylist={(tracks, shuffle) => {
+                if (!tracks || tracks.length === 0) return;
+                let toPlay = [...tracks];
+                if (shuffle) toPlay = toPlay.sort(() => 0.5 - Math.random());
+                handlePlayTrack(toPlay[0]);
+                setPlayQueue(toPlay.map(t => ({ ...t, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` })));
+              }}
+              isPlaying={isPlaying}
+              currentTrack={currentTrack}
+              onNavigate={setActiveTab}
+            />
+          );
         }
         return (
           <MobilePulseView
@@ -1234,6 +1284,7 @@ export default function App() {
           activeHuddle={activeHuddle}
           setActiveHuddle={setActiveHuddle}
           setShowHuddleRoom={setShowHuddleRoom}
+          onNavigate={setActiveTab}
         />
       </div>
 
@@ -1266,7 +1317,7 @@ export default function App() {
         </main>
 
         {/* Mobile Mini Player (Immediately above bottom nav) */}
-        {currentTrack && activeTab !== 'onair' && (
+        {(currentTrack || activeHuddle) && activeTab !== 'onair' && (
           <MobileMiniPlayer
             currentTrack={currentTrack}
             isPlaying={isPlaying}
@@ -1274,6 +1325,8 @@ export default function App() {
             onOpenOnAir={() => setActiveTab('onair')}
             isLiked={isCurrentLiked}
             onToggleLike={() => currentTrack && toggleLikeTrack(currentTrack.id)}
+            activeHuddle={activeHuddle}
+            onOpenHuddleRoom={() => setShowHuddleRoom(true)}
           />
         )}
 
@@ -1292,6 +1345,7 @@ export default function App() {
           activeHuddle={activeHuddle}
           setActiveHuddle={setActiveHuddle}
           setShowHuddleRoom={setShowHuddleRoom}
+          onNavigate={setActiveTab}
         />
 
         {/* Mobile Huddle Room View */}
@@ -1328,6 +1382,8 @@ export default function App() {
           track={mobileTrackAction}
           onPlayTrack={(t) => { handlePlayTrack(t); setMobileTrackAction(null); }}
           onAddToQueue={handleAddToQueue}
+          activeHuddle={activeHuddle}
+          onAddToHuddleQueue={handleAddToHuddleQueue}
           isLiked={mobileTrackAction ? shelf?.likedTrackIds?.includes(mobileTrackAction.id) : false}
           onToggleLike={() => { if (mobileTrackAction) toggleLikeTrack(mobileTrackAction.id); }}
         />

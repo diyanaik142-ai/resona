@@ -16,6 +16,11 @@ export default function MobileSeekView({
   
   const [searchResults, setSearchResults] = useState({ songs: [], accounts: [] });
   const [isSearching, setIsSearching] = useState(false);
+  const [featuredPlaylists, setFeaturedPlaylists] = useState([]);
+
+  useEffect(() => {
+    api.tracks.getPlaylists().then(setFeaturedPlaylists).catch(() => {});
+  }, []);
 
   const categories = [
     { id: 'All', label: 'All Audio' },
@@ -108,6 +113,41 @@ export default function MobileSeekView({
               {cat.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Featured Playlists */}
+      {!query.trim() && featuredPlaylists.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider px-1">Featured Playlists</h3>
+          <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar overscroll-x-contain px-1">
+            {featuredPlaylists.map((pl) => (
+              <div
+                key={pl.id}
+                onClick={() => onNavigate(`playlist/${pl.id}`)}
+                className="w-32 shrink-0 space-y-2 cursor-pointer active:scale-95 transition"
+              >
+                <div className="w-32 h-32 rounded-2xl overflow-hidden bg-slate-800 relative shadow-lg border border-white/5">
+                  {pl.coverUrl ? (
+                    <img src={pl.coverUrl} alt={pl.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-teal-500/10">
+                      <Disc className="w-8 h-8 text-teal-500/50" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-teal-500/90 flex items-center justify-center text-slate-950 shadow-xl backdrop-blur-md">
+                      <Play className="w-4 h-4 fill-current ml-0.5" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-bold text-white text-xs truncate">{pl.name}</h4>
+                  <p className="text-[10px] text-slate-400 truncate">Resona Curated</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

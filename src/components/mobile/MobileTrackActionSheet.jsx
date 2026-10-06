@@ -5,9 +5,11 @@ export default function MobileTrackActionSheet({
   track,
   isOpen,
   onClose,
-  onPlay,
+  onPlayTrack,
   onPlayNext,
   onAddToQueue,
+  activeHuddle,
+  onAddToHuddleQueue,
   isLiked,
   onToggleLike,
   onShareBeatCode
@@ -56,7 +58,7 @@ export default function MobileTrackActionSheet({
         <div className="space-y-1 text-sm font-semibold">
           <button
             onClick={() => {
-              onPlay(track);
+              onPlayTrack && onPlayTrack(track);
               onClose();
             }}
             className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-white transition text-left active:bg-white/15"
@@ -80,6 +82,24 @@ export default function MobileTrackActionSheet({
             <span>Play Next</span>
           </button>
 
+          {activeHuddle && onAddToHuddleQueue && (
+            <button
+              onClick={() => {
+                onAddToHuddleQueue(track);
+                onClose();
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 transition text-left active:bg-teal-500/30 border border-teal-500/20"
+            >
+              <div className="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
+                <Radio className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold">Add to Huddle Queue</span>
+                <span className="text-[10px] opacity-75">{activeHuddle.name}</span>
+              </div>
+            </button>
+          )}
+
           <button
             onClick={() => {
               onAddToQueue && onAddToQueue(track);
@@ -88,7 +108,7 @@ export default function MobileTrackActionSheet({
             className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-slate-200 transition text-left active:bg-white/15"
           >
             <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
-              <Radio className="w-4 h-4" />
+              <Plus className="w-4 h-4" />
             </div>
             <span>Add to Queue</span>
           </button>

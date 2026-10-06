@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { 
   Bell, 
   X, 
@@ -44,13 +45,45 @@ export default function NotificationDrawer({
   setNotifications,
   activeHuddle = null,
   setActiveHuddle,
-  setShowHuddleRoom
+  setShowHuddleRoom,
+  onNavigate
 }) {
+  const { refreshAccountData } = useAuth();
   const [processingId, setProcessingId] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [followStatuses, setFollowStatuses] = useState({});
   
   // Conflict dialog when user is already in another Huddle
   const [conflictModal, setConflictModal] = useState(null); // { notification, activeHuddle }
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    notifications.forEach(async (notif) => {
+      if (notif.type === 'follow' && notif.actorHandle && !followStatuses[notif.actorHandle]) {
+        try {
+          const profile = await api.user.getProfileByHandle(notif.actorHandle);
+          setFollowStatuses(prev => ({
+             ...prev, 
+             [notif.actorHandle]: profile.isFollowing ? 'following' : 'none' 
+          }));
+        } catch (err) { }
+      }
+    });
+  }, [isOpen, notifications]);
+
+  const handleFollowBack = async (e, notif) => {
+    e.stopPropagation();
+    const handle = notif.actorHandle;
+    setFollowStatuses(prev => ({ ...prev, [handle]: 'loading' }));
+    try {
+      const res = await api.user.followUser(handle);
+      setFollowStatuses(prev => ({ ...prev, [handle]: res.requested ? 'requested' : 'following' }));
+      if (refreshAccountData) await refreshAccountData();
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to follow back');
+      setFollowStatuses(prev => ({ ...prev, [handle]: 'none' }));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -314,6 +347,70 @@ export default function NotificationDrawer({
                             </span>
                           ) : null}
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Follow Notification
+              if (notif.type === 'follow') {
+                const status = followStatuses[notif.actorHandle];
+                const isFollowing = status === 'following';
+                const isRequested = status === 'requested';
+                const isLoading = status === 'loading';
+
+                return (
+                  <div 
+                    key={notif.id}
+                    className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-3 cursor-pointer hover:bg-white/[0.04] transition-colors"
+                    onClick={() => {
+                      if (onNavigate) onNavigate(`profile/${notif.actorHandle}`);
+                      onClose();
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-800 shrink-0 mt-0.5 overflow-hidden">
+                      {notif.actorAvatar ? (
+                        <img src={notif.actorAvatar} alt={notif.actorName} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-semibold text-white/50 text-xs">
+                          {notif.actorName?.charAt(0) || 'F'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h5 className="text-xs font-semibold text-white truncate">{notif.title || 'New follower'}</h5>
+                        <span className="text-[10px] text-white/40 font-mono shrink-0">
+                          {formatTimeAgo(notif.createdAt || notif.timestamp)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/60 mt-0.5 leading-snug">
+                        <span className="font-semibold text-white">{notif.actorName}</span> (@{notif.actorHandle}) started following you
+                      </p>
+                      
+                      <div className="mt-3 flex items-center justify-between">
+                        <div></div>
+                        {!isFollowing && !isRequested && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleFollowBack(e, notif)}
+                            disabled={isLoading}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-white text-black hover:bg-white/90 disabled:opacity-50 transition-colors flex items-center justify-center min-w-[80px]"
+                          >
+                            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Follow Back'}
+                          </button>
+                        )}
+                        {isFollowing && (
+                          <div className="px-3 py-1.5 rounded-lg text-[10px] font-bold border border-white/10 text-white/60 flex items-center gap-1 min-w-[80px] justify-center">
+                            Following
+                          </div>
+                        )}
+                        {isRequested && (
+                          <div className="px-3 py-1.5 rounded-lg text-[10px] font-bold border border-white/10 text-white/60 flex items-center gap-1 min-w-[80px] justify-center">
+                            Requested
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

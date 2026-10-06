@@ -346,6 +346,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
           user={user}
           onClose={() => setShowFollowers(false)}
           onRefresh={refreshAccountData}
+          onNavigate={onNavigate}
         />
       )}
       
@@ -354,6 +355,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
           user={user}
           onClose={() => setShowFollowing(false)}
           onRefresh={refreshAccountData}
+          onNavigate={onNavigate}
         />
       )}
     </div>

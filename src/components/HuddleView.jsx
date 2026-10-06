@@ -7,7 +7,7 @@ import {
   Radio, Users, UserPlus, Plus, Play, MoreVertical, GripVertical, Check, X,
   Vote, HelpCircle, History, ListMusic, Music, ArrowUp, ArrowDown,
   Trash2, FastForward, Clock, Shield, Sparkles, AlertCircle, Share2,
-  Lock, RefreshCw, ChevronRight, BarChart2, Layers, Copy
+  Lock, RefreshCw, ChevronRight, ChevronDown, BarChart2, Layers, Copy
 } from 'lucide-react';
 
 export default function HuddleView({
@@ -553,7 +553,7 @@ export default function HuddleView({
                 return (
                   <div key={hist.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} gap-1 max-w-[85%] ${isMe ? 'ml-auto' : ''}`}>
                     <span className="text-[10px] font-semibold text-slate-400 px-1">
-                      {hist.userName} <span className="font-normal opacity-50 ml-1">{hist.timeStr}</span>
+                      {hist.userName}
                     </span>
                     <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-teal-500/20 text-teal-100 rounded-br-sm' : 'bg-white/5 text-slate-200 border border-white/5 rounded-bl-sm'}`}>
                       {hist.text}
@@ -752,7 +752,11 @@ export default function HuddleView({
                           <img src={item.artwork || item.cover} alt={item.title} className="w-8 h-8 rounded-lg object-cover shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-white text-[11px] truncate leading-tight">{item.title}</p>
-                            <p className="text-[9px] text-slate-400 truncate">{item.artist}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <p className="text-[9px] text-slate-400 truncate">{item.artist}</p>
+                              <p className="text-[8px] text-teal-400/70 truncate border-l border-white/10 pl-1.5">Added by {item.addedBy?.name || 'Host'}</p>
+                            </div>
+                            <p className="text-[7px] text-slate-600 font-mono mt-0.5 truncate">{item.queueId || item.queueItemId}</p>
                           </div>
                           
                           <div className="relative shrink-0">

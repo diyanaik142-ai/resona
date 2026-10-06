@@ -14,7 +14,8 @@ import {
   AUTH_FILE,
   PLANS_FILE,
   OVERRIDES_FILE,
-  PLAN_CHANGE_REQUESTS_FILE
+  PLAN_CHANGE_REQUESTS_FILE,
+  ADMIN_PLAYLISTS_FILE
 } from '../config.js';
 import {
   getGlobalData,
@@ -677,6 +678,146 @@ router.delete('/catalog/:id', requireAdmin, async (req, res) => {
     const existing = (await getGlobalData(CATALOG_FILE)).find(t => t.id === req.params.id);
     await deleteGlobalItem(CATALOG_FILE, req.params.id);
     await auditAction(req.admin.id, 'DELETE_TRACK', req.params.id, { title: existing?.title });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+// ==========================================
+// ADMIN PLAYLISTS
+// ==========================================
+
+router.get('/playlists', requireAdmin, async (req, res) => {
+  try {
+    const playlists = await getGlobalData(ADMIN_PLAYLISTS_FILE) || [];
+    res.json(playlists);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/playlists/:id', requireAdmin, async (req, res) => {
+  try {
+    const playlists = await getGlobalData(ADMIN_PLAYLISTS_FILE) || [];
+    const playlist = playlists.find(p => p.playlistId === req.params.id);
+    if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+    res.json(playlist);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/playlists', requireAdmin, upload.single('cover'), async (req, res) => {
+  try {
+    const uploadDir = process.env.NODE_ENV === 'production' 
+      ? '/opt/resona/media/playlists/' 
+      : path.resolve(__dirname, '..', 'data', 'media', 'playlists');
+      
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    let coverUrl = null;
+    if (req.file) {
+      const uploadId = randomUUID();
+      const ext = path.extname(req.file.originalname || '');
+      const filename = `playlist_${uploadId}${ext}`;
+      const destination = path.join(uploadDir, filename);
+      
+      if (req.file.buffer) {
+        await fs.writeFile(destination, req.file.buffer);
+      } else if (req.file.path) {
+        try {
+          await fs.rename(req.file.path, destination);
+        } catch (err) {
+          await fs.copyFile(req.file.path, destination);
+          await fs.unlink(req.file.path).catch(() => {});
+        }
+      }
+      coverUrl = `/media/playlists/${filename}`;
+    }
+
+    const { name, description, status, trackItems } = req.body;
+    
+    const newPlaylist = {
+      playlistId: `ap_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      name: name || 'Untitled Playlist',
+      description: description || '',
+      coverUrl,
+      ownerType: 'admin',
+      ownerId: req.admin.id,
+      trackItems: trackItems ? JSON.parse(trackItems) : [],
+      status: status || 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await addGlobalItem(ADMIN_PLAYLISTS_FILE, newPlaylist);
+    await auditAction(req.admin.id, 'CREATE_ADMIN_PLAYLIST', newPlaylist.playlistId, { name: newPlaylist.name });
+
+    res.status(201).json(newPlaylist);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/playlists/:id', requireAdmin, upload.single('cover'), async (req, res) => {
+  try {
+    const playlists = await getGlobalData(ADMIN_PLAYLISTS_FILE) || [];
+    const existing = playlists.find(p => p.playlistId === req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Playlist not found' });
+
+    let coverUrl = existing.coverUrl;
+    if (req.file) {
+      const uploadDir = process.env.NODE_ENV === 'production' 
+        ? '/opt/resona/media/playlists/' 
+        : path.resolve(__dirname, '..', 'data', 'media', 'playlists');
+        
+      await fs.mkdir(uploadDir, { recursive: true });
+      const uploadId = randomUUID();
+      const ext = path.extname(req.file.originalname || '');
+      const filename = `playlist_${uploadId}${ext}`;
+      const destination = path.join(uploadDir, filename);
+      
+      if (req.file.buffer) {
+        await fs.writeFile(destination, req.file.buffer);
+      } else if (req.file.path) {
+        try {
+          await fs.rename(req.file.path, destination);
+        } catch (err) {
+          await fs.copyFile(req.file.path, destination);
+          await fs.unlink(req.file.path).catch(() => {});
+        }
+      }
+      coverUrl = `/media/playlists/${filename}`;
+    }
+
+    const { name, description, status, trackItems } = req.body;
+    
+    const updated = {
+      ...existing,
+      name: name || existing.name,
+      description: description !== undefined ? description : existing.description,
+      coverUrl,
+      status: status || existing.status,
+      trackItems: trackItems ? JSON.parse(trackItems) : existing.trackItems,
+      updatedAt: new Date().toISOString()
+    };
+
+    await updateGlobalItem(ADMIN_PLAYLISTS_FILE, req.params.id, updated, 'playlistId');
+    await auditAction(req.admin.id, 'UPDATE_ADMIN_PLAYLIST', req.params.id, { name: updated.name });
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/playlists/:id', requireAdmin, async (req, res) => {
+  try {
+    const existing = (await getGlobalData(ADMIN_PLAYLISTS_FILE)).find(p => p.playlistId === req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Playlist not found' });
+    
+    await deleteGlobalItem(ADMIN_PLAYLISTS_FILE, req.params.id, 'playlistId');
+    await auditAction(req.admin.id, 'DELETE_ADMIN_PLAYLIST', req.params.id, { name: existing.name });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

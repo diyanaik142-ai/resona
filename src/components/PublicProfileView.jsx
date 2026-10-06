@@ -139,6 +139,7 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
           user={profile}
           onClose={() => setShowFollowers(false)}
           onRefresh={loadProfile}
+          onNavigate={onNavigate}
         />
       )}
       
@@ -147,6 +148,7 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
           user={profile}
           onClose={() => setShowFollowing(false)}
           onRefresh={loadProfile}
+          onNavigate={onNavigate}
         />
       )}
     </div>

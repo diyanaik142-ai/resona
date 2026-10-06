@@ -4,7 +4,7 @@ import { api } from '../../services/api';
 import Avatar from '../Avatar';
 import { useAuth } from '../../context/AuthContext';
 
-export function FollowersModal({ user, onClose, onRefresh }) {
+export function FollowersModal({ user, onClose, onRefresh, onNavigate }) {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +44,16 @@ export function FollowersModal({ user, onClose, onRefresh }) {
           <p className="text-center text-slate-400 mt-10">No followers yet.</p>
         ) : (
           users.map(u => (
-            <div key={u.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+            <div 
+              key={u.id} 
+              className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/5 active:scale-95 cursor-pointer"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate(`profile/${u.handle}`);
+                  onClose();
+                }
+              }}
+            >
               <div className="flex items-center gap-3">
                 <Avatar user={u} className="w-10 h-10 rounded-full" />
                 <div>
@@ -54,8 +63,11 @@ export function FollowersModal({ user, onClose, onRefresh }) {
               </div>
               {isOwnProfile && (
                 <button 
-                  onClick={() => handleRemove(u.handle)}
-                  className="px-3 py-1.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold flex items-center gap-1 active:scale-95"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemove(u.handle);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold flex items-center gap-1 active:scale-[0.9]"
                 >
                   <UserMinus className="w-3 h-3" />
                   Remove
@@ -69,7 +81,7 @@ export function FollowersModal({ user, onClose, onRefresh }) {
   );
 }
 
-export function FollowingModal({ user, onClose, onRefresh }) {
+export function FollowingModal({ user, onClose, onRefresh, onNavigate }) {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +121,16 @@ export function FollowingModal({ user, onClose, onRefresh }) {
           <p className="text-center text-slate-400 mt-10">Not following anyone yet.</p>
         ) : (
           users.map(u => (
-            <div key={u.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+            <div 
+              key={u.id} 
+              className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/5 active:scale-95 cursor-pointer"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate(`profile/${u.handle}`);
+                  onClose();
+                }
+              }}
+            >
               <div className="flex items-center gap-3">
                 <Avatar user={u} className="w-10 h-10 rounded-full" />
                 <div>
@@ -119,8 +140,11 @@ export function FollowingModal({ user, onClose, onRefresh }) {
               </div>
               {isOwnProfile && (
                 <button 
-                  onClick={() => handleUnfollow(u.handle)}
-                  className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-white/10 text-xs font-bold active:scale-95"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUnfollow(u.handle);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-white/10 text-xs font-bold active:scale-[0.9]"
                 >
                   Unfollow
                 </button>

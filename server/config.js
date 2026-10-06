@@ -23,3 +23,4 @@ export const PLAN_CHANGE_REQUESTS_FILE = path.resolve(GLOBAL_DIR, 'plan_change_r
 export const RECOMMENDATION_CACHE_FILE = path.resolve(GLOBAL_DIR, 'recommendation_cache.json');
 export const HUDDLES_FILE = path.resolve(GLOBAL_DIR, 'huddles.json');
 export const FUSIONS_FILE = path.resolve(GLOBAL_DIR, 'fusions.json');
+export const ADMIN_PLAYLISTS_FILE = path.resolve(GLOBAL_DIR, 'admin_playlists.json');

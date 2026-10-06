@@ -92,7 +92,7 @@ export default function MobileHuddleView({
     setShowMusicSearch(false);
     try {
       if (isHost || huddle?.mode === 'COLLABORATIVE') {
-        await api.huddle.addToQueue(huddle.id, track.id);
+        await api.huddle.addToQueue(huddle.id, { trackId: track.id });
         triggerToast(`Added "${track.title}" to Queue! 🎧`);
       } else {
         await api.huddle.recommend(huddle.id, track.id);
@@ -165,6 +165,14 @@ export default function MobileHuddleView({
             </button>
 
             <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl border border-slate-500/30 text-slate-400 hover:bg-white/10 active:scale-90 transition"
+              title="Minimize Huddle"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={handleEndOrLeaveHuddle}
               className="p-1.5 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 active:scale-90 transition text-xs font-bold"
               title={isHost ? 'End Huddle' : 'Leave Room'}
@@ -229,7 +237,7 @@ export default function MobileHuddleView({
                     className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                   >
                     <span className="text-[10px] text-slate-400 mb-0.5 px-1 font-medium">
-                      {ev.userName} · {ev.timeStr || ''}
+                      {ev.userName}
                     </span>
                     <div
                       className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs font-medium leading-relaxed ${
@@ -316,7 +324,7 @@ export default function MobileHuddleView({
               placeholder="Message in Huddle..."
               value={chatMessage}
               onChange={(e) => setChatMessage(e.target.value)}
-              className="flex-1 py-2.5 px-3.5 rounded-xl glass-card border border-white/10 text-white text-base focus:outline-none focus:border-teal-400"
+              className="flex-1 min-w-0 py-2.5 px-3.5 rounded-xl glass-card border border-white/10 text-white text-base focus:outline-none focus:border-teal-400"
             />
 
             <button
@@ -355,13 +363,17 @@ export default function MobileHuddleView({
               </div>
             ) : (
               queue.map((t, idx) => (
-                <div key={t.queueId || idx} className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5">
+                <div key={t.queueId || t.queueItemId || idx} className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="text-xs font-mono text-slate-500 w-4 text-center shrink-0">{String(idx + 1).padStart(2, '0')}</span>
-                    <img src={t.artwork} alt={t.title} className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                    <img src={t.cover || t.artwork} alt={t.title} className="w-10 h-10 rounded-xl object-cover shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-white text-xs truncate">{t.title}</p>
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">{t.artist}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                         <p className="text-[10px] text-slate-400 truncate">{t.artist}</p>
+                         <p className="text-[9px] text-teal-400/70 truncate border-l border-white/10 pl-2">Added by {t.addedBy?.name || 'Host'}</p>
+                      </div>
+                      <p className="text-[8px] text-slate-600 font-mono mt-0.5 truncate">{t.queueId || t.queueItemId}</p>
                     </div>
                   </div>
                 </div>

@@ -813,6 +813,24 @@ export const api = {
     },
     create: async (trackData) => {
       throw new Error('Please use the Admin Dashboard to upload tracks.');
+    },
+    getPlaylists: async () => {
+      const res = await fetch(`${getApiBaseUrl()}/api/tracks/playlists`);
+      if (!res.ok) throw new Error('Failed to fetch playlists');
+      const playlists = await res.json();
+      return playlists.map(p => ({
+        ...p,
+        coverUrl: resolveMediaUrl(p.coverUrl)
+      }));
+    },
+    getPlaylist: async (id) => {
+      const res = await fetch(`${getApiBaseUrl()}/api/tracks/playlists/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error('Failed to fetch playlist');
+      const playlist = await res.json();
+      return {
+        ...playlist,
+        coverUrl: resolveMediaUrl(playlist.coverUrl)
+      };
     }
   },
 
@@ -837,6 +855,43 @@ export const api = {
     getSystemStatus: async () => {
       const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/system/status`);
       if (!res.ok) throw new Error('Failed to fetch status');
+      return res.json();
+    },
+    getPlaylists: async () => {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/playlists`);
+      if (!res.ok) throw new Error('Failed to fetch admin playlists');
+      const json = await res.json();
+      return json.map(p => ({ ...p, coverUrl: resolveMediaUrl(p.coverUrl) }));
+    },
+    createPlaylist: async (formData) => {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/playlists`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      if (!res.ok) {
+         const json = await res.json().catch(() => ({}));
+         throw new Error(json.error || 'Failed to create playlist');
+      }
+      return res.json();
+    },
+    updatePlaylist: async (id, formData) => {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${getApiBaseUrl()}/api/admin/playlists/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      if (!res.ok) {
+         const json = await res.json().catch(() => ({}));
+         throw new Error(json.error || 'Failed to update playlist');
+      }
+      return res.json();
+    },
+    deletePlaylist: async (id) => {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/playlists/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete playlist');
       return res.json();
     },
     getUsers: async () => {

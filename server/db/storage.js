@@ -2,7 +2,8 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import {
   CATALOG_FILE, AUDIT_FILE, REQUESTS_FILE, CREATORS_FILE, SETTINGS_FILE, HUDDLES_FILE, FUSIONS_FILE,
-  PLANS_FILE, OVERRIDES_FILE, PLAN_CHANGE_REQUESTS_FILE, RECOMMENDATION_CACHE_FILE
+  PLANS_FILE, OVERRIDES_FILE, PLAN_CHANGE_REQUESTS_FILE, RECOMMENDATION_CACHE_FILE,
+  ADMIN_PLAYLISTS_FILE
 } from '../config.js';
 import { db } from '../firebaseAdmin.js';
 import { normalizePlans, normalizeOverrides } from '../services/entitlements.js';
@@ -10,7 +11,7 @@ import { normalizePlans, normalizeOverrides } from '../services/entitlements.js'
 const globalCollections = new Map([
   [CATALOG_FILE, 'tracks'], [AUDIT_FILE, 'auditLogs'], [REQUESTS_FILE, 'songRequests'],
   [CREATORS_FILE, 'creatorApplications'], [HUDDLES_FILE, 'huddles'], [FUSIONS_FILE, 'fusions'],
-  [PLAN_CHANGE_REQUESTS_FILE, 'planChangeRequests']
+  [PLAN_CHANGE_REQUESTS_FILE, 'planChangeRequests'], [ADMIN_PLAYLISTS_FILE, 'adminPlaylists']
 ]);
 const singletonCollections = new Map([
   [SETTINGS_FILE, 'platformSettings'], [PLANS_FILE, 'plans'], [OVERRIDES_FILE, 'featureOverrides'],

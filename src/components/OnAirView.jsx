@@ -72,7 +72,7 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
       const isHost = activeHuddle.hostId === user?.id || user?.role === 'admin';
       const isCollab = activeHuddle.mode === 'COLLABORATIVE';
       if (isHost || isCollab) {
-        await api.huddle.addToQueue(activeHuddle.id, track.id);
+        await api.huddle.addToQueue(activeHuddle.id, { trackId: track.id });
         triggerNotification(`Added "${track.title}" to Huddle Queue! 🎧`);
       } else {
         await api.huddle.recommend(activeHuddle.id, track.id);

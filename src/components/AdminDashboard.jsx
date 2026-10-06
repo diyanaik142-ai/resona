@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Users, Music, Activity, Shield, LogOut, LayoutDashboard, Settings, UserCheck, ScrollText } from 'lucide-react';
 import AdminUsers from './admin/AdminUsers';
 import AdminCatalog from './admin/AdminCatalog';
+import AdminPlaylists from './admin/AdminPlaylists';
 import AdminSystem from './admin/AdminSystem';
 import AdminSettings from './admin/AdminSettings';
 import AdminOverview from './admin/AdminOverview';
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
   { id: 'users', icon: Users, label: 'User Management' },
   { id: 'catalog', icon: Music, label: 'Music Catalog' },
+  { id: 'playlists', icon: Music, label: 'Playlists' },
   { id: 'creators', icon: UserCheck, label: 'Creator Applications' },
   { id: 'audit', icon: ScrollText, label: 'Audit Logs' },
   { id: 'system', icon: Activity, label: 'System Status' },
@@ -161,6 +163,7 @@ export default function AdminDashboard() {
           {activeTab === 'overview' && <AdminOverview onNavigate={setActiveTab} />}
           {activeTab === 'users' && <AdminUsers />}
           {activeTab === 'catalog' && <AdminCatalog />}
+          {activeTab === 'playlists' && <AdminPlaylists />}
           {activeTab === 'system' && <AdminSystem />}
           {activeTab === 'creators' && <AdminCreators />}
           {activeTab === 'audit' && <AdminAudit />}

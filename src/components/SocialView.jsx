@@ -76,7 +76,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
       const isHost = activeHuddle.hostId === user?.id || user?.role === 'admin';
       const isCollab = activeHuddle.mode === 'COLLABORATIVE';
       if (isHost || isCollab) {
-        await api.huddle.addToQueue(activeHuddle.id, trackToShare.id);
+        await api.huddle.addToQueue(activeHuddle.id, { trackId: trackToShare.id });
         triggerNotification(`Added "${trackToShare.title}" to Huddle Queue! 🎧`);
       } else {
         await api.huddle.recommend(activeHuddle.id, trackToShare.id);

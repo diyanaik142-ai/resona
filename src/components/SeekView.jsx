@@ -10,6 +10,7 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
   const [searchResults, setSearchResults] = useState({ songs: [], accounts: [] });
   const [genres, setGenres] = useState([]);
   const [trending, setTrending] = useState([]);
+  const [featuredPlaylists, setFeaturedPlaylists] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [genreTracks, setGenreTracks] = useState([]);
@@ -21,12 +22,14 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [genresData, trendingData] = await Promise.all([
+        const [genresData, trendingData, playlistsData] = await Promise.all([
           api.search.getGenres(),
-          api.search.getTrending()
+          api.search.getTrending(),
+          api.tracks.getPlaylists().catch(() => [])
         ]);
         setGenres(genresData);
         setTrending(trendingData);
+        setFeaturedPlaylists(playlistsData);
       } catch (err) {
         console.error('Failed to load search data:', err);
       }
@@ -209,6 +212,43 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Featured Playlists Grid */}
+      {query.length === 0 && featuredPlaylists.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-lg text-white">Featured Playlists</h3>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+            {featuredPlaylists.map((pl) => (
+              <div
+                key={pl.id}
+                onClick={() => onNavigate(`playlist/${pl.id}`)}
+                className="w-40 shrink-0 space-y-2 cursor-pointer group"
+              >
+                <div className="w-40 h-40 rounded-2xl overflow-hidden bg-slate-800 relative shadow-lg">
+                  {pl.coverUrl ? (
+                    <img src={pl.coverUrl} alt={pl.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-teal-500/10">
+                      <Disc className="w-10 h-10 text-teal-500/50" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                    <div className="w-12 h-12 rounded-full bg-teal-500 flex items-center justify-center text-slate-950 shadow-xl">
+                      <Play className="w-5 h-5 fill-current ml-1" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-bold text-white text-sm truncate">{pl.name}</h4>
+                  <p className="text-xs text-slate-400 truncate">Resona Curated</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

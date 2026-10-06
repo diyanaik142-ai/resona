@@ -33,7 +33,14 @@ const ioOrigins = [...new Set([...baseIoOrigins, 'capacitor://localhost', 'https
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ioOrigins,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (ioOrigins.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('https://localhost') || origin.startsWith('capacitor://localhost')) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   }
@@ -100,7 +107,14 @@ const baseAppOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http:
 const allowedOrigins = [...new Set([...baseAppOrigins, 'capacitor://localhost', 'https://localhost'])];
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('https://localhost') || origin.startsWith('capacitor://localhost')) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

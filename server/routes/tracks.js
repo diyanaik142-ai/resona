@@ -41,4 +41,65 @@ router.get('/', async (req, res) => {
   }
 });
 
+import { ADMIN_PLAYLISTS_FILE } from '../config.js';
+
+router.get('/playlists', async (req, res) => {
+  try {
+    const settings = await getPlatformSettings();
+    if (settings.catalog?.publicCatalog === false) {
+      return res.json([]);
+    }
+    const playlists = await getGlobalData(ADMIN_PLAYLISTS_FILE) || [];
+    const published = playlists.filter(p => p.status === 'published' || p.status === 'Published');
+    res.json(published);
+  } catch (error) {
+    console.error('Failed to get playlists:', error);
+    res.json([]);
+  }
+});
+
+router.get('/playlists/:id', async (req, res) => {
+  try {
+    const settings = await getPlatformSettings();
+    if (settings.catalog?.publicCatalog === false) {
+      return res.status(403).json({ error: 'Catalog disabled' });
+    }
+    
+    const playlists = await getGlobalData(ADMIN_PLAYLISTS_FILE) || [];
+    const playlist = playlists.find(p => p.playlistId === req.params.id && (p.status === 'published' || p.status === 'Published'));
+    if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
+    
+    const customCatalog = await getGlobalData(CATALOG_FILE) || [];
+    const sanitizeMediaUrl = (url) => {
+      if (!url || typeof url !== 'string') return url;
+      if (url.includes('/media/')) {
+        const parts = url.split('/media/');
+        return `/media/${parts[1]}`;
+      }
+      return url;
+    };
+    
+    // Populate trackItems with actual track data
+    const populatedTrackItems = (playlist.trackItems || []).map(item => {
+      const track = customCatalog.find(t => t.id === item.trackId);
+      if (track) {
+        return {
+          ...item,
+          track: {
+            ...track,
+            audioUrl: sanitizeMediaUrl(track.audioUrl),
+            cover: sanitizeMediaUrl(track.cover)
+          }
+        };
+      }
+      return item;
+    }).filter(item => item.track); // filter out deleted tracks
+    
+    res.json({ ...playlist, trackItems: populatedTrackItems });
+  } catch (error) {
+    console.error('Failed to get playlist:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
