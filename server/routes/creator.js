@@ -20,12 +20,62 @@ router.get('/', async (req, res) => {
 
     const creator = (await getAccountData(req.user.id, 'creator.json')) || {
       isCreator: false,
+      status: 'none', // none, pending, approved, rejected
       artistName: '',
       stats: { uploads: 0, plays: '0', followers: '0' },
       uploads: [],
       songRequests: []
     };
     return res.json(creator);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/creator/apply
+ * Submit a creator application
+ */
+router.post('/apply', async (req, res) => {
+  try {
+    const creator = (await getAccountData(req.user.id, 'creator.json')) || {
+      isCreator: false,
+      status: 'none',
+      artistName: '',
+      stats: { uploads: 0, plays: '0', followers: '0' },
+      uploads: [],
+      songRequests: []
+    };
+
+    if (creator.status === 'pending') {
+      return res.status(400).json({ error: 'Application already pending.' });
+    }
+    if (creator.status === 'approved' || creator.isCreator) {
+      return res.status(400).json({ error: 'Already a creator.' });
+    }
+
+    creator.status = 'pending';
+    creator.artistName = req.body.artistName || req.user.name || 'Unknown Artist';
+    
+    // Create global creator application for admin
+    const { getGlobalData, saveGlobalData } = await import('../db/storage.js');
+    const { CREATORS_FILE } = await import('../config.js');
+    const apps = (await getGlobalData(CREATORS_FILE)) || [];
+    const newApp = {
+      id: `app_${Date.now()}`,
+      userId: req.user.id,
+      name: req.user.name,
+      email: req.user.email || '',
+      artistName: creator.artistName,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    apps.push(newApp);
+    await saveGlobalData(CREATORS_FILE, apps);
+
+    await saveAccountData(req.user.id, 'creator.json', creator);
+
+    return res.status(200).json(creator);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -52,12 +102,17 @@ router.post('/upload', async (req, res) => {
     }
 
     const creator = (await getAccountData(req.user.id, 'creator.json')) || {
-      isCreator: true,
+      isCreator: false,
+      status: 'none',
       artistName: 'Artist',
       stats: { uploads: 0, plays: '0', followers: '0' },
       uploads: [],
       songRequests: []
     };
+
+    if (creator.status !== 'approved' && !creator.isCreator) {
+      return res.status(403).json({ error: 'You are not an approved creator.' });
+    }
 
     const status = settings.creator?.requirePublishingApproval ? 'Pending' : 'Published';
 

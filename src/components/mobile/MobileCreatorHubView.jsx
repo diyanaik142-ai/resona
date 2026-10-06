@@ -19,6 +19,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebase';
 import { api } from '../../services/api';
+import Avatar from '../Avatar';
 
 /**
  * MobileCreatorHubView - Dedicated mobile workspace for creators
@@ -43,6 +44,73 @@ export default function MobileCreatorHubView({ onPlayTrack }) {
   const coverInputRef = useRef(null);
 
   const uploads = creatorData?.uploads || [];
+
+  const [applyName, setApplyName] = useState(user?.name || '');
+  const [isApplying, setIsApplying] = useState(false);
+
+  const isApproved = creatorData?.isCreator || creatorData?.status === 'approved';
+
+  if (!isApproved) {
+    return (
+      <div className="pt-6 px-4 space-y-6 max-w-md mx-auto">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Radio className="w-8 h-8 text-teal-400" />
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Become a Creator</h1>
+          <p className="text-slate-400 text-xs mt-2">Publish your original tracks directly to the Resona network.</p>
+        </div>
+        
+        <div className="glass-panel p-5 rounded-3xl border border-white/10 space-y-4">
+          {creatorData?.status === 'pending' ? (
+            <div className="text-center space-y-3 py-6">
+              <Clock className="w-10 h-10 text-amber-400 mx-auto" />
+              <h3 className="font-bold text-white">Application Under Review</h3>
+              <p className="text-xs text-slate-400">Our team is reviewing your application. This usually takes 1-3 business days.</p>
+            </div>
+          ) : creatorData?.status === 'rejected' ? (
+             <div className="text-center space-y-3 py-6">
+              <X className="w-10 h-10 text-red-400 mx-auto" />
+              <h3 className="font-bold text-white">Application Declined</h3>
+              <p className="text-xs text-slate-400">Unfortunately, we cannot approve your creator application at this time.</p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-[11px] text-slate-400 mb-1 block">Artist Name</label>
+                <input
+                  type="text"
+                  value={applyName}
+                  onChange={e => setApplyName(e.target.value)}
+                  className="w-full py-2.5 px-3.5 rounded-xl glass-card border border-white/10 text-white focus:border-teal-400 focus:outline-none text-sm"
+                  placeholder="Enter your artist name"
+                />
+              </div>
+              
+              <div className="pt-3">
+                <button
+                  disabled={isApplying || !applyName.trim()}
+                  onClick={async () => {
+                    setIsApplying(true);
+                    try {
+                      await api.creator.apply({ artistName: applyName });
+                      window.location.reload(); // Refresh state to show pending
+                    } catch (e) {
+                      alert(e.message);
+                      setIsApplying(false);
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl glass-button-primary font-bold disabled:opacity-50 text-sm"
+                >
+                  {isApplying ? 'Submitting...' : 'Apply for Creator Access'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 pb-6 px-4 pt-2">
@@ -428,13 +496,10 @@ export default function MobileCreatorHubView({ onPlayTrack }) {
       {activeTab === 'Profile' && (
         <div className="space-y-4 animate-fade-in">
           <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border-2 border-cyan-400 overflow-hidden shrink-0">
-              <img
-                src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
-                alt="Creator"
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <Avatar
+              user={user}
+              className="w-16 h-16 rounded-2xl border-2 border-cyan-400 shrink-0"
+            />
             <div className="min-w-0">
               <h3 className="text-base font-bold text-white truncate">{user?.name || 'Artist'}</h3>
               <p className="text-xs text-white/50 truncate">@{user?.username || 'artist'}</p>

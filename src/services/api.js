@@ -316,6 +316,17 @@ export const api = {
       const res = await fetch(`${getApiBaseUrl()}/api/creator`, { headers });
       if (!res.ok) throw new Error('Failed to fetch creator data');
       return res.json();
+    },
+    apply: async (data) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/creator/apply`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to submit application');
+      return json;
     }
   },
 

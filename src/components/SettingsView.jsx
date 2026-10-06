@@ -4,6 +4,8 @@ import PlanBadge from './PlanBadge';
 import { api, resolveMediaUrl } from '../services/api';
 import AuthModal from './AuthModal';
 import ChangePasswordModal from './ChangePasswordModal';
+import Avatar from './Avatar';
+import ImageCropModal from './ImageCropModal';
 import {
   User, PlayCircle, Sliders, Bell, Eye, Users, Cast, Globe, Database, Heart,
   Accessibility, HelpCircle, Info, Sparkles, ChevronRight, ChevronLeft, Check,
@@ -11,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export default function SettingsView({ onNavigate }) {
-  const { user, preferences, updatePreferences, logout, updateProfile, refreshAccountData, refreshPlan, authError } = useAuth();
+  const { user, preferences, updatePreferences, logout, updateProfile, refreshAccountData, refreshPlan, authError, creatorData } = useAuth();
   const [planRequestData, setPlanRequestData] = useState(null);
   const [planRequestView, setPlanRequestView] = useState('summary');
   const [requestedPlan, setRequestedPlan] = useState('');
@@ -45,6 +47,7 @@ export default function SettingsView({ onNavigate }) {
   const [profileDraft, setProfileDraft] = useState({ name: '', uid: '', phone: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [cropImage, setCropImage] = useState(null);
   const [profileLoadError, setProfileLoadError] = useState('');
   useEffect(() => {
     if (!user?.id) {
@@ -91,8 +94,9 @@ export default function SettingsView({ onNavigate }) {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
-  // Settings Toggles & Preferences State
-  const [isCreator, setIsCreator] = useState(true);
+  // Creator status derived from authoritative backend creatorData
+  const isCreator = Boolean(creatorData?.isCreator || creatorData?.status === 'approved');
+  const isPendingCreator = creatorData?.status === 'pending';
   const [activeDevice, setActiveDevice] = useState('This Phone');
   const [theme, setTheme] = useState('Dark');
   const [accentColor, setAccentColor] = useState('Teal');
@@ -270,16 +274,12 @@ export default function SettingsView({ onNavigate }) {
                       <div className="flex flex-col gap-2">
                         <label className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg cursor-pointer text-center text-white transition">
                           Change Picture
-                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (e) => {
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
                             const file = e.target.files[0];
                             if (!file) return;
                             if (file.size > 5 * 1024 * 1024) { setProfileError('Image must be under 5MB'); return; }
-                            setProfileSaving(true);
-                            try {
-                              const res = await api.user.uploadProfilePicture(file);
-                              await refreshAccountData();
-                              triggerToast('Profile picture updated');
-                            } catch (err) { setProfileError(err.message); } finally { setProfileSaving(false); e.target.value = ''; }
+                            setCropImage(file);
+                            e.target.value = '';
                           }} />
                         </label>
                         {user?.avatar && <button onClick={async () => {
@@ -1380,7 +1380,13 @@ export default function SettingsView({ onNavigate }) {
 
           {activeSubpage === 'creator-hub-settings' && (
             <div className="space-y-3">
-              <p className="text-xs text-slate-400">Access Creator Hub analytics dashboard, upload tools, and track management.</p>
+              <p className="text-xs text-slate-400">
+                {isCreator 
+                  ? 'Access Creator Hub analytics dashboard, upload tools, and track management.' 
+                  : isPendingCreator 
+                    ? 'Your creator application is currently being reviewed by our administration team.' 
+                    : 'Apply for creator status to access upload tools, release management, and analytics.'}
+              </p>
               
               <div className="p-4 rounded-2xl glass-card space-y-3 border border-purple-500/30">
                 <div className="flex items-center gap-3">
@@ -1388,13 +1394,21 @@ export default function SettingsView({ onNavigate }) {
                     <Mic className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-white text-sm">Resona Creator Studio</h3>
-                    <p className="text-[10px] text-purple-300">Publish music, inspect analytics, track royalties</p>
+                    <h3 className="font-extrabold text-white text-sm">
+                      {isCreator ? 'Resona Creator Studio' : isPendingCreator ? 'Application Under Review' : 'Become a Creator'}
+                    </h3>
+                    <p className="text-[10px] text-purple-300">
+                      {isCreator 
+                        ? 'Publish music, inspect analytics, track royalties' 
+                        : isPendingCreator 
+                          ? 'Application submitted • Under review' 
+                          : 'Submit an application for artist verification'}
+                    </p>
                   </div>
                 </div>
 
                 <button onClick={() => onNavigate('creator')} className="w-full p-3.5 rounded-2xl glass-button-primary font-bold text-xs">
-                  Launch Creator Hub Dashboard →
+                  {isCreator ? 'Launch Creator Hub Dashboard →' : isPendingCreator ? 'View Application Status →' : 'Apply to Become a Creator →'}
                 </button>
               </div>
             </div>
@@ -1414,10 +1428,9 @@ export default function SettingsView({ onNavigate }) {
           {/* User Account Quick Card */}
           <div className="p-4 rounded-3xl glass-panel border border-teal-500/30 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <img
-                src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-                alt="Avatar"
-                className="w-12 h-12 rounded-full border-2 border-teal-400 object-cover shrink-0"
+              <Avatar
+                user={user}
+                className="w-12 h-12 rounded-full border-2 border-teal-400 shrink-0"
               />
               <div className="min-w-0 flex-1">
                 <h2 className="font-bold text-white text-sm truncate">{user?.name || 'Name not provided'}</h2>
@@ -1440,23 +1453,44 @@ export default function SettingsView({ onNavigate }) {
             </button>
           </div>
 
-          {/* Creator Mode Switcher Toggle */}
+          {/* Creator Status Card */}
           <div className="p-4 rounded-3xl glass-panel border border-purple-500/30 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-400">
                 <Mic className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-xs">Creator Features</h3>
-                <p className="text-[10px] text-slate-400">Show creator settings & upload controls</p>
+                <h3 className="font-bold text-white text-xs">
+                  {isCreator ? 'Verified Creator' : isPendingCreator ? 'Creator Application Pending' : 'Become a Creator'}
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  {isCreator 
+                    ? 'Creator features enabled & verified' 
+                    : isPendingCreator 
+                      ? 'Application under review by administrators' 
+                      : 'Apply to upload & manage original releases'}
+                </p>
               </div>
             </div>
-            <input
-              type="checkbox"
-              checked={isCreator}
-              onChange={() => setIsCreator(!isCreator)}
-              className="accent-purple-400 w-4 h-4 cursor-pointer"
-            />
+            {!isCreator && !isPendingCreator ? (
+              <button
+                onClick={() => onNavigate('creator')}
+                className="px-3.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition"
+              >
+                Apply
+              </button>
+            ) : isPendingCreator ? (
+              <button
+                onClick={() => onNavigate('creator')}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold transition"
+              >
+                Status
+              </button>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                Active
+              </span>
+            )}
           </div>
 
           {/* 13 Listener Core Settings Menus */}
@@ -1524,6 +1558,25 @@ export default function SettingsView({ onNavigate }) {
         onClose={() => setShowChangePassModal(false)}
         onSuccess={(msg) => triggerToast(msg)}
       />
+      {cropImage && (
+        <ImageCropModal
+          imageFile={cropImage}
+          onCancel={() => setCropImage(null)}
+          onCrop={async (croppedFile) => {
+            setCropImage(null);
+            setProfileSaving(true);
+            try {
+              await api.user.uploadProfilePicture(croppedFile);
+              await refreshAccountData();
+              triggerToast('Profile picture updated');
+            } catch (err) {
+              setProfileError(err.message);
+            } finally {
+              setProfileSaving(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

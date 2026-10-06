@@ -3,6 +3,7 @@ import { api, resolveMediaUrl } from '../../services/api';
 import { Users, Search, Edit2, Check, X, Trash2, Ban, Shield, Settings2, PlayCircle, Music, Star, Zap, Crown, Speaker, ChevronLeft, Loader2 } from 'lucide-react';
 import { FEATURE_REGISTRY, FEATURE_CATEGORIES } from '../../../shared/featureRegistry.js';
 import PlanBadge from '../PlanBadge';
+import Avatar from '../Avatar';
 
 const PLAN_COLORS = {
   resona: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
@@ -228,13 +229,10 @@ export default function AdminUsers() {
 
         {/* IDENTITY CARD */}
         <div className="bg-slate-900/50 rounded-2xl border border-white/5 p-5 md:p-6 flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6 text-center md:text-left">
-          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-            {selectedUser.avatar || selectedUser.photoURL ? (
-              <img src={resolveMediaUrl(selectedUser.avatar || selectedUser.photoURL)} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <Users className="w-8 h-8 md:w-10 md:h-10 text-slate-500" />
-            )}
-          </div>
+          <Avatar
+            user={{ name: selectedUser.displayName, avatar: selectedUser.avatar || selectedUser.photoURL }}
+            className="w-20 h-20 md:w-24 md:h-24 rounded-full border border-white/10 shrink-0"
+          />
           <div className="flex-1 min-w-0 space-y-1 w-full flex flex-col items-center md:items-start">
             <h3 className="text-xl md:text-2xl font-bold text-white truncate w-full">{selectedUser.displayName || 'No Display Name'}</h3>
             <p className="text-sm md:text-base text-slate-400 truncate w-full">{selectedUser.email}</p>
@@ -769,13 +767,10 @@ export default function AdminUsers() {
             className="bg-slate-900/80 rounded-2xl border border-white/5 p-4 flex flex-col gap-3 active:bg-white/5 active:scale-[0.99] transition-all cursor-pointer"
           >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                {u.avatar || u.photoURL ? (
-                  <img src={resolveMediaUrl(u.avatar || u.photoURL)} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <Users className="w-5 h-5 text-slate-500" />
-                )}
-              </div>
+              <Avatar
+                user={{ name: u.displayName, avatar: u.avatar || u.photoURL }}
+                className="w-10 h-10 rounded-full border border-white/10 shrink-0"
+              />
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-white text-sm truncate pr-2">{u.displayName || 'Unknown User'}</div>
                 <div className="text-xs text-slate-400 truncate pr-2">{u.email}</div>

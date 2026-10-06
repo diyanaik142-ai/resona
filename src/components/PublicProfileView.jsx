@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, UserPlus, Check, ChevronLeft, MapPin } from 'lucide-react';
 import { getAuthHeaders, getApiBaseUrl } from '../services/api';
+import Avatar from './Avatar';
 
 export default function PublicProfileView({ username, onPlayTrack, onNavigate }) {
   const [profile, setProfile] = useState(null);
@@ -72,7 +73,7 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
         </button>
         
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-          <img src={profile.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.handle}`} alt={profile.name} className="w-32 h-32 rounded-full object-cover shadow-2xl ring-4 ring-teal-400/20" />
+          <Avatar user={profile} className="w-32 h-32 rounded-full shadow-2xl ring-4 ring-teal-400/20 shrink-0" />
           <div className="text-center md:text-left space-y-3 flex-1">
             <h1 className="text-3xl font-black text-white">{profile.name}</h1>
             <p className="text-teal-400 font-mono text-sm">@{profile.handle}</p>

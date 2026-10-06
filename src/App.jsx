@@ -38,6 +38,7 @@ import MobileTrackActionSheet from './components/mobile/MobileTrackActionSheet';
 import MobileQueueSheet from './components/mobile/MobileQueueSheet';
 import MobileProfileView from './components/mobile/MobileProfileView';
 import PublicProfileView from './components/PublicProfileView';
+import Avatar from './components/Avatar';
 
 import {
   Sparkles, Search, Library, Radio, User, Settings, Disc, Play, Pause,
@@ -221,14 +222,8 @@ export default function App() {
     showToast("Queue cleared");
   };
 
-  const handleMoveInQueue = (dragIndex, hoverIndex) => {
-    setPlayQueue(prev => {
-      const next = [...prev];
-      const [draggedItem] = next.splice(dragIndex, 1);
-      next.splice(hoverIndex, 0, draggedItem);
-      return next;
-    });
-    showToast("Queue updated");
+  const handleReorderQueue = (newQueue) => {
+    setPlayQueue(newQueue);
   };
 
   const audioRef = useRef(null);
@@ -603,7 +598,7 @@ export default function App() {
             playQueue={playQueue}
             onRemoveFromQueue={handleRemoveFromQueue}
             onClearQueue={handleClearQueue}
-            onMoveInQueue={handleMoveInQueue}
+            onReorderQueue={handleReorderQueue}
             onPlayTrack={handlePlayTrack}
           />
         );
@@ -696,7 +691,7 @@ export default function App() {
             playQueue={playQueue}
             onRemoveFromQueue={handleRemoveFromQueue}
             onClearQueue={handleClearQueue}
-            onMoveInQueue={handleMoveInQueue}
+            onReorderQueue={handleReorderQueue}
           />
         );
       case 'social':
@@ -839,10 +834,9 @@ export default function App() {
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="flex items-center gap-3 p-1.5 pr-3 rounded-full glass-card border border-white/10 hover:border-teal-500/40 transition group"
             >
-              <img
-                src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                alt={user?.name}
-                className="w-7 h-7 rounded-full object-cover border border-teal-400/80"
+              <Avatar
+                user={user}
+                className="w-7 h-7 rounded-full border border-teal-400/80"
               />
               <div className="text-left">
                 <p className="text-xs font-bold text-white group-hover:text-teal-300 transition leading-tight">
@@ -987,21 +981,35 @@ export default function App() {
 
             {/* Creator Studio & Settings */}
             <div className="space-y-2 pt-4 border-t border-white/5">
-              <button
-                onClick={() => setActiveTab('creator')}
-                className={`w-full p-3 rounded-2xl glass-card flex items-center gap-3 transition text-left border ${activeTab === 'creator'
-                  ? 'border-purple-400 bg-purple-500/20 text-white'
-                  : 'border-purple-500/20 hover:bg-purple-500/10 text-purple-300'
-                  }`}
-              >
-                <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-                  <Radio className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-white">Creator Studio</p>
-                  <p className="text-[10px] text-slate-400 truncate">{creatorData?.uploads?.length || 0} Releases</p>
-                </div>
-              </button>
+              {(() => {
+                const isApprovedCreator = creatorData?.isCreator || creatorData?.status === 'approved';
+                const isPending = creatorData?.status === 'pending';
+                return (
+                  <button
+                    onClick={() => setActiveTab('creator')}
+                    className={`w-full p-3 rounded-2xl glass-card flex items-center gap-3 transition text-left border ${activeTab === 'creator'
+                      ? 'border-purple-400 bg-purple-500/20 text-white'
+                      : 'border-purple-500/20 hover:bg-purple-500/10 text-purple-300'
+                      }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                      <Radio className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white">
+                        {isApprovedCreator ? 'Creator Studio' : isPending ? 'Creator Application' : 'Become a Creator'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {isApprovedCreator 
+                          ? `${creatorData?.uploads?.length || 0} Releases` 
+                          : isPending 
+                            ? 'Under Review' 
+                            : 'Apply to publish'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })()}
 
               <button
                 onClick={() => setActiveTab('settings')}
@@ -1228,7 +1236,7 @@ export default function App() {
       {/* ============================================================ */}
       {/* PURPOSE-BUILT MOBILE EXPERIENCE (< 768px)                    */}
       {/* ============================================================ */}
-      <div className="flex md:hidden flex-col min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden relative bg-[#07080c] text-white">
+      <div className="flex md:hidden flex-col min-h-[100dvh] w-full max-w-[100vw] overflow-x-clip overscroll-x-none relative bg-[#07080c] text-white">
         {/* Mobile Top Bar */}
         <MobileHeader
           activeTab={activeTab}
@@ -1242,7 +1250,7 @@ export default function App() {
         {/* Mobile Scrollable Page Content */}
         <main
           id="mobile-main-content"
-          className={`w-full max-w-[100vw] overflow-x-hidden min-h-[calc(100dvh-3.5rem)] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
+          className={`w-full max-w-[100vw] overflow-x-clip overscroll-x-none min-h-[calc(100dvh-3.5rem)] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
             activeTab === 'onair'
               ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]'
               : currentTrack
@@ -1305,6 +1313,8 @@ export default function App() {
           queue={playQueue.length > 0 ? playQueue : catalog}
           onPlayTrack={handlePlayTrack}
           onRemoveFromQueue={handleRemoveFromQueue}
+          onClearQueue={handleClearQueue}
+          onReorderQueue={handleReorderQueue}
         />
 
         {/* Mobile Track Action Sheet */}

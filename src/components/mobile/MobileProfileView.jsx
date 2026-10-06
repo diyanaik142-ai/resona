@@ -6,14 +6,16 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { api, resolveMediaUrl } from '../../services/api';
 import PlanBadge from '../PlanBadge';
+import ImageCropModal from '../ImageCropModal';
 
 export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }) {
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, creatorData } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: user?.name || '', uid: user?.uid || user?.handle || '' });
   const [phone, setPhone] = useState(user?.phone || '');
   const [uidMessage, setUidMessage] = useState('');
   const [uidState, setUidState] = useState('idle');
+  const [cropImage, setCropImage] = useState(null);
 
   const uidValue = useMemo(() => (user?.uid || user?.handle || '').toString().replace(/^@+/, ''), [user]);
   const likedCount = shelf?.likedTrackIds?.length || 0;
@@ -155,18 +157,12 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
               <div className="flex flex-col gap-2">
                 <label className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg cursor-pointer text-center text-white transition">
                   Change Picture
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (e) => {
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
                     const file = e.target.files[0];
                     if (!file) return;
                     if (file.size > 5 * 1024 * 1024) { setUidMessage('Image must be under 5MB'); setUidState('error'); return; }
-                    setUidMessage('Uploading...'); setUidState('idle');
-                    try {
-                      await api.user.uploadProfilePicture(file);
-                      setUidMessage('Profile picture updated'); setUidState('success');
-                      // trigger re-fetch by calling getMe indirectly or reload
-                      const me = await api.auth.getMe();
-                      if (me.user) updateProfile(me.user); // if context supports this, or we just let useAuth sync
-                    } catch (err) { setUidMessage(err.message); setUidState('error'); } finally { e.target.value = ''; }
+                    setCropImage(file);
+                    e.target.value = '';
                   }} />
                 </label>
                 {user?.avatar && <button onClick={async () => {
@@ -303,21 +299,35 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
             <ChevronRight className="w-4 h-4 text-slate-500 shrink-0 ml-2" />
           </div>
 
-          <div
-            onClick={() => onNavigate('creator')}
-            className="flex items-center justify-between p-3.5 rounded-2xl glass-card border border-white/5 hover:border-purple-500/30 transition cursor-pointer active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
-                <Radio className="w-4 h-4" />
+          {(() => {
+            const isApprovedCreator = creatorData?.isCreator || creatorData?.status === 'approved';
+            const isPendingCreator = creatorData?.status === 'pending';
+            return (
+              <div
+                onClick={() => onNavigate('creator')}
+                className="flex items-center justify-between p-3.5 rounded-2xl glass-card border border-white/5 hover:border-purple-500/30 transition cursor-pointer active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-bold text-white text-xs truncate">
+                      {isApprovedCreator ? 'Creator Studio' : isPendingCreator ? 'Creator Application' : 'Become a Creator'}
+                    </h4>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {isApprovedCreator 
+                        ? 'Publish tracks & master releases' 
+                        : isPendingCreator 
+                          ? 'Application under review' 
+                          : 'Apply to publish original music'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 shrink-0 ml-2" />
               </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="font-bold text-white text-xs truncate">Creator Studio</h4>
-                <p className="text-[10px] text-slate-400 truncate">Publish tracks & master releases</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-500 shrink-0 ml-2" />
-          </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -329,6 +339,28 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
         <LogOut className="w-4 h-4" />
         <span>Sign Out</span>
       </button>
+      
+      {cropImage && (
+        <ImageCropModal
+          imageFile={cropImage}
+          onCancel={() => setCropImage(null)}
+          onCrop={async (croppedFile) => {
+            setCropImage(null);
+            setUidMessage('Uploading...');
+            setUidState('idle');
+            try {
+              await api.user.uploadProfilePicture(croppedFile);
+              setUidMessage('Profile picture updated');
+              setUidState('success');
+              const me = await api.auth.getMe();
+              if (me.user) updateProfile(me.user);
+            } catch (err) {
+              setUidMessage(err.message);
+              setUidState('error');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

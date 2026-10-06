@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UploadCloud, BarChart3, Music2, Users, CheckCircle, Clock, Plus, ArrowRight, X, Play } from 'lucide-react';
+import { UploadCloud, BarChart3, Music2, Users, CheckCircle, Clock, Plus, ArrowRight, X, Play, Radio } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 import { api } from '../services/api';
+import Avatar from './Avatar';
 
 export default function CreatorHubView({ onPlayTrack }) {
   const { user, creatorData, uploadTrack , catalog} = useAuth();
@@ -15,11 +16,78 @@ export default function CreatorHubView({ onPlayTrack }) {
   const [coverFile, setCoverFile] = useState(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  
+  const [applyName, setApplyName] = useState(user?.name || '');
+  const [isApplying, setIsApplying] = useState(false);
 
   const audioInputRef = useRef(null);
   const coverInputRef = useRef(null);
 
   const uploads = creatorData?.uploads || [];
+  
+  const isApproved = creatorData?.isCreator || creatorData?.status === 'approved';
+
+  if (!isApproved) {
+    return (
+      <div className="max-w-2xl mx-auto pt-12 space-y-6">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-teal-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Radio className="w-10 h-10 text-teal-400" />
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tight">Become a Creator</h1>
+          <p className="text-slate-400 mt-2">Publish your original tracks directly to the Resona network.</p>
+        </div>
+        
+        <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
+          {creatorData?.status === 'pending' ? (
+            <div className="text-center space-y-3 py-6">
+              <Clock className="w-12 h-12 text-amber-400 mx-auto" />
+              <h3 className="font-bold text-white text-lg">Application Under Review</h3>
+              <p className="text-sm text-slate-400">Our team is reviewing your application. This usually takes 1-3 business days.</p>
+            </div>
+          ) : creatorData?.status === 'rejected' ? (
+             <div className="text-center space-y-3 py-6">
+              <X className="w-12 h-12 text-red-400 mx-auto" />
+              <h3 className="font-bold text-white text-lg">Application Declined</h3>
+              <p className="text-sm text-slate-400">Unfortunately, we cannot approve your creator application at this time.</p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Artist Name</label>
+                <input
+                  type="text"
+                  value={applyName}
+                  onChange={e => setApplyName(e.target.value)}
+                  className="w-full py-3 px-4 rounded-xl glass-card border border-white/10 text-white focus:border-teal-400 focus:outline-none"
+                  placeholder="Enter your artist name"
+                />
+              </div>
+              
+              <div className="pt-4">
+                <button
+                  disabled={isApplying || !applyName.trim()}
+                  onClick={async () => {
+                    setIsApplying(true);
+                    try {
+                      await api.creator.apply({ artistName: applyName });
+                      window.location.reload(); // Refresh state to show pending
+                    } catch (e) {
+                      alert(e.message);
+                      setIsApplying(false);
+                    }
+                  }}
+                  className="w-full py-3 rounded-xl glass-button-primary font-bold disabled:opacity-50"
+                >
+                  {isApplying ? 'Submitting...' : 'Apply for Creator Access'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-24 max-w-5xl mx-auto">
@@ -32,10 +100,9 @@ export default function CreatorHubView({ onPlayTrack }) {
       {/* Profile Overview Card */}
       <div className="p-4 sm:p-6 rounded-3xl glass-panel border border-teal-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <img
-            src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
-            alt="Creator"
-            className="w-16 h-16 rounded-2xl object-cover border-2 border-teal-400 shadow-xl shrink-0"
+          <Avatar
+            user={user}
+            className="w-16 h-16 rounded-2xl border-2 border-teal-400 shadow-xl shrink-0"
           />
           <div className="min-w-0">
             <h2 className="font-black text-white text-lg truncate">{user?.name || 'Artist'}</h2>

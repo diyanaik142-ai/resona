@@ -96,7 +96,7 @@ export default function MobilePulseView({
               <span className="text-[11px] text-teal-400 font-semibold font-mono">Hi-Fi</span>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar overscroll-x-contain">
+            <div className="w-full max-w-full flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar overscroll-x-contain">
               {tunedForYouTracks.map((t) => {
                 const isThisPlaying = currentTrack?.id === t.id && isPlaying;
                 return (
@@ -152,7 +152,7 @@ export default function MobilePulseView({
               </h2>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar overscroll-x-contain">
+            <div className="w-full max-w-full flex gap-3 overflow-x-auto px-4 pb-2 no-scrollbar overscroll-x-contain">
               {freshDropsTracks.map((t) => (
                 <div
                   key={`fresh_${t.id}`}

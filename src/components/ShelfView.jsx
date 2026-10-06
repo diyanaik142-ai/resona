@@ -14,6 +14,9 @@ export default function ShelfView({ onPlayTrack, onNavigate }) {
   const userPlaylists = shelf?.playlists || [];
   const likedTracks = catalog.filter((t) => shelf?.likedTrackIds?.includes(t.id));
 
+  const isApprovedCreator = creatorData?.isCreator || creatorData?.status === 'approved';
+  const isPendingCreator = creatorData?.status === 'pending';
+
   const shelfCards = [
     {
       id: 'liked',
@@ -33,8 +36,12 @@ export default function ShelfView({ onPlayTrack, onNavigate }) {
     },
     {
       id: 'uploads',
-      title: 'Your Uploads',
-      subtitle: `${creatorData?.uploads?.length || 0} original releases`,
+      title: isApprovedCreator ? 'Your Uploads' : isPendingCreator ? 'Creator Application' : 'Become a Creator',
+      subtitle: isApprovedCreator 
+        ? `${creatorData?.uploads?.length || 0} original releases` 
+        : isPendingCreator 
+          ? 'Application under review' 
+          : 'Apply to release music',
       icon: UploadCloud,
       color: 'from-purple-600 to-pink-500',
       action: () => onNavigate('creator')
@@ -115,11 +122,11 @@ export default function ShelfView({ onPlayTrack, onNavigate }) {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-white/10 pb-3">
-        {['Playlists', 'Liked', 'Uploads'].map((tab) => (
+        {['Playlists', 'Liked', isApprovedCreator ? 'Uploads' : 'Creator'].map((tab) => (
           <button
             key={tab}
             onClick={() => {
-              if (tab === 'Uploads') onNavigate('creator');
+              if (tab === 'Uploads' || tab === 'Creator') onNavigate('creator');
               else setActiveTab(tab);
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition ${

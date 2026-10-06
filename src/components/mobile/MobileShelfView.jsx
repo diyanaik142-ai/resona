@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Library, Plus, Heart, Music, Disc, Folder, Search, Play } from 'lucide-react';
+import Avatar from '../Avatar';
 
 export default function MobileShelfView({
   shelf,
@@ -28,9 +29,9 @@ export default function MobileShelfView({
   });
 
   return (
-    <div className="space-y-4 pb-6 pt-2 px-4">
+    <div className="space-y-4 pb-6 pt-2 px-4 w-full max-w-full overflow-hidden">
       {/* Segmented Navigation Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain">
+      <div className="w-full max-w-full flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain">
         {['Playlists', 'Liked Songs', 'Artists'].map((seg) => (
           <button
             key={seg}
@@ -158,10 +159,9 @@ export default function MobileShelfView({
                 className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5 hover:border-teal-500/30 transition cursor-pointer active:scale-[0.99] group"
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <img
-                    src={art.cover || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-                    alt={art.name}
-                    className="w-12 h-12 rounded-full object-cover shrink-0 border border-teal-500/30 shadow-md"
+                  <Avatar
+                    user={{ name: art.name, avatar: art.cover }}
+                    className="w-12 h-12 rounded-full shrink-0 border border-teal-500/30 shadow-md"
                   />
                   <div className="min-w-0 flex-1">
                     <h4 className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">

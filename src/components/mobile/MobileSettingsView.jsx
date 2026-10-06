@@ -5,10 +5,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import PlanBadge from '../PlanBadge';
+import Avatar from '../Avatar';
 import { api, resolveMediaUrl } from '../../services/api';
 
 export default function MobileSettingsView({ onNavigate, onOpenAuthModal }) {
-  const { user, logout, refreshPlan } = useAuth();
+  const { user, logout, refreshPlan, creatorData } = useAuth();
   const [activeCategory, setActiveCategory] = useState(null); // null = main list
   const [planRequestData, setPlanRequestData] = useState(null);
   const [planRequestOpen, setPlanRequestOpen] = useState(false);
@@ -43,12 +44,20 @@ export default function MobileSettingsView({ onNavigate, onOpenAuthModal }) {
   const [pushNotifs, setPushNotifs] = useState(true);
   const [privateProfile, setPrivateProfile] = useState(false);
 
+  const isApprovedCreator = creatorData?.isCreator || creatorData?.status === 'approved';
+  const isPendingCreator = creatorData?.status === 'pending';
+
   const categories = [
     { id: 'account', label: 'Account & Identity', icon: User, desc: user?.email || 'Manage profile' },
     { id: 'playback', label: 'Playback & Audio', icon: Sliders, desc: 'Quality, Crossfade, Equalizer' },
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Push, Huddle invites, Activity' },
     { id: 'privacy', label: 'Privacy & Security', icon: Shield, desc: 'Visibility, Data partition' },
-    { id: 'creator', label: 'Creator Studio', icon: Radio, desc: 'Publish master audio releases' },
+    { 
+      id: 'creator', 
+      label: isApprovedCreator ? 'Creator Studio' : isPendingCreator ? 'Creator Application' : 'Become a Creator', 
+      icon: Radio, 
+      desc: isApprovedCreator ? 'Publish master audio releases' : isPendingCreator ? 'Application under review' : 'Apply to publish music' 
+    },
     { id: 'about', label: 'About Resona', icon: Info, desc: 'v2.4.0 Studio Master' }
   ];
 
@@ -72,13 +81,10 @@ export default function MobileSettingsView({ onNavigate, onOpenAuthModal }) {
 
               <div className="p-4 rounded-3xl glass-card border border-teal-500/30 flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-12 h-12 rounded-full border-2 border-teal-400 overflow-hidden bg-slate-800 shrink-0">
-                    <img
-                      src={user?.avatar ? resolveMediaUrl(user.avatar) : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  <Avatar
+                    user={user}
+                    className="w-12 h-12 rounded-full border-2 border-teal-400 shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-white text-sm truncate">{user?.name || 'Listener'}</h3>
                     <p className="text-[11px] text-teal-300 truncate mt-0.5">{user?.email}</p>
@@ -224,13 +230,21 @@ export default function MobileSettingsView({ onNavigate, onOpenAuthModal }) {
           {activeCategory === 'creator' && (
             <div className="space-y-4 text-center p-6 rounded-3xl glass-card border border-purple-500/30">
               <Radio className="w-10 h-10 text-purple-400 mx-auto" />
-              <h3 className="font-black text-white text-base">Creator Studio</h3>
-              <p className="text-xs text-slate-400">Publish original master audio recordings to the daily catalog.</p>
+              <h3 className="font-black text-white text-base">
+                {isApprovedCreator ? 'Creator Studio' : isPendingCreator ? 'Application Under Review' : 'Become a Creator'}
+              </h3>
+              <p className="text-xs text-slate-400">
+                {isApprovedCreator 
+                  ? 'Publish original master audio recordings to the daily catalog.' 
+                  : isPendingCreator 
+                    ? 'Our team is reviewing your creator application. This usually takes 1-3 business days.' 
+                    : 'Submit an application to publish original master recordings directly to the Resona catalog.'}
+              </p>
               <button
                 onClick={() => onNavigate('creator')}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 font-bold text-xs text-white"
               >
-                Launch Studio
+                {isApprovedCreator ? 'Launch Studio' : isPendingCreator ? 'Check Application Status' : 'Apply to Become a Creator'}
               </button>
             </div>
           )}

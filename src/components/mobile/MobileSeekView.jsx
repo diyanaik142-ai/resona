@@ -93,7 +93,7 @@ export default function MobileSeekView({
 
       {/* Categories / Genres Chips (Only show if not searching or if no accounts) */}
       {!query.trim() && (
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain">
+        <div className="w-full max-w-full flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain overflow-hidden">
           {categories.map((cat) => (
             <button
               key={cat.id}

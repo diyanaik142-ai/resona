@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import PlanBadge from './PlanBadge';
 import BeatCodeQR from './BeatCodeQR';
 import StartHuddleModal from './StartHuddleModal';
+import Avatar from './Avatar';
 import { api } from '../services/api';
 import { Users, QrCode, Share2, Radio, MessageCircle, Heart, X, Copy, Send, Check, ChevronRight, Layers, Image as ImageIcon, Camera, MoreHorizontal, Download, Plus, Bell, LogOut, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
 
@@ -251,10 +252,9 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
       {activeSubTab === 'Friends & Profile' && (
         <div className="space-y-4">
           <div className="p-4 sm:p-6 rounded-3xl glass-panel border border-white/10 flex items-center gap-4 sm:gap-5">
-            <img
-              src={user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"}
-              alt={user?.name || "Profile"}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-teal-400 shadow-xl shrink-0"
+            <Avatar
+              user={user}
+              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-teal-400 shadow-xl shrink-0"
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -503,7 +503,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
               ) : (
                 friendsList.map(friend => (
                   <div key={friend.id} className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-white/5">
-                    <img src={friend.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"} alt={friend.name} className="w-10 h-10 rounded-xl object-cover" />
+                    <Avatar user={{ name: friend.name, avatar: friend.avatar }} className="w-10 h-10 rounded-xl shrink-0 object-cover" />
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-white text-sm truncate">{friend.name}</div>
                       <div className="text-[10px] text-teal-400">Active now</div>
@@ -928,7 +928,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <img src={u.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"} alt={u.name} className="w-8 h-8 rounded-full object-cover" />
+                      <Avatar user={{ name: u.name, avatar: u.avatar }} className="w-8 h-8 rounded-full shrink-0" />
                       <div>
                         <p className="font-bold text-white text-xs">{u.name}</p>
                         <p className="text-[10px] text-slate-400">{u.handle}</p>

@@ -1,5 +1,62 @@
 import React from 'react';
-import { X, Play, Music, ArrowUp, ArrowDown, Trash2, Radio } from 'lucide-react';
+import { X, Play, Music, Trash2, Radio, GripVertical } from 'lucide-react';
+import { Reorder, useDragControls } from 'framer-motion';
+
+function DraggableQueueItem({ t, idx, onPlayTrack, onClose, onRemoveFromQueue }) {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={t}
+      dragListener={false}
+      dragControls={controls}
+      className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5 hover:border-white/10 transition group"
+    >
+      <div 
+        onPointerDown={(e) => controls.start(e)}
+        className="flex items-center gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-white px-2 py-1 -ml-2" 
+        title="Drag to reorder"
+        style={{ touchAction: 'none' }}
+      >
+        <GripVertical className="w-5 h-5" />
+      </div>
+      
+      <div
+        className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer ml-1"
+        onClick={() => {
+          onPlayTrack(t);
+          if (onClose) onClose();
+        }}
+      >
+        <img
+          src={t.cover || t.artwork}
+          alt={t.title}
+          className="w-10 h-10 rounded-xl object-cover shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">
+            {t.title}
+          </p>
+          <p className="text-[10px] text-slate-400 truncate mt-0.5">
+            {t.artist}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0 ml-2">
+        {onRemoveFromQueue && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(t.queueItemId || t.id); }}
+            className="p-1.5 text-slate-400 hover:text-rose-400"
+            title="Remove"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+}
 
 export default function MobileQueueSheet({
   isOpen,
@@ -9,7 +66,7 @@ export default function MobileQueueSheet({
   onPlayTrack,
   onRemoveFromQueue,
   onClearQueue,
-  onMoveInQueue
+  onReorderQueue
 }) {
   if (!isOpen) return null;
 
@@ -88,70 +145,18 @@ export default function MobileQueueSheet({
                 No tracks in queue. Add songs from Seek or Pulse.
               </div>
             ) : (
-              <div className="space-y-2">
+              <Reorder.Group axis="y" values={queue} onReorder={onReorderQueue} className="space-y-2">
                 {queue.map((t, idx) => (
-                  <div
-                    key={`q_${t.queueItemId || t.id}_${idx}`}
-                    className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5 hover:border-white/10 transition group"
-                  >
-                    <div
-                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
-                      onClick={() => {
-                        onPlayTrack(t);
-                        onClose();
-                      }}
-                    >
-                      <span className="font-mono text-xs text-slate-500 w-4 text-center shrink-0">
-                        {String(idx + 1).padStart(2, '0')}
-                      </span>
-                      <img
-                        src={t.cover || t.artwork}
-                        alt={t.title}
-                        className="w-10 h-10 rounded-xl object-cover shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">
-                          {t.title}
-                        </p>
-                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                          {t.artist}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Move / Remove controls */}
-                    <div className="flex items-center gap-1 shrink-0 ml-2">
-                      {onMoveInQueue && idx > 0 && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx - 1); }}
-                          className="p-1.5 text-slate-400 hover:text-white"
-                          title="Move Up"
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {onMoveInQueue && idx < queue.length - 1 && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx + 1); }}
-                          className="p-1.5 text-slate-400 hover:text-white"
-                          title="Move Down"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {onRemoveFromQueue && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(t.queueItemId || t.id); }}
-                          className="p-1.5 text-slate-400 hover:text-rose-400"
-                          title="Remove"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <DraggableQueueItem
+                    key={t.queueItemId || t.id || idx}
+                    t={t}
+                    idx={idx}
+                    onPlayTrack={onPlayTrack}
+                    onClose={onClose}
+                    onRemoveFromQueue={onRemoveFromQueue}
+                  />
                 ))}
-              </div>
+              </Reorder.Group>
             )}
           </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { joinHuddleRoom, leaveHuddleRoom, subscribeHuddleEvent } from '../services/huddleSocket';
 import StartHuddleModal from './StartHuddleModal';
+import Avatar from './Avatar';
 import {
   Radio, Users, UserPlus, Plus, Play, MoreVertical, GripVertical, Check, X,
   Vote, HelpCircle, History, ListMusic, Music, ArrowUp, ArrowDown,
@@ -1200,13 +1201,10 @@ export default function HuddleView({
                           className="p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-between"
                         >
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-300 font-semibold text-xs overflow-hidden">
-                              {inv.recipientAvatar ? (
-                                <img src={inv.recipientAvatar} alt={inv.recipientName} className="w-full h-full object-cover" />
-                              ) : (
-                                inv.recipientName?.charAt(0) || 'F'
-                              )}
-                            </div>
+                            <Avatar
+                              user={{ avatar: inv.recipientAvatar, name: inv.recipientName }}
+                              className="w-8 h-8 rounded-full border border-cyan-500/20 shrink-0"
+                            />
                             <div>
                               <p className="font-semibold text-white text-xs">{inv.recipientName}</p>
                               <div className="text-[10px] flex items-center gap-1 mt-0.5">

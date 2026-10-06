@@ -2,9 +2,44 @@ import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
 import BeatCodeQR from './BeatCodeQR';
 import { api } from '../services/api';
-import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle, Trash2, GripVertical } from 'lucide-react';
+import { Reorder, useDragControls } from 'framer-motion';
 
-export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, duration = 0, onTogglePlay, onNext, onPrev, onSeek, onNavigate, activeHuddle, setShowHuddleRoom, playQueue = [], onRemoveFromQueue, onClearQueue, onMoveInQueue, onPlayTrack }) {
+function DraggableQueueItem({ t, idx, onPlayTrack, onRemoveFromQueue }) {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item 
+      value={t} 
+      dragListener={false}
+      dragControls={controls}
+      className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 group transition-colors"
+    >
+      <div 
+        onPointerDown={(e) => controls.start(e)}
+        className="flex items-center gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-white px-1"
+        style={{ touchAction: 'none' }}
+      >
+        <GripVertical className="w-4 h-4" />
+      </div>
+      <div className="flex items-center gap-2 flex-1 cursor-pointer ml-1" onClick={() => { if(onPlayTrack) onPlayTrack(t); }}>
+        <img src={t.cover || t.artwork} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
+        <div className="min-w-0">
+          <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">{t.title}</p>
+          <p className="text-[10px] text-slate-400 truncate">{t.artist}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+        {onRemoveFromQueue && (
+          <button onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(t.queueItemId || t.id); }} className="p-1 text-slate-400 hover:text-rose-400" title="Remove">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+}
+export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, duration = 0, onTogglePlay, onNext, onPrev, onSeek, onNavigate, activeHuddle, setShowHuddleRoom, playQueue = [], onRemoveFromQueue, onClearQueue, onReorderQueue, onPlayTrack }) {
   const { user, catalog } = useAuth();
   const track = currentTrack || (catalog.length > 0 ? catalog[0] : null);
   if (!track) return <div className="p-8 text-center text-slate-400 mt-20">No track playing</div>;
@@ -530,35 +565,17 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
                   )}
                 </div>
                 {playQueue.length > 0 ? (
-                  playQueue.map((t, idx) => (
-                    <div key={`q_${t.queueItemId || t.id}_${idx}`} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 group">
-                      <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => { if(onPlayTrack) onPlayTrack(t); }}>
-                        <span className="text-[10px] font-mono text-slate-500 w-4 group-hover:text-teal-300">{String(idx + 1).padStart(2, '0')}</span>
-                        <img src={t.cover || t.artwork} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
-                        <div className="min-w-0">
-                          <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">{t.title}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{t.artist}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                        {onMoveInQueue && idx > 0 && (
-                          <button onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx - 1); }} className="p-1 text-slate-400 hover:text-white" title="Move Up">
-                            <ArrowUp className="w-3 h-3" />
-                          </button>
-                        )}
-                        {onMoveInQueue && idx < playQueue.length - 1 && (
-                          <button onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx + 1); }} className="p-1 text-slate-400 hover:text-white" title="Move Down">
-                            <ArrowDown className="w-3 h-3" />
-                          </button>
-                        )}
-                        {onRemoveFromQueue && (
-                          <button onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(t.queueItemId || t.id); }} className="p-1 text-slate-400 hover:text-rose-400" title="Remove">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                  <Reorder.Group axis="y" values={playQueue} onReorder={onReorderQueue} className="space-y-1">
+                  {playQueue.map((t, idx) => (
+                    <DraggableQueueItem
+                      key={t.queueItemId || t.id || idx}
+                      t={t}
+                      idx={idx}
+                      onPlayTrack={onPlayTrack}
+                      onRemoveFromQueue={onRemoveFromQueue}
+                    />
+                  ))}
+                  </Reorder.Group>
                 ) : (
                   <div className="py-4 text-center">
                     <p className="text-xs text-slate-400">No tracks in queue.</p>

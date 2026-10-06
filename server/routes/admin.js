@@ -724,6 +724,27 @@ router.put('/creators/:id', requireAdmin, async (req, res) => {
       reviewedBy: req.admin.id,
       reviewedAt: new Date().toISOString()
     });
+    
+    if (updated && updated.userId) {
+      const creator = (await getAccountData(updated.userId, 'creator.json')) || {
+        isCreator: false,
+        status: 'none',
+        artistName: updated.artistName || 'Artist',
+        stats: { uploads: 0, plays: '0', followers: '0' },
+        uploads: [],
+        songRequests: []
+      };
+      
+      creator.status = updated.status;
+      if (updated.status === 'approved') {
+        creator.isCreator = true;
+      } else {
+        creator.isCreator = false;
+      }
+      
+      await saveAccountData(updated.userId, 'creator.json', creator);
+    }
+    
     await auditAction(req.admin.id, `CREATOR_APPLICATION_${String(status).toUpperCase()}`, req.params.id, {
       applicant: updated.email || updated.name || null
     });

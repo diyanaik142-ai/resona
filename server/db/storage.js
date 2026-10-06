@@ -70,7 +70,7 @@ export async function initAccountData(userId, profileData = {}) {
     'profile.json': profile,
     'preferences.json': { theme: 'Dark', accentColor: 'Teal', streamingQuality: 'High (320kbps)', crossfade: '5 seconds', mobileDataStreaming: true, autoplay: true, gapless: true, normalizeVolume: true, pushNotifs: true, quietHours: false, privateProfile: false, friendActivityVisible: true, reduceMotion: false, selectedGenres: profileData.genres || [] },
     'shelf.json': { likedTrackIds: [], downloadedTrackIds: [], playlists: [], recentlyPlayed: [], listeningEvents: [], playStats: {}, recommendationVersion: 0 },
-    'creator.json': { isCreator: profileData.role === 'creator' || profileData.role === 'both', artistName: name, stats: { uploads: 0, plays: '0', followers: '0' }, uploads: [], songRequests: [] },
+    'creator.json': { isCreator: false, status: 'none', artistName: name, stats: { uploads: 0, plays: '0', followers: '0' }, uploads: [], songRequests: [] },
     'social.json': { activeHuddle: null, huddleRoom: null, fusionsList: [] },
     'sessions.json': []
   };

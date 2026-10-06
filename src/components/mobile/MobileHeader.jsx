@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, Sparkles, Radio, Search, Library, Users, Settings, Disc, Shield } from 'lucide-react';
 import { resolveMediaUrl } from '../../services/api';
+import Avatar from '../Avatar';
 
 export default function MobileHeader({
   activeTab,
@@ -61,22 +62,15 @@ export default function MobileHeader({
         </button>
 
         <div
-          className="w-9 h-9 rounded-full bg-slate-800 border-2 border-teal-500/40 overflow-hidden cursor-pointer shadow-md active:scale-90 transition shrink-0"
           onClick={onOpenProfile}
           title="Profile & Settings"
           aria-label="Profile and Settings"
+          className="cursor-pointer active:scale-90 transition shrink-0"
         >
-          {user?.avatar || user?.photoURL ? (
-            <img
-              src={resolveMediaUrl(user.avatar || user.photoURL)}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-teal-400 text-xs font-black bg-slate-900">
-              {user?.name?.charAt(0) || 'U'}
-            </div>
-          )}
+          <Avatar
+            user={user}
+            className="w-9 h-9 rounded-full border-2 border-teal-500/40 shadow-md"
+          />
         </div>
       </div>
     </header>

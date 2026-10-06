@@ -5,6 +5,7 @@ import {
   Smile, UserPlus, Shield, ChevronDown
 } from 'lucide-react';
 import { api } from '../../services/api';
+import Avatar from '../Avatar';
 
 const EMOJI_LIST = ['🔥', '✨', '🎧', '🙌', '💜', '⚡', '🎉', '👏', '🎶', '🌊', '🚀', '💯'];
 
@@ -274,7 +275,7 @@ export default function MobileHuddleView({
 
           {/* Emoji Quick Picker popup */}
           {showEmojiPicker && (
-            <div className="p-2 mx-4 bg-slate-900 border border-white/10 rounded-2xl flex gap-2 overflow-x-auto shadow-2xl mb-1">
+            <div className="p-2 mx-4 bg-slate-900 border border-white/10 rounded-2xl w-full max-w-full flex gap-2 overflow-x-auto shadow-2xl mb-1">
               {EMOJI_LIST.map((em) => (
                 <button
                   key={em}
@@ -411,9 +412,10 @@ export default function MobileHuddleView({
           {participants.map((p) => (
             <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl glass-card border border-white/5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-800 border border-teal-500/40 overflow-hidden flex items-center justify-center text-teal-400 font-bold text-xs">
-                  {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" /> : (p.name?.charAt(0) || 'U')}
-                </div>
+                <Avatar
+                  user={p}
+                  className="w-10 h-10 rounded-full border border-teal-500/40 shrink-0"
+                />
                 <div>
                   <h4 className="font-bold text-white text-xs">{p.name}</h4>
                   <span className="text-[10px] text-teal-400 font-medium">{p.isHost ? 'Host' : 'Listener'}</span>

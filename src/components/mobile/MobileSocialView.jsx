@@ -6,6 +6,7 @@ import {
 import { motion } from 'framer-motion';
 import { api, resolveMediaUrl } from '../../services/api';
 import StartHuddleModal from '../StartHuddleModal';
+import Avatar from '../Avatar';
 
 export default function MobileSocialView({
   user,
@@ -143,9 +144,9 @@ export default function MobileSocialView({
   });
 
   return (
-    <div className="space-y-4 pb-6 pt-2 px-4">
+    <div className="space-y-4 pb-6 pt-2 px-4 w-full max-w-full overflow-hidden">
       {/* Horizontal Category Switcher */}
-      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar overscroll-x-contain snap-x">
+      <div className="w-full max-w-full flex gap-4 overflow-x-auto pb-2 no-scrollbar overscroll-x-contain snap-x">
         {['Friends & Following', 'Activity', 'Shared With', 'Fusion', 'Huddle'].map((tab) => (
           <button
             key={tab}
@@ -282,9 +283,7 @@ export default function MobileSocialView({
             <div className="space-y-2">
               {friends.slice(0, 5).map((f, idx) => (
                 <div key={`act_${f.id}_${idx}`} className="p-3 rounded-2xl glass-card border border-white/5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800 shrink-0 overflow-hidden">
-                    <img src={f.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100"} alt="User" className="w-full h-full object-cover" />
-                  </div>
+                  <Avatar user={{ avatar: f.avatar, name: f.name || 'User' }} className="w-10 h-10 rounded-xl shrink-0 object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-white">
                       <span className="font-bold text-teal-300">{f.name}</span> started listening to a master stream
@@ -363,7 +362,7 @@ export default function MobileSocialView({
                       fusionSelectedUser?.id === u.id ? 'border-teal-400 bg-teal-500/10' : 'border-white/5 bg-slate-800'
                     }`}
                   >
-                    <img src={u.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300"} className="w-8 h-8 rounded-full object-cover" />
+                    <Avatar user={{ avatar: u.avatar, name: u.name }} className="w-8 h-8 rounded-full shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-white truncate">{u.name}</p>
                       <p className="text-[10px] text-slate-400 truncate">{u.handle}</p>
@@ -478,10 +477,9 @@ export default function MobileSocialView({
 
             <div className="flex items-center justify-between pb-3 border-b border-white/5">
               <div className="flex items-center gap-3">
-                <img
-                  src={selectedFriend.avatar || selectedFriend.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-                  alt={selectedFriend.name}
-                  className="w-14 h-14 rounded-2xl object-cover border-2 border-teal-400 shadow-md"
+                <Avatar
+                  user={{ avatar: selectedFriend.avatar || selectedFriend.photoURL, name: selectedFriend.name }}
+                  className="w-14 h-14 rounded-2xl border-2 border-teal-400 shadow-md shrink-0"
                 />
                 <div>
                   <h3 className="font-black text-white text-base">{selectedFriend.name}</h3>
