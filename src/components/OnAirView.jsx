@@ -1,7 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
 import BeatCodeQR from './BeatCodeQR';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle, Trash2, GripVertical } from 'lucide-react';
 import { Reorder, useDragControls } from 'framer-motion';
 
@@ -23,7 +23,7 @@ function DraggableQueueItem({ t, idx, onPlayTrack, onRemoveFromQueue }) {
         <GripVertical className="w-4 h-4" />
       </div>
       <div className="flex items-center gap-2 flex-1 cursor-pointer ml-1" onClick={() => { if(onPlayTrack) onPlayTrack(t); }}>
-        <img src={t.cover || t.artwork} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
+        <img src={resolveMediaUrl(t.cover || t.artwork)} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
         <div className="min-w-0">
           <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">{t.title}</p>
           <p className="text-[10px] text-slate-400 truncate">{t.artist}</p>
@@ -145,7 +145,7 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
 
               <div className="flex items-center justify-between p-2.5 rounded-2xl glass-card">
                 <div className="flex items-center gap-3">
-                  <img src={track.cover} alt="Track" className="w-10 h-10 rounded-xl object-cover" />
+                  <img src={resolveMediaUrl(track.cover)} alt="Track" className="w-10 h-10 rounded-xl object-cover" />
                   <div>
                     <p className="font-bold text-white text-xs">{track.title}</p>
                     <p className="text-[10px] text-slate-400">{track.artist}</p>
@@ -266,7 +266,7 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
                 RESONA MUSIC
               </span>
 
-              <img src={track.cover} alt="Story Artwork" className="w-32 h-32 rounded-2xl object-cover shadow-2xl z-10 border border-white/30" />
+              <img src={resolveMediaUrl(track.cover)} alt="Story Artwork" className="w-32 h-32 rounded-2xl object-cover shadow-2xl z-10 border border-white/30" />
 
               <div className="z-10 text-center">
                 <h4 className="font-black text-white text-base leading-tight">{track.title}</h4>
@@ -408,7 +408,7 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
 
       {/* Main Cover Art Card */}
       <div className="relative z-10 rounded-3xl overflow-hidden glass-panel border border-white/10 p-4 shadow-2xl aspect-square flex flex-col justify-end">
-        <img src={track.cover} alt={track.title} className="absolute inset-0 w-full h-full object-cover rounded-3xl transition duration-500" />
+        <img src={resolveMediaUrl(track.cover)} alt={track.title} className="absolute inset-0 w-full h-full object-cover rounded-3xl transition duration-500" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
 
         <div className="relative z-10 flex items-center justify-between">
@@ -521,7 +521,7 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
                     <div key={item.id} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-slate-500 w-4">{String(idx + 1).padStart(2, '0')}</span>
-                        <img src={item.artwork || '/cover-default.jpg'} alt={item.title} className="w-8 h-8 rounded-md object-cover" />
+                        <img src={resolveMediaUrl(item.artwork || '/cover-default.jpg')} alt={item.title} className="w-8 h-8 rounded-md object-cover" />
                         <div className="min-w-0">
                           <p className="font-bold text-white text-xs truncate">{item.title}</p>
                           <p className="text-[10px] text-slate-400 truncate">

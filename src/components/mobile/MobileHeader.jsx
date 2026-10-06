@@ -33,7 +33,7 @@ export default function MobileHeader({
         className="flex items-center gap-2 cursor-pointer active:scale-95 transition"
         onClick={() => onNavigate('pulse')}
       >
-        <img src="/branding/resona-icon.png" alt="Resona" className="w-7 h-7 object-contain drop-shadow-[0_2px_4px_rgba(45,212,191,0.2)]" />
+        <img src={`${window.location.origin}/branding/resona-icon.png`} alt="Resona" className="w-7 h-7 object-contain drop-shadow-[0_2px_4px_rgba(45,212,191,0.2)]" />
         <span className="font-black text-sm tracking-wider text-white">RESONA</span>
       </div>
 

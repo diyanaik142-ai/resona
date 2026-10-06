@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { Search, Bell, Play, Sparkles, X, ShieldCheck, Database, Music, Heart, Radio } from 'lucide-react';
 
 export default function PulseView({ onPlayTrack, onNavigate, onOpenNotifications, unreadCount = 0 }) {
@@ -239,7 +239,7 @@ export default function PulseView({ onPlayTrack, onNavigate, onOpenNotifications
                 onClick={() => onPlayTrack(track)}
                 className="p-4 rounded-2xl glass-card glass-card-hover flex items-center gap-3.5 cursor-pointer group"
               >
-                <img src={track.cover} alt={track.title} className="w-14 h-14 rounded-xl object-cover shadow-lg" />
+                <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-14 h-14 rounded-xl object-cover shadow-lg" />
                 <div className="min-w-0 flex-1">
                   <h4 className="text-sm font-bold text-white truncate group-hover:text-teal-300 transition">{track.title}</h4>
                   <p className="text-xs text-slate-400 truncate">{track.artist}</p>
@@ -274,7 +274,7 @@ export default function PulseView({ onPlayTrack, onNavigate, onOpenNotifications
                 className="p-3 rounded-2xl glass-card hover:bg-white/10 transition cursor-pointer group flex flex-col"
               >
                 <div className="relative mb-2.5 rounded-xl overflow-hidden glass-card aspect-square">
-                  <img src={track.cover} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                  <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                   <button className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-teal-400 text-slate-950 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-lg hover:scale-110">
                     <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
                   </button>

@@ -6,6 +6,7 @@ export function getApiBaseUrl() {
     const isCapacitor = window.location.protocol === 'capacitor:' || 
                         window.location.origin === 'null' || 
                         window.location.origin === 'http://localhost' || 
+                        window.location.origin === 'https://localhost' || 
                         window.location.origin.includes('capacitor');
                         
     if (isCapacitor) {
@@ -14,7 +15,7 @@ export function getApiBaseUrl() {
     }
     
     // For local web development (e.g. Vite on localhost:5173)
-    if (window.location.hostname === 'localhost') {
+    if (window.location.hostname === 'localhost' && window.location.port !== '') {
       return 'http://localhost:8080';
     }
     
@@ -24,25 +25,40 @@ export function getApiBaseUrl() {
 }
 
 export function resolveMediaUrl(url) {
-  if (!url || typeof url !== 'string') return url;
-  const baseUrl = getApiBaseUrl();
-  if (url.startsWith('/media/')) {
-    return `${baseUrl}${url}`;
+  if (!url || typeof url !== 'string') return '/assets/default-cover.png';
+  
+  if (url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
   }
-  if (url.startsWith('media/')) {
-    return `${baseUrl}/${url}`;
-  }
-  if (url.includes('/media/')) {
-    try {
-      const parsedUrl = new URL(url);
-      if (parsedUrl.pathname.startsWith('/media/')) {
-        return `${baseUrl}${parsedUrl.pathname}`;
-      }
-    } catch(e) {
-      const filename = url.split('/media/')[1];
-      if (filename) return `${baseUrl}/media/${filename}`;
+
+  let pathname = url;
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsed = new URL(url);
+      pathname = parsed.pathname;
     }
+  } catch (e) {
+    // Ignore
   }
+
+  // Fix legacy stored paths
+  if (pathname.startsWith('/media/cover-') || pathname.startsWith('/media/audio-')) {
+    pathname = pathname.replace('/media/', '/media/catalog/');
+  }
+
+  if (pathname.startsWith('media/')) {
+    pathname = '/' + pathname;
+  }
+
+  if (pathname.startsWith('/media/')) {
+    const baseUrl = getApiBaseUrl();
+    return `${baseUrl}${pathname}`;
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
   return url;
 }
 
@@ -452,6 +468,23 @@ export const api = {
       const res = await fetch(`${getApiBaseUrl()}/api/social/users/search?q=${encodeURIComponent(q || '')}`, { headers });
       if (!res.ok) throw new Error('Failed to search users');
       return res.json();
+    },
+    getFusions: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/social/fusions`, { headers });
+      if (!res.ok) throw new Error('Failed to fetch fusions');
+      return res.json();
+    },
+    createFusion: async (participantIds) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/social/fusions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ participantIds })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to create fusion');
+      return json;
     },
     addFriend: async (friendId) => {
       const headers = await getAuthHeaders();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { Play, Disc, Sparkles, SkipForward } from 'lucide-react';
 
 export default function CuratedExperiencesView({ onPlayTrack }) {
@@ -127,7 +127,7 @@ function TrackRow({ track, onPlayTrack }) {
       className="p-3 rounded-2xl glass-card glass-card-hover flex items-center justify-between cursor-pointer group"
     >
       <div className="flex items-center gap-3 min-w-0">
-        <img src={track.cover} alt={track.title} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+        <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-12 h-12 rounded-xl object-cover shrink-0" />
         <div className="min-w-0">
           <h4 className="text-xs font-bold text-white group-hover:text-teal-300 truncate">{track.title}</h4>
           <p className="text-[11px] text-slate-400 truncate">{track.reason || track.artist}</p>

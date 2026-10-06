@@ -1208,7 +1208,7 @@ export default function SettingsView({ onNavigate }) {
               <p className="text-xs text-slate-400 text-center">App information and acknowledgements.</p>
 
               <div className="text-center space-y-2">
-                <img src="/branding/resona-icon.png" alt="Resona" className="w-16 h-16 object-contain mx-auto drop-shadow-xl" />
+                <img src={`${window.location.origin}/branding/resona-icon.png`} alt="Resona" className="w-16 h-16 object-contain mx-auto drop-shadow-xl" />
                 <div>
                   <h2 className="font-extrabold text-white text-lg">Resona</h2>
                   <p className="text-xs text-slate-400">Music That Feels Like You</p>

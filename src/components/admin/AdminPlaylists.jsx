@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { resolveMediaUrl,  api } from '../../services/api';
 import { Music, Plus, Search, Trash2, Edit3, GripVertical, Check, X, Image as ImageIcon, Globe, Lock } from 'lucide-react';
 import { formatTime } from '../../utils/formatTime';
 
@@ -271,7 +271,7 @@ export default function AdminPlaylists() {
                           </button>
                         </div>
                         <span className="text-sm text-slate-500 font-mono w-6 text-center">{index + 1}</span>
-                        <img src={track.cover || '/assets/default-cover.png'} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
+                        <img src={resolveMediaUrl(track.cover || '/assets/default-cover.png')} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm truncate">{track.title || 'Unknown Track'}</p>
                           <p className="text-xs text-slate-400 truncate">{track.artist || 'Unknown Artist'}</p>
@@ -310,7 +310,7 @@ export default function AdminPlaylists() {
                   ) : (
                     filteredCatalog.map(track => (
                       <div key={track.id} className="flex items-center gap-3 p-2 bg-black/10 rounded-xl hover:bg-white/5 transition">
-                        <img src={track.cover} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
+                        <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm truncate">{track.title}</p>
                           <p className="text-xs text-slate-400 truncate">{track.artist}</p>
@@ -366,7 +366,7 @@ export default function AdminPlaylists() {
             <div key={playlist.playlistId} className="glass-card rounded-2xl border border-white/10 overflow-hidden group">
               <div className="aspect-square relative bg-slate-900">
                 {playlist.coverUrl ? (
-                  <img src={playlist.coverUrl} alt={playlist.name} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
+                  <img src={resolveMediaUrl(playlist.coverUrl)} alt={playlist.name} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-slate-600 bg-gradient-to-br from-slate-800 to-black">
                     <Music className="w-12 h-12 opacity-50 mb-2" />

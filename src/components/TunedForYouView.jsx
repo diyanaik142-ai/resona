@@ -1,5 +1,5 @@
 import React from 'react';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { Play, Sparkles, Sliders } from 'lucide-react';
 
 export default function TunedForYouView({ onPlayTrack }) {
@@ -71,7 +71,7 @@ export default function TunedForYouView({ onPlayTrack }) {
                   className="p-4 rounded-2xl glass-card border border-teal-500/20 flex items-center justify-between cursor-pointer hover:bg-white/10 transition group"
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <img src={track.cover} alt={track.title} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                    <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-12 h-12 rounded-xl object-cover shrink-0" />
                     <div className="min-w-0">
                       <h4 className="font-bold text-white text-sm group-hover:text-teal-300 truncate">{track.title}</h4>
                       <p className="text-xs text-slate-400 truncate">{track.reason}</p>

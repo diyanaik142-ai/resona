@@ -5,7 +5,7 @@ import PlanBadge from './PlanBadge';
 import BeatCodeQR from './BeatCodeQR';
 import StartHuddleModal from './StartHuddleModal';
 import Avatar from './Avatar';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { Users, QrCode, Share2, Radio, MessageCircle, Heart, X, Copy, Send, Check, ChevronRight, Layers, Image as ImageIcon, Camera, MoreHorizontal, Download, Plus, Bell, LogOut, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
 
 export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setActiveHuddle, setShowHuddleRoom, fusionsList = [], setFusionsList }) {
@@ -45,7 +45,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
   useEffect(() => {
     const loadFusions = async () => {
       try {
-        const res = await api.get('/social/fusions');
+        const res = await api.social.getFusions();
         if (res.fusions && setFusionsList) {
           setFusionsList(res.fusions);
         }
@@ -158,7 +158,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
     }
     setIsSearchingUsers(true);
     try {
-      const res = await api.get(`/social/users/search?q=${encodeURIComponent(query)}`);
+      const res = await api.social.searchUsers(query);
       if (res.users) {
         setFusionSearchUsers(res.users);
       }
@@ -176,9 +176,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
     }
     setIsCreatingFusion(true);
     try {
-      const res = await api.post('/social/fusions', {
-        participantIds: [user.id, fusionSelectedUser.id]
-      });
+      const res = await api.social.createFusion([user.id, fusionSelectedUser.id]);
       if (res.fusion) {
         if (setFusionsList) setFusionsList(prev => [...prev, res.fusion]);
         setShowCreateFusionModal(false);
@@ -374,7 +372,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
       {/* SUB TAB 4: HUDDLE & SHARING QUICK BUTTONS */}
       {activeSubTab === 'Huddle & Sharing' && (
         <div className="space-y-4">
-          {activeHuddle ? (
+          {activeHuddle && activeHuddle.status === 'active' ? (
             <div className="p-6 rounded-3xl glass-panel border border-teal-500/30 bg-slate-900/60 space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -408,7 +406,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
                 <div className="flex items-center gap-3">
                   {activeHuddle.nowPlaying ? (
                     <img
-                      src={activeHuddle.nowPlaying.artwork || '/cover-default.jpg'}
+                      src={resolveMediaUrl(activeHuddle.nowPlaying.artwork || '/cover-default.jpg')}
                       alt={activeHuddle.nowPlaying.title}
                       className="w-12 h-12 rounded-xl object-cover"
                     />
@@ -782,7 +780,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
 
               <div className="flex items-center justify-between p-2.5 rounded-2xl glass-card">
                 <div className="flex items-center gap-3">
-                  {track && <img src={track.cover} alt="Track" className="w-10 h-10 rounded-xl object-cover" />}
+                  {track && <img src={resolveMediaUrl(track.cover)} alt="Track" className="w-10 h-10 rounded-xl object-cover" />}
                   <div>
                     {track && <p className="font-bold text-white text-xs">{track.title}</p>}
                     {track && <p className="text-[10px] text-slate-400">{track.artist}</p>}
@@ -974,7 +972,7 @@ export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setA
                 RESONA MUSIC
               </span>
 
-              {track && <img src={track.cover} alt="Story Artwork" className="w-32 h-32 rounded-2xl object-cover shadow-2xl z-10 border border-white/30" />}
+              {track && <img src={resolveMediaUrl(track.cover)} alt="Story Artwork" className="w-32 h-32 rounded-2xl object-cover shadow-2xl z-10 border border-white/30" />}
 
               <div className="z-10 text-center">
                 <h4 className="font-black text-white text-base leading-tight">{track ? track.title : "No Track"}</h4>

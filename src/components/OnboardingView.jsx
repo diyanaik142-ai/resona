@@ -91,7 +91,7 @@ export default function OnboardingView({ onComplete, onOpenLogin }) {
         {/* Step Indicator Header */}
       <div className="flex items-center justify-between z-10 pt-1 mb-4">
         <div className="flex items-center gap-2">
-          <img src="/branding/resona-icon.png" alt="Resona" className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(45,212,191,0.2)]" />
+          <img src={`${window.location.origin}/branding/resona-icon.png`} alt="Resona" className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(45,212,191,0.2)]" />
           <span className="font-semibold text-lg tracking-wider text-white">Resona</span>
         </div>
         <div className="flex gap-1.5">

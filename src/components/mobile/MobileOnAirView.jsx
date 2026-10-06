@@ -6,6 +6,7 @@ import {
 import MobileQueueSheet from './MobileQueueSheet';
 import BeatCodeQR from '../BeatCodeQR';
 
+import { resolveMediaUrl } from '../../services/api';
 export default function MobileOnAirView({
   currentTrack,
   isPlaying,
@@ -99,7 +100,7 @@ export default function MobileOnAirView({
       <div className="relative z-10 my-auto py-2 flex flex-col items-center justify-center">
         <div className="relative aspect-square w-full max-w-[280px] sm:max-w-[320px] rounded-3xl overflow-hidden glass-panel border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
           <img
-            src={currentTrack.cover}
+            src={resolveMediaUrl(currentTrack.cover)}
             alt={currentTrack.title}
             className="w-full h-full object-cover"
           />

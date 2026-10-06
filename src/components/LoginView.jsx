@@ -35,7 +35,7 @@ export default function LoginView({ onGoToGetStarted }) {
       <div className="m-auto w-full max-w-sm glass-panel rounded-3xl border border-white/10 p-5 sm:p-6 shadow-2xl relative z-10 space-y-4">
         {/* Brand Header */}
         <div className="text-center space-y-1.5">
-          <img src="/branding/resona-icon.png" alt="Resona" className="w-12 h-12 object-contain mx-auto drop-shadow-[0_4px_6px_rgba(45,212,191,0.2)]" />
+          <img src={`${window.location.origin}/branding/resona-icon.png`} alt="Resona" className="w-12 h-12 object-contain mx-auto drop-shadow-[0_4px_6px_rgba(45,212,191,0.2)]" />
           <h1 className="text-xl font-black text-white tracking-tight">
             Sign in to <span className="bg-gradient-to-r from-teal-400 to-cyan-300 bg-clip-text text-transparent">Resona</span>
           </h1>

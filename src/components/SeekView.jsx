@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Play, Mic, Music, Disc } from 'lucide-react';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import Avatar from './Avatar';
 
 export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, setQuery: propSetQuery }) {
@@ -106,7 +106,7 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
                   className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer group"
                 >
                   <div className="flex items-center gap-3">
-                    <img src={track.cover} alt={track.title} className="w-12 h-12 rounded-xl object-cover" />
+                    <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-12 h-12 rounded-xl object-cover" />
                     <div>
                       <h4 className="text-sm font-bold text-white group-hover:text-teal-300">{track.title}</h4>
                       <p className="text-xs text-slate-400">{track.artist}</p>
@@ -199,7 +199,7 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
                       className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <img src={track.cover} alt={track.title} className="w-10 h-10 rounded-xl object-cover" />
+                        <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-10 h-10 rounded-xl object-cover" />
                         <div>
                           <h4 className="text-xs font-bold text-white">{track.title}</h4>
                           <p className="text-[11px] text-slate-400">{track.artist}</p>
@@ -230,7 +230,7 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
               >
                 <div className="w-40 h-40 rounded-2xl overflow-hidden bg-slate-800 relative shadow-lg">
                   {pl.coverUrl ? (
-                    <img src={pl.coverUrl} alt={pl.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                    <img src={resolveMediaUrl(pl.coverUrl)} alt={pl.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-teal-500/10">
                       <Disc className="w-10 h-10 text-teal-500/50" />
@@ -304,7 +304,7 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-black text-slate-500 w-4 text-center">{idx + 1}</span>
-                    <img src={track.cover} alt={track.title} className="w-11 h-11 rounded-xl object-cover shadow" />
+                    <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-11 h-11 rounded-xl object-cover shadow" />
                     <div>
                       <h4 className="text-xs font-bold text-white group-hover:text-teal-300">{track.title}</h4>
                       <p className="text-[11px] text-slate-400">{track.artist}</p>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Pause, MoreVertical, Music, Sparkles, Clock, Compass, Disc } from 'lucide-react';
 
+import { resolveMediaUrl } from '../../services/api';
 export default function MobilePulseView({
   catalog = [],
   currentTrack,
@@ -65,7 +66,7 @@ export default function MobilePulseView({
                     className="flex items-center gap-2.5 p-2 rounded-2xl glass-card border border-white/5 hover:border-teal-500/30 transition cursor-pointer active:scale-95 group relative overflow-hidden"
                   >
                     <img
-                      src={t.cover}
+                      src={resolveMediaUrl(t.cover)}
                       alt={t.title}
                       className="w-11 h-11 rounded-xl object-cover shrink-0 shadow-md group-hover:scale-105 transition"
                     />
@@ -107,7 +108,7 @@ export default function MobilePulseView({
                   >
                     <div className="relative aspect-square w-full rounded-2xl overflow-hidden glass-card border border-white/10 shadow-lg group-hover:border-teal-400/50 transition">
                       <img
-                        src={t.cover}
+                        src={resolveMediaUrl(t.cover)}
                         alt={t.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                       />
@@ -161,7 +162,7 @@ export default function MobilePulseView({
                 >
                   <div className="relative aspect-square w-full rounded-2xl overflow-hidden glass-card border border-white/10 shadow-lg group-hover:border-purple-400/50 transition">
                     <img
-                      src={t.cover}
+                      src={resolveMediaUrl(t.cover)}
                       alt={t.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
@@ -209,7 +210,7 @@ export default function MobilePulseView({
                         {String(idx + 1).padStart(2, '0')}
                       </span>
                       <img
-                        src={t.cover}
+                        src={resolveMediaUrl(t.cover)}
                         alt={t.title}
                         className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-md group-hover:scale-105 transition"
                       />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { joinHuddleRoom, leaveHuddleRoom, subscribeHuddleEvent } from '../services/huddleSocket';
 import StartHuddleModal from './StartHuddleModal';
 import Avatar from './Avatar';
@@ -629,7 +629,7 @@ export default function HuddleView({
             <div className="flex gap-3">
               <div className="relative shrink-0">
                 <img
-                  src={huddle.nowPlaying.artwork || huddle.nowPlaying.cover}
+                  src={resolveMediaUrl(huddle.nowPlaying.artwork || huddle.nowPlaying.cover)}
                   alt={huddle.nowPlaying.title}
                   className="w-16 h-16 rounded-xl object-cover shadow-lg border border-white/10"
                 />
@@ -749,7 +749,7 @@ export default function HuddleView({
                           {isHost && (
                             <GripVertical className="w-3 h-3 text-slate-600 cursor-grab active:cursor-grabbing hover:text-teal-400 shrink-0" />
                           )}
-                          <img src={item.artwork || item.cover} alt={item.title} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                          <img src={resolveMediaUrl(item.artwork || item.cover)} alt={item.title} className="w-8 h-8 rounded-lg object-cover shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-white text-[11px] truncate leading-tight">{item.title}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -807,7 +807,7 @@ export default function HuddleView({
                     huddle.recommendations.map(rec => (
                       <div key={rec.id} className="p-2.5 rounded-xl glass-card border border-white/5 space-y-2">
                         <div className="flex items-center gap-2.5">
-                          <img src={rec.artwork || rec.cover} className="w-8 h-8 rounded-lg object-cover" />
+                          <img src={resolveMediaUrl(rec.artwork || rec.cover)} className="w-8 h-8 rounded-lg object-cover" />
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-white text-[11px] truncate">{rec.title}</p>
                             <p className="text-[9px] text-teal-400 truncate">by {rec.recommender?.name}</p>
@@ -932,7 +932,7 @@ export default function HuddleView({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <img
-                        src={track.cover}
+                        src={resolveMediaUrl(track.cover)}
                         alt={track.title}
                         className="w-10 h-10 rounded-xl object-cover shrink-0 shadow"
                       />
@@ -1073,7 +1073,7 @@ export default function HuddleView({
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <img src={t.cover} alt={t.title} className="w-8 h-8 rounded-lg object-cover" />
+                        <img src={resolveMediaUrl(t.cover)} alt={t.title} className="w-8 h-8 rounded-lg object-cover" />
                         <div>
                           <p className="font-bold text-white text-xs">{t.title}</p>
                           <p className="text-[10px] text-slate-400">{t.artist}</p>

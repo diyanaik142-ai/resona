@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Play, Music, Trash2, Radio, GripVertical } from 'lucide-react';
 import { Reorder, useDragControls } from 'framer-motion';
 
+import { resolveMediaUrl } from '../../services/api';
 function DraggableQueueItem({ t, idx, onPlayTrack, onClose, onRemoveFromQueue }) {
   const controls = useDragControls();
 
@@ -29,7 +30,7 @@ function DraggableQueueItem({ t, idx, onPlayTrack, onClose, onRemoveFromQueue })
         }}
       >
         <img
-          src={t.cover || t.artwork}
+          src={resolveMediaUrl(t.cover || t.artwork)}
           alt={t.title}
           className="w-10 h-10 rounded-xl object-cover shrink-0"
         />
@@ -121,7 +122,7 @@ export default function MobileQueueSheet({
               </span>
               <div className="flex items-center gap-3 p-3 rounded-2xl glass-card border border-teal-500/30 bg-teal-500/10">
                 <img
-                  src={currentTrack.cover}
+                  src={resolveMediaUrl(currentTrack.cover)}
                   alt={currentTrack.title}
                   className="w-12 h-12 rounded-xl object-cover shadow-md shrink-0"
                 />

@@ -20,7 +20,7 @@ import MaintenanceScreen from './components/MaintenanceScreen';
 import HuddleView from './components/HuddleView';
 import NotificationDrawer from './components/NotificationDrawer';
 import { joinHuddleRoom, leaveHuddleRoom, subscribeHuddleEvent, registerSocketUser } from './services/huddleSocket';
-import { api } from './services/api';
+import { resolveMediaUrl,  api } from './services/api';
 
 // Dedicated Mobile Experience (< 768px)
 import MobileHeader from './components/mobile/MobileHeader';
@@ -212,7 +212,7 @@ export default function App() {
   const handleAddToHuddleQueue = async (track) => {
     if (!track || !activeHuddle) return;
     try {
-      await api.huddle.addToQueue(activeHuddle.id, track.id);
+      await api.huddle.addToQueue(activeHuddle.id, { trackId: track.id });
       showToast(`Added to Huddle Queue — ${track.title}`);
       setMobileTrackAction(null);
     } catch (err) {
@@ -360,8 +360,7 @@ export default function App() {
     });
 
     const unsubEnded = subscribeHuddleEvent('huddle_ended', (updated) => {
-      setActiveHuddle(null);
-      setShowHuddleRoom(false);
+      setActiveHuddle(updated);
     });
 
     return () => {
@@ -529,7 +528,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="h-[100dvh] w-full bg-[#08090E] flex flex-col items-center justify-center space-y-4 select-none">
-        <img src="/branding/resona-icon.png" alt="Resona" className="w-16 h-16 object-contain drop-shadow-[0_10px_15px_rgba(45,212,191,0.2)] animate-pulse" />
+        <img src={`${window.location.origin}/branding/resona-icon.png`} alt="Resona" className="w-16 h-16 object-contain drop-shadow-[0_10px_15px_rgba(45,212,191,0.2)] animate-pulse" />
         <p className="text-xs font-bold text-teal-400 tracking-widest uppercase">Initializing Resona Studio...</p>
       </div>
     );
@@ -826,7 +825,7 @@ export default function App() {
         <header className="hidden md:flex fixed top-0 left-0 h-14 w-full glass-panel border-b border-white/5 px-6 items-center justify-between z-50 backdrop-blur-2xl bg-slate-950/80">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab('pulse')}>
-              <img src="/branding/resona-icon.png" alt="Resona" className="w-8 h-8 object-contain drop-shadow-[0_4px_6px_rgba(45,212,191,0.2)]" />
+              <img src={`${window.location.origin}/branding/resona-icon.png`} alt="Resona" className="w-8 h-8 object-contain drop-shadow-[0_4px_6px_rgba(45,212,191,0.2)]" />
               <span className="font-black text-base tracking-wider text-white">RESONA</span>
               <span className="text-[10px] text-teal-400 font-mono px-2 py-0.5 rounded-full bg-teal-500/10 border border-teal-500/20">
                 STUDIO PRO
@@ -1090,7 +1089,7 @@ export default function App() {
                 <div className="relative group cursor-pointer" onClick={() => currentTrack && setActiveTab('onair')}>
                   {currentTrack ? (
                     <img
-                      src={currentTrack.cover}
+                      src={resolveMediaUrl(currentTrack.cover)}
                       alt={currentTrack.title}
                       className="w-14 h-14 rounded-2xl object-cover shadow-xl border border-white/10 group-hover:scale-105 transition"
                     />
@@ -1202,10 +1201,10 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-3 min-w-[200px] justify-end">
-                {activeHuddle && (
+                {activeHuddle && activeHuddle.status === 'active' && (
                   <button
                     onClick={() => setShowHuddleRoom(true)}
-                    className="hidden xl:flex items-center gap-2 py-1 px-3 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-bold hover:bg-teal-500/25 transition shadow-sm"
+                    className="flex items-center gap-2 py-1 px-3 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-bold hover:bg-teal-500/25 transition shadow-sm"
                     title="Open active Huddle Queue"
                   >
                     <Radio className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
@@ -1266,7 +1265,10 @@ export default function App() {
               <HuddleView
                 huddleId={activeHuddle.id}
                 currentHuddle={activeHuddle}
-                onClose={() => setShowHuddleRoom(false)}
+                onClose={() => {
+                  setShowHuddleRoom(false);
+                  if (activeHuddle && activeHuddle.status === 'ended') setActiveHuddle(null);
+                }}
                 onPlayTrack={handlePlayTrack}
                 catalog={catalog}
                 user={user}
@@ -1317,7 +1319,7 @@ export default function App() {
         </main>
 
         {/* Mobile Mini Player (Immediately above bottom nav) */}
-        {(currentTrack || activeHuddle) && activeTab !== 'onair' && (
+        {(currentTrack || (activeHuddle && activeHuddle.status === 'active')) && activeTab !== 'onair' && (
           <MobileMiniPlayer
             currentTrack={currentTrack}
             isPlaying={isPlaying}
@@ -1356,7 +1358,10 @@ export default function App() {
               huddle={activeHuddle}
               user={user}
               catalog={catalog}
-              onClose={() => setShowHuddleRoom(false)}
+              onClose={() => {
+                setShowHuddleRoom(false);
+                if (activeHuddle && activeHuddle.status === 'ended') setActiveHuddle(null);
+              }}
               onPlayTrack={handlePlayTrack}
               onRefreshHuddle={fetchPlatformConfig}
             />

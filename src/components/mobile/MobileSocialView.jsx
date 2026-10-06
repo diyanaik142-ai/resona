@@ -75,7 +75,7 @@ export default function MobileSocialView({
   useEffect(() => {
     const loadFusions = async () => {
       try {
-        const res = await api.get('/social/fusions');
+        const res = await api.social.getFusions();
         if (res.fusions && setFusionsList) {
           setFusionsList(res.fusions);
         }
@@ -102,7 +102,7 @@ export default function MobileSocialView({
     }
     setIsSearchingUsers(true);
     try {
-      const res = await api.get(`/social/users/search?q=${encodeURIComponent(query)}`);
+      const res = await api.social.searchUsers(query);
       if (res.users) {
         setFusionSearchUsers(res.users);
       }
@@ -117,9 +117,7 @@ export default function MobileSocialView({
     if (!fusionSelectedUser) return;
     setIsCreatingFusion(true);
     try {
-      const res = await api.post('/social/fusions', {
-        participantIds: [user.id, fusionSelectedUser.id]
-      });
+      const res = await api.social.createFusion([user.id, fusionSelectedUser.id]);
       if (res.fusion) {
         if (setFusionsList) setFusionsList([res.fusion, ...fusionsList]);
         setShowCreateFusion(false);

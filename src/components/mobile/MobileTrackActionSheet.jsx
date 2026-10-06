@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, ListPlus, Radio, Heart, Share2, Plus, QrCode, X, Music } from 'lucide-react';
 
+import { resolveMediaUrl } from '../../services/api';
 export default function MobileTrackActionSheet({
   track,
   isOpen,
@@ -37,7 +38,7 @@ export default function MobileTrackActionSheet({
         <div className="flex items-center justify-between pb-3 border-b border-white/5">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <img
-              src={track.cover}
+              src={resolveMediaUrl(track.cover)}
               alt={track.title}
               className="w-12 h-12 rounded-xl object-cover border border-white/10 shadow-md shrink-0"
             />

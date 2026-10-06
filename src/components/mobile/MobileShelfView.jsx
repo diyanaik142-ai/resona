@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Library, Plus, Heart, Music, Disc, Folder, Search, Play } from 'lucide-react';
 import Avatar from '../Avatar';
 
+import { resolveMediaUrl } from '../../services/api';
 export default function MobileShelfView({
   shelf,
   catalog = [],
@@ -71,7 +72,7 @@ export default function MobileShelfView({
                 >
                   <div className="relative aspect-square w-full rounded-xl overflow-hidden mb-2 bg-slate-800 shadow-md">
                     {pl.cover ? (
-                      <img src={pl.cover} alt={pl.name} className="w-full h-full object-cover" />
+                      <img src={resolveMediaUrl(pl.cover)} alt={pl.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-slate-900 to-teal-950/40 text-teal-400">
                         <Disc className="w-8 h-8" />
@@ -122,7 +123,7 @@ export default function MobileShelfView({
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <img
-                      src={t.cover}
+                      src={resolveMediaUrl(t.cover)}
                       alt={t.title}
                       className="w-11 h-11 rounded-xl object-cover shrink-0 shadow-md group-hover:scale-105 transition"
                     />

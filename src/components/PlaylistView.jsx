@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Shuffle, Heart, MoreVertical, ListPlus, ChevronLeft, Disc } from 'lucide-react';
-import { api } from '../services/api';
+import { resolveMediaUrl,  api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function PlaylistView({ playlistId, onPlayTrack, onPlayPlaylist, isPlaying, currentTrack, onNavigate }) {
@@ -54,7 +54,7 @@ export default function PlaylistView({ playlistId, onPlayTrack, onPlayPlaylist, 
       <div className="flex flex-col md:flex-row gap-8 items-center md:items-end">
         <div className="w-48 h-48 md:w-64 md:h-64 shrink-0 rounded-2xl shadow-2xl overflow-hidden bg-slate-800">
           {playlist.coverUrl ? (
-            <img src={playlist.coverUrl} alt={playlist.name} className="w-full h-full object-cover" />
+            <img src={resolveMediaUrl(playlist.coverUrl)} alt={playlist.name} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-teal-500/10">
               <Disc className="w-16 h-16 text-teal-500/50" />
@@ -116,7 +116,7 @@ export default function PlaylistView({ playlistId, onPlayTrack, onPlayPlaylist, 
                   {isPlayingThis ? <Play className="w-4 h-4 text-teal-400 inline fill-current" /> : (idx + 1)}
                 </div>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <img src={track.cover} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
+                  <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className={`font-bold text-sm truncate ${isPlayingThis ? 'text-teal-400' : 'text-white'}`}>{track.title}</p>
                     <p className="text-xs text-slate-400 truncate">{track.artist}</p>

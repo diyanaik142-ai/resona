@@ -79,7 +79,7 @@ function logHuddleEvent(huddle, { text, type, userId, userName, trackTitle }) {
     id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     timestamp: now.toISOString(),
     timeStr,
-    text: `${timeStr} — ${text}`,
+    text,
     type: type || 'general',
     userId: userId || null,
     userName: userName || null,

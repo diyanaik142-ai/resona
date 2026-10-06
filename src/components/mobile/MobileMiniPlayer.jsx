@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Pause, Heart, Music, Radio } from 'lucide-react';
 
+import { resolveMediaUrl } from '../../services/api';
 export default function MobileMiniPlayer({
   currentTrack,
   isPlaying,
@@ -25,7 +26,7 @@ export default function MobileMiniPlayer({
         <div className={`relative w-11 h-11 rounded-xl overflow-hidden shadow-md shrink-0 border border-white/10 ${activeHuddle && !currentTrack ? 'bg-teal-500/20' : 'bg-slate-900'} flex items-center justify-center`}>
           {currentTrack?.cover ? (
             <img
-              src={currentTrack.cover}
+              src={resolveMediaUrl(currentTrack.cover)}
               alt={currentTrack.title}
               className="w-full h-full object-cover group-hover:scale-105 transition"
             />

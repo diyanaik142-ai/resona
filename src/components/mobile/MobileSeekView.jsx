@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, MoreVertical, Play, Sparkles, Music, Disc } from 'lucide-react';
-import { api } from '../../services/api';
+import { resolveMediaUrl,  api } from '../../services/api';
 import Avatar from '../Avatar';
 
 export default function MobileSeekView({
@@ -129,7 +129,7 @@ export default function MobileSeekView({
               >
                 <div className="w-32 h-32 rounded-2xl overflow-hidden bg-slate-800 relative shadow-lg border border-white/5">
                   {pl.coverUrl ? (
-                    <img src={pl.coverUrl} alt={pl.name} className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(pl.coverUrl)} alt={pl.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-teal-500/10">
                       <Disc className="w-8 h-8 text-teal-500/50" />
@@ -210,7 +210,7 @@ export default function MobileSeekView({
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 shadow-md">
                         <img
-                          src={t.cover}
+                          src={resolveMediaUrl(t.cover)}
                           alt={t.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition"
                         />

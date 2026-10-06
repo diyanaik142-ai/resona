@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Heart, Radio, Download, Clock, UploadCloud, ChevronRight, Plus, Music, Trash2, X, FolderLock, Play } from 'lucide-react';
 
+import { resolveMediaUrl } from '../services/api';
 export default function ShelfView({ onPlayTrack, onNavigate }) {
   const { shelf, creatorData, createPlaylist, deletePlaylist, user , catalog} = useAuth();
   const [activeTab, setActiveTab] = useState('Playlists');
@@ -224,7 +225,7 @@ export default function ShelfView({ onPlayTrack, onNavigate }) {
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-xs font-mono text-slate-500 w-4">{idx + 1}</span>
-                    <img src={track.cover} alt={track.title} className="w-11 h-11 rounded-xl object-cover" />
+                    <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-11 h-11 rounded-xl object-cover" />
                     <div>
                       <h4 className="font-bold text-white text-xs group-hover:text-teal-300">{track.title}</h4>
                       <p className="text-[11px] text-slate-400">{track.artist}</p>

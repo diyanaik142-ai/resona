@@ -4,7 +4,7 @@ import {
   Vote, Music, Plus, Play, Pause, Trash2, ArrowUp, ArrowDown,
   Smile, UserPlus, Shield, ChevronDown
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { resolveMediaUrl,  api } from '../../services/api';
 import Avatar from '../Avatar';
 
 const EMOJI_LIST = ['🔥', '✨', '🎧', '🙌', '💜', '⚡', '🎉', '👏', '🎶', '🌊', '🚀', '💯'];
@@ -240,7 +240,7 @@ export default function MobileHuddleView({
                       {ev.userName}
                     </span>
                     <div
-                      className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs font-medium leading-relaxed ${
+                      className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] font-medium leading-snug ${
                         isMe
                           ? 'bg-teal-500 text-slate-950 font-semibold rounded-br-sm'
                           : 'bg-slate-800 text-slate-100 rounded-bl-sm border border-white/5'
@@ -299,7 +299,7 @@ export default function MobileHuddleView({
           {/* Chat Composer */}
           <form
             onSubmit={handleSendMessage}
-            className="p-3 border-t border-white/10 bg-slate-950/95 backdrop-blur-2xl flex items-center gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
+            className="pl-3 pr-4 py-3 border-t border-white/10 bg-slate-950/95 backdrop-blur-2xl flex items-center gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] w-full overflow-hidden"
           >
             <button
               type="button"
@@ -346,7 +346,7 @@ export default function MobileHuddleView({
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider">Now Playing</span>
               <div className="flex items-center gap-3 p-3 rounded-2xl glass-card border border-teal-500/30 bg-teal-500/10">
-                <img src={nowPlaying.artwork} alt={nowPlaying.title} className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-md" />
+                <img src={resolveMediaUrl(nowPlaying.artwork)} alt={nowPlaying.title} className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-md" />
                 <div className="min-w-0 flex-1">
                   <h4 className="font-bold text-white text-sm truncate">{nowPlaying.title}</h4>
                   <p className="text-xs text-teal-300 truncate mt-0.5">{nowPlaying.artist}</p>
@@ -366,7 +366,7 @@ export default function MobileHuddleView({
                 <div key={t.queueId || t.queueItemId || idx} className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="text-xs font-mono text-slate-500 w-4 text-center shrink-0">{String(idx + 1).padStart(2, '0')}</span>
-                    <img src={t.cover || t.artwork} alt={t.title} className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                    <img src={resolveMediaUrl(t.cover || t.artwork)} alt={t.title} className="w-10 h-10 rounded-xl object-cover shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-white text-xs truncate">{t.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -388,7 +388,7 @@ export default function MobileHuddleView({
         <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center justify-center space-y-4 pb-20">
           <div className="w-48 h-48 rounded-3xl overflow-hidden glass-panel border border-white/15 shadow-2xl">
             <img
-              src={nowPlaying?.artwork || (catalog[0]?.cover)}
+              src={resolveMediaUrl(nowPlaying?.artwork || (catalog[0]?.cover))}
               alt="Track Artwork"
               className="w-full h-full object-cover"
             />
@@ -467,7 +467,7 @@ export default function MobileHuddleView({
                     className="flex items-center justify-between p-2 rounded-xl glass-card hover:bg-white/10 cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <img src={t.cover} alt={t.title} className="w-10 h-10 rounded-lg object-cover" />
+                      <img src={resolveMediaUrl(t.cover)} alt={t.title} className="w-10 h-10 rounded-lg object-cover" />
                       <div className="min-w-0">
                         <p className="font-bold text-white text-xs truncate">{t.title}</p>
                         <p className="text-[10px] text-slate-400 truncate">{t.artist}</p>

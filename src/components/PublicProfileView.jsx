@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, UserPlus, Check, ChevronLeft, MapPin } from 'lucide-react';
-import { getAuthHeaders, getApiBaseUrl } from '../services/api';
+import { resolveMediaUrl,  getAuthHeaders, getApiBaseUrl } from '../services/api';
 import Avatar from './Avatar';
 import { useAuth } from '../context/AuthContext';
 
@@ -117,7 +117,7 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
               {profile.tracks.map((track) => (
                 <div key={track.id} onClick={() => onPlayTrack(track)} className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer group">
                   <div className="flex items-center gap-3">
-                    <img src={track.cover} alt={track.title} className="w-12 h-12 rounded-xl object-cover" />
+                    <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-12 h-12 rounded-xl object-cover" />
                     <div>
                       <h4 className="text-sm font-bold text-white group-hover:text-teal-300">{track.title}</h4>
                       <p className="text-xs text-slate-400">{track.artist}</p>
