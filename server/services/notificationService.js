@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db, getAdminMessaging } from '../firebaseAdmin.js';
-import { getAccountData } from '../db/index.js';
+import { getAccountData } from '../db/storage.js';
 
 export async function registerFcmToken(userId, token) {
   try {
