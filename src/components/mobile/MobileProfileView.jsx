@@ -10,7 +10,7 @@ import ImageCropModal from '../ImageCropModal';
 import Avatar from '../Avatar';
 
 export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }) {
-  const { user, logout, updateProfile, creatorData } = useAuth();
+  const { user, logout, updateProfile, refreshAccountData, creatorData } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: user?.name || '', uid: user?.uid || user?.handle || '' });
   const [phone, setPhone] = useState(user?.phone || '');
@@ -160,8 +160,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
                   try {
                     await api.user.removeProfilePicture();
                     setUidMessage('Profile picture removed'); setUidState('success');
-                    const me = await api.auth.getMe();
-                    if (me.user) updateProfile(me.user);
+                    await refreshAccountData();
                   } catch (err) { setUidMessage(err.message); setUidState('error'); }
                 }} className="text-xs text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-lg bg-rose-500/10">Remove</button>}
               </div>
@@ -343,8 +342,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
               await api.user.uploadProfilePicture(croppedFile);
               setUidMessage('Profile picture updated');
               setUidState('success');
-              const me = await api.auth.getMe();
-              if (me.user) updateProfile(me.user);
+              await refreshAccountData();
             } catch (err) {
               setUidMessage(err.message);
               setUidState('error');
