@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api, resolveMediaUrl } from '../../services/api';
 import PlanBadge from '../PlanBadge';
 import ImageCropModal from '../ImageCropModal';
+import Avatar from '../Avatar';
 
 export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }) {
   const { user, logout, updateProfile, creatorData } = useAuth();
@@ -101,17 +102,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
 
         <div className="flex items-center gap-4 relative z-10">
           <div className="w-16 h-16 rounded-full border-2 border-teal-400 overflow-hidden bg-slate-800 shadow-xl shadow-teal-500/20 shrink-0">
-            {user?.avatar || user?.photoURL ? (
-              <img
-                src={resolveMediaUrl(user.avatar || user.photoURL)}
-                alt="Profile Avatar"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-teal-300 text-xl font-black bg-slate-900">
-                {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-              </div>
-            )}
+            <Avatar user={user} className="w-full h-full" />
           </div>
 
           <div className="min-w-0 flex-1">
@@ -153,7 +144,7 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
         {isEditing && (
           <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/50 p-3 space-y-3">
             <div className="flex gap-4 items-center">
-              {user?.avatar ? <img src={resolveMediaUrl(user.avatar)} className="w-16 h-16 rounded-full object-cover shrink-0 border border-white/20" /> : <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0 flex items-center justify-center"><User className="w-6 h-6 text-slate-400" /></div>}
+              <Avatar user={user} className="w-16 h-16 rounded-full border border-white/20 shrink-0" />
               <div className="flex flex-col gap-2">
                 <label className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg cursor-pointer text-center text-white transition">
                   Change Picture

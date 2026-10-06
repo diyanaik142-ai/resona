@@ -3,13 +3,24 @@ export function getApiBaseUrl() {
     return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined' && window.location) {
-    if (window.location.protocol === 'capacitor:' || window.location.origin === 'null') {
+    const isCapacitor = window.location.protocol === 'capacitor:' || 
+                        window.location.origin === 'null' || 
+                        window.location.origin === 'http://localhost' || 
+                        window.location.origin.includes('capacitor');
+                        
+    if (isCapacitor) {
       if (import.meta.env?.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+      return 'https://resona.anchorlyhms.com';
+    }
+    
+    // For local web development (e.g. Vite on localhost:5173)
+    if (window.location.hostname === 'localhost') {
       return 'http://localhost:8080';
     }
+    
     return window.location.origin.replace(/\/+$/, '');
   }
-  return 'http://localhost:8080';
+  return 'https://resona.anchorlyhms.com';
 }
 
 export function resolveMediaUrl(url) {
@@ -230,7 +241,12 @@ export const api = {
       const res = await fetch(`${getApiBaseUrl()}/api/user/profile`, { headers });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Failed to fetch profile');
-      return json;
+      return {
+         ...json,
+         photo: resolveMediaUrl(json.photo),
+         avatar: resolveMediaUrl(json.avatar),
+         profileImage: resolveMediaUrl(json.profileImage)
+      };
     },
     getEntitlements: async () => {
       const headers = await getAuthHeaders();
@@ -918,7 +934,19 @@ export const api = {
     query: async (q) => {
       const res = await fetch(`${getApiBaseUrl()}/api/search?q=${encodeURIComponent(q)}`);
       if (!res.ok) throw new Error('Search failed');
-      return res.json();
+      const data = await res.json();
+      return {
+        ...data,
+        songs: (data.songs || []).map(t => ({
+          ...t,
+          audioUrl: resolveMediaUrl(t.audioUrl),
+          cover: resolveMediaUrl(t.cover)
+        })),
+        accounts: (data.accounts || []).map(a => ({
+          ...a,
+          avatar: resolveMediaUrl(a.avatar)
+        }))
+      };
     },
     suggestions: async (q) => {
       const res = await fetch(`${getApiBaseUrl()}/api/search/suggestions?q=${encodeURIComponent(q)}`);
@@ -933,12 +961,25 @@ export const api = {
     getGenre: async (id) => {
       const res = await fetch(`${getApiBaseUrl()}/api/search/genres/${encodeURIComponent(id)}`);
       if (!res.ok) throw new Error('Failed to fetch genre');
-      return res.json();
+      const data = await res.json();
+      return {
+        ...data,
+        tracks: (data.tracks || []).map(t => ({
+           ...t,
+           audioUrl: resolveMediaUrl(t.audioUrl),
+           cover: resolveMediaUrl(t.cover)
+        }))
+      };
     },
     getTrending: async () => {
       const res = await fetch(`${getApiBaseUrl()}/api/search/trending`);
       if (!res.ok) throw new Error('Failed to fetch trending');
-      return res.json();
+      const tracks = await res.json();
+      return (tracks || []).map(t => ({
+           ...t,
+           audioUrl: resolveMediaUrl(t.audioUrl),
+           cover: resolveMediaUrl(t.cover)
+      }));
     }
   },
 

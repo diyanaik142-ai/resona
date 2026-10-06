@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, MoreVertical, Play, Sparkles, Music, Disc } from 'lucide-react';
 import { api } from '../../services/api';
+import Avatar from '../Avatar';
 
 export default function MobileSeekView({
   catalog = [],
@@ -138,7 +139,7 @@ export default function MobileSeekView({
                   className="p-3 rounded-2xl glass-card border border-white/5 hover:border-teal-500/30 flex items-center justify-between cursor-pointer active:scale-[0.99]"
                 >
                   <div className="flex items-center gap-3">
-                    <img src={account.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.handle}`} alt={account.name} className="w-10 h-10 rounded-full object-cover" />
+                    <Avatar user={account} className="w-10 h-10 rounded-full" />
                     <div>
                       <h4 className="text-sm font-bold text-white">{account.name}</h4>
                       <p className="text-xs text-teal-400">@{account.handle}</p>

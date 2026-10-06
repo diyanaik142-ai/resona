@@ -211,17 +211,7 @@ export default function MobileSocialView({
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 shadow-md border border-white/10 bg-slate-800">
-                        {f.avatar || f.photoURL ? (
-                          <img
-                            src={resolveMediaUrl(f.avatar || f.photoURL)}
-                            alt={f.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center font-black text-teal-300 text-sm bg-slate-900">
-                            {f.name?.charAt(0) || 'U'}
-                          </div>
-                        )}
+                        <Avatar user={{ avatar: f.avatar || f.photoURL, name: f.name }} className="w-full h-full" />
                         <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-teal-400 border-2 border-slate-950" />
                       </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Play, Mic, Music, Disc } from 'lucide-react';
 import { api } from '../services/api';
+import Avatar from './Avatar';
 
 export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, setQuery: propSetQuery }) {
   const [internalQuery, setInternalQuery] = useState('');
@@ -172,7 +173,7 @@ export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, se
                       className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <img src={account.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.handle}`} alt={account.name} className="w-10 h-10 rounded-full object-cover" />
+                        <Avatar user={account} className="w-10 h-10 rounded-full" />
                         <div>
                           <h4 className="text-xs font-bold text-white">{account.name}</h4>
                           <p className="text-[11px] text-teal-400">@{account.handle}</p>

@@ -261,7 +261,7 @@ export default function SettingsView({ onNavigate }) {
                 <div className="p-4 rounded-2xl glass-card border border-white/10 space-y-3">
                   {profileLoadError && <div role="alert" className="text-xs text-rose-300">{profileLoadError} <button className="underline" onClick={() => refreshAccountData().catch(err => setProfileLoadError(err.message || 'Could not load profile'))}>Retry</button></div>}
                   <div className="flex items-center gap-3 min-w-0">
-                    {user?.avatar ? <img src={resolveMediaUrl(user.avatar)} alt="Avatar" className="w-12 h-12 rounded-full border-2 border-teal-400 object-cover shrink-0" /> : <div className="w-12 h-12 rounded-full border-2 border-teal-400 bg-slate-800 shrink-0 flex items-center justify-center text-teal-300"><User className="w-5 h-5" /></div>}
+                    <Avatar user={user} className="w-12 h-12 rounded-full border-2 border-teal-400 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-white text-sm truncate">{user?.name || 'Name not provided'}</h3>
                       <p className="text-xs text-slate-400 truncate">{user?.uid || user?.handle ? `@${(user.uid || user.handle).toString().replace(/^@+/, '')}` : 'UID not added'}</p>
@@ -270,7 +270,7 @@ export default function SettingsView({ onNavigate }) {
                   </div>
                   {user?.id && editingProfile && <div className="max-h-[65vh] overflow-y-auto mt-3 p-3 rounded-2xl bg-slate-950/60 border border-white/10 space-y-3">
                     <div className="flex gap-4 items-center mb-4">
-                      {user?.avatar ? <img src={resolveMediaUrl(user.avatar)} className="w-16 h-16 rounded-full object-cover shrink-0 border border-white/20" /> : <div className="w-16 h-16 rounded-full bg-slate-800 shrink-0 flex items-center justify-center"><User className="w-6 h-6 text-slate-400" /></div>}
+                      <Avatar user={user} className="w-16 h-16 rounded-full border border-white/20 shrink-0" />
                       <div className="flex flex-col gap-2">
                         <label className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg cursor-pointer text-center text-white transition">
                           Change Picture
