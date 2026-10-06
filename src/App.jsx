@@ -83,8 +83,27 @@ export default function App() {
   };
 
   const [activeTab, setActiveTabState] = useState(getInitialTab);
+  const tabHistoryRef = useRef([getInitialTab()]);
 
   const setActiveTab = (tab, pushHistory = true) => {
+    if (tab === 'BACK') {
+      if (tabHistoryRef.current.length > 1) {
+        tabHistoryRef.current.pop();
+        const prevTab = tabHistoryRef.current[tabHistoryRef.current.length - 1];
+        setActiveTabState(prevTab);
+        if (typeof window !== 'undefined' && window.history) {
+           window.history.back(); // let the browser popstate handle it visually if we want, or just let popstate be a fallback
+        }
+      } else {
+        setActiveTabState('pulse');
+      }
+      return;
+    }
+
+    if (tabHistoryRef.current[tabHistoryRef.current.length - 1] !== tab) {
+      tabHistoryRef.current.push(tab);
+    }
+    
     setActiveTabState(tab);
     if (pushHistory && typeof window !== 'undefined' && window.history) {
       const newPath = tab === 'pulse' ? '/' : `/${tab}`;
@@ -165,8 +184,7 @@ export default function App() {
 
   const handleAddToQueue = (track) => {
     if (!track) return;
-    const currentQueue = playQueue.length > 0 ? playQueue : catalog;
-    const isDuplicate = currentQueue.some(t => t.id === track.id);
+    const isDuplicate = playQueue.some(t => t.id === track.id);
     
     if (isDuplicate) {
       showToast("Already in queue");
@@ -174,7 +192,7 @@ export default function App() {
     }
     
     try {
-      setPlayQueue([...currentQueue, track]);
+      setPlayQueue(prev => [...prev, track]);
       showToast(`Added to queue — ${track.title}`);
     } catch (err) {
       showToast("Couldn't add to queue");
@@ -182,8 +200,7 @@ export default function App() {
   };
 
   const handleRemoveFromQueue = (trackId) => {
-    const currentQueue = playQueue.length > 0 ? playQueue : catalog;
-    setPlayQueue(currentQueue.filter(t => t.id !== trackId));
+    setPlayQueue(prev => prev.filter(t => t.id !== trackId));
   };
 
   const audioRef = useRef(null);
@@ -351,26 +368,29 @@ export default function App() {
 
   // Next Track
   const handleNextTrack = (reason = 'skip') => {
-    const queueToUse = playQueue.length > 0 ? playQueue : catalog;
-    if (queueToUse.length === 0) return;
     if (reason === 'skip' && currentTrack?.id && isPlaying) {
       const completedRatio = duration ? Math.min(1, currentTime / duration) : 0;
       recordActivity({ trackId: currentTrack.id, type: 'SKIP', position: currentTime, duration, completedRatio });
     }
-    const idx = queueToUse.findIndex((t) => t.id === currentTrack?.id);
-    let nextIdx;
-    if (isShuffle || idx === -1) {
-      nextIdx = Math.floor(Math.random() * queueToUse.length);
+    if (playQueue.length > 0) {
+      const nextTrack = playQueue[0];
+      setPlayQueue(prev => prev.slice(1));
+      handlePlayTrack(nextTrack);
     } else {
-      nextIdx = (idx + 1) % queueToUse.length;
+      if (catalog.length === 0) return;
+      const idx = catalog.findIndex((t) => t.id === currentTrack?.id);
+      let nextIdx;
+      if (isShuffle || idx === -1) {
+        nextIdx = Math.floor(Math.random() * catalog.length);
+      } else {
+        nextIdx = (idx + 1) % catalog.length;
+      }
+      handlePlayTrack(catalog[nextIdx]);
     }
-    handlePlayTrack(queueToUse[nextIdx]);
   };
 
   // Previous Track
   const handlePrevTrack = () => {
-    const queueToUse = playQueue.length > 0 ? playQueue : catalog;
-    if (queueToUse.length === 0) return;
     if (currentTime > 3) {
       if (audioRef.current) audioRef.current.currentTime = 0;
       setCurrentTime(0);
@@ -380,10 +400,11 @@ export default function App() {
       const completedRatio = duration ? Math.min(1, currentTime / duration) : 0;
       recordActivity({ trackId: currentTrack.id, type: 'SKIP', position: currentTime, duration, completedRatio });
     }
-    const idx = queueToUse.findIndex((t) => t.id === currentTrack?.id);
+    if (catalog.length === 0) return;
+    const idx = catalog.findIndex((t) => t.id === currentTrack?.id);
     if (idx === -1) return;
-    const prevIdx = (idx - 1 + queueToUse.length) % queueToUse.length;
-    handlePlayTrack(queueToUse[prevIdx]);
+    const prevIdx = (idx - 1 + catalog.length) % catalog.length;
+    handlePlayTrack(catalog[prevIdx]);
   };
 
   // Audio Time Update Event
@@ -633,6 +654,7 @@ export default function App() {
             activeHuddle={activeHuddle}
             onOpenHuddle={() => setShowHuddleRoom(true)}
             onToast={showToast}
+            playQueue={playQueue}
           />
         );
       case 'social':

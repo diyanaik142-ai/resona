@@ -23,7 +23,9 @@ export default function MobileOnAirView({
   isLoop,
   onToggleLoop,
   catalog = [],
-  onToast
+  onToast,
+  onNavigate,
+  playQueue = []
 }) {
   const [showQueue, setShowQueue] = useState(false);
   const [showBeatCode, setShowBeatCode] = useState(false);
@@ -64,10 +66,10 @@ export default function MobileOnAirView({
         <button
           onClick={() => {
             if (onClose) return onClose();
-            if (window.history.length > 2) {
+            if (onNavigate) {
+              onNavigate('BACK');
+            } else {
               window.history.back();
-            } else if (onNavigate) {
-              onNavigate('pulse');
             }
           }}
           className="w-10 h-10 rounded-full glass-card border border-white/10 flex items-center justify-center text-slate-300 hover:text-white active:scale-90 transition"
@@ -215,7 +217,7 @@ export default function MobileOnAirView({
         isOpen={showQueue}
         onClose={() => setShowQueue(false)}
         currentTrack={currentTrack}
-        queue={catalog.filter(t => t.id !== currentTrack?.id)}
+        queue={playQueue}
         onPlayTrack={onSeek ? (t) => onSeek(0) : undefined}
       />
 
