@@ -1,6 +1,7 @@
 import express from 'express';
 import { getGlobalData } from '../db/storage.js';
 import { CATALOG_FILE } from '../config.js';
+import { getAllRealUsers } from '../services/userService.js';
 
 const router = express.Router();
 
@@ -21,10 +22,36 @@ router.get('/', async (req, res) => {
   const catalog = await getFullCatalog();
   
   if (!q || !q.trim()) {
-    return res.json({ songs: [], artists: [], albums: [], playlists: [] });
+    return res.json({ songs: [], artists: [], albums: [], playlists: [], accounts: [] });
   }
 
   const query = q.toLowerCase().trim().replace(/\s+/g, ' ');
+  const exactQuery = q.toLowerCase().trim();
+
+  // Search accounts
+  const users = await getAllRealUsers();
+  const matchUsers = users.filter(u => {
+    if (!u) return false;
+    const nameMatch = u.name?.toLowerCase().includes(query);
+    const uidMatch = u.uid?.toLowerCase().includes(exactQuery);
+    const handleMatch = u.handle?.toLowerCase().includes(exactQuery);
+    return nameMatch || uidMatch || handleMatch;
+  });
+
+  // Sort users
+  matchUsers.sort((a, b) => {
+    const aUidExact = (a.uid?.toLowerCase() === exactQuery) || (a.handle?.toLowerCase() === exactQuery);
+    const bUidExact = (b.uid?.toLowerCase() === exactQuery) || (b.handle?.toLowerCase() === exactQuery);
+    if (aUidExact && !bUidExact) return -1;
+    if (!aUidExact && bUidExact) return 1;
+
+    const aNameExact = a.name?.toLowerCase() === query;
+    const bNameExact = b.name?.toLowerCase() === query;
+    if (aNameExact && !bNameExact) return -1;
+    if (!aNameExact && bNameExact) return 1;
+
+    return 0;
+  });
 
   // Simple search logic
   const songs = catalog.filter(t => 
@@ -56,7 +83,8 @@ router.get('/', async (req, res) => {
     songs,
     artists: Array.from(artistsMap.values()),
     albums: Array.from(albumsMap.values()),
-    playlists: []
+    playlists: [],
+    accounts: matchUsers
   });
 });
 

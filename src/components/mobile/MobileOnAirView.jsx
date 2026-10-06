@@ -22,10 +22,12 @@ export default function MobileOnAirView({
   onToggleShuffle,
   isLoop,
   onToggleLoop,
-  catalog = [],
   onToast,
   onNavigate,
-  playQueue = []
+  playQueue = [],
+  onRemoveFromQueue,
+  onClearQueue,
+  onMoveInQueue
 }) {
   const [showQueue, setShowQueue] = useState(false);
   const [showBeatCode, setShowBeatCode] = useState(false);
@@ -219,6 +221,9 @@ export default function MobileOnAirView({
         currentTrack={currentTrack}
         queue={playQueue}
         onPlayTrack={onSeek ? (t) => onSeek(0) : undefined}
+        onRemoveFromQueue={onRemoveFromQueue}
+        onClearQueue={onClearQueue}
+        onMoveInQueue={onMoveInQueue}
       />
 
       {/* Beat Code Modal */}

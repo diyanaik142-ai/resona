@@ -30,12 +30,12 @@ export default function MobileShelfView({
   return (
     <div className="space-y-4 pb-6 pt-2 px-4">
       {/* Segmented Navigation Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar touch-pan-y overscroll-x-contain">
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain">
         {['Playlists', 'Liked Songs', 'Artists'].map((seg) => (
           <button
             key={seg}
             onClick={() => setActiveSegment(seg)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition active:scale-95 ${
+            className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition active:scale-95 ${
               activeSegment === seg
                 ? 'bg-teal-400 text-slate-950 shadow-md shadow-teal-500/20'
                 : 'glass-card text-slate-300 hover:bg-white/10 border border-white/5'

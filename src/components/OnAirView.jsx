@@ -2,9 +2,9 @@ import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
 import BeatCodeQR from './BeatCodeQR';
 import { api } from '../services/api';
-import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
-export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, duration = 0, onTogglePlay, onNext, onPrev, onSeek, onNavigate, activeHuddle, setShowHuddleRoom }) {
+export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, duration = 0, onTogglePlay, onNext, onPrev, onSeek, onNavigate, activeHuddle, setShowHuddleRoom, playQueue = [], onRemoveFromQueue, onClearQueue, onMoveInQueue, onPlayTrack }) {
   const { user, catalog } = useAuth();
   const track = currentTrack || (catalog.length > 0 ? catalog[0] : null);
   if (!track) return <div className="p-8 text-center text-slate-400 mt-20">No track playing</div>;
@@ -514,19 +514,56 @@ export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, du
               </>
             ) : (
               <>
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Playing next from Tuned For You</span>
-                {catalog.slice(1, 4).map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5">
-                    <div className="flex items-center gap-2">
-                      <img src={t.cover} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
-                      <div>
-                        <p className="font-bold text-white text-xs">{t.title}</p>
-                        <p className="text-[10px] text-slate-400">{t.artist}</p>
+                <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-2">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Up Next Queue ({playQueue.length})</span>
+                  {onClearQueue && playQueue.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to clear the upcoming queue?")) {
+                          onClearQueue();
+                        }
+                      }}
+                      className="px-2 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30 rounded bg-rose-500/10 hover:bg-rose-500/20 uppercase tracking-wider"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {playQueue.length > 0 ? (
+                  playQueue.map((t, idx) => (
+                    <div key={`q_${t.queueItemId || t.id}_${idx}`} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 group">
+                      <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => { if(onPlayTrack) onPlayTrack(t); }}>
+                        <span className="text-[10px] font-mono text-slate-500 w-4 group-hover:text-teal-300">{String(idx + 1).padStart(2, '0')}</span>
+                        <img src={t.cover || t.artwork} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">{t.title}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{t.artist}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                        {onMoveInQueue && idx > 0 && (
+                          <button onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx - 1); }} className="p-1 text-slate-400 hover:text-white" title="Move Up">
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                        )}
+                        {onMoveInQueue && idx < playQueue.length - 1 && (
+                          <button onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx + 1); }} className="p-1 text-slate-400 hover:text-white" title="Move Down">
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                        )}
+                        {onRemoveFromQueue && (
+                          <button onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(t.queueItemId || t.id); }} className="p-1 text-slate-400 hover:text-rose-400" title="Remove">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <span className="text-[10px] text-slate-500">{t.duration}</span>
+                  ))
+                ) : (
+                  <div className="py-4 text-center">
+                    <p className="text-xs text-slate-400">No tracks in queue.</p>
                   </div>
-                ))}
+                )}
               </>
             )}
           </div>

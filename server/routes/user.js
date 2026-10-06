@@ -1,9 +1,9 @@
 import express from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { formatUid, findUserByUid, getResonaProfile } from '../services/userService.js';
 import { getAccountData, saveAccountData, normalizeUid, findAccountById, addGlobalItem } from '../db/storage.js';
 import { getGlobalData, saveGlobalData, getAllProfiles } from '../db/storage.js';
-import { PLAN_CHANGE_REQUESTS_FILE, AUDIT_FILE } from '../config.js';
+import { PLAN_CHANGE_REQUESTS_FILE, AUDIT_FILE, CATALOG_FILE } from '../config.js';
 import { randomUUID } from 'node:crypto';
 import { normalizePlanId, planName } from '../services/userService.js';
 import { PLANS_FILE, OVERRIDES_FILE } from '../config.js';
@@ -64,6 +64,48 @@ const validateUidInput = (candidate) => {
   }
   return { valid: true, uid };
 };
+
+router.get('/profile/:handle', optionalAuth, async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const user = await findUserByUid(handle);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const profile = serializeProfile(user);
+    
+    const targetUserProfile = (await getAccountData(user.id, 'profile.json')) || {};
+    const followers = Array.isArray(targetUserProfile.followers) ? targetUserProfile.followers : [];
+    const following = Array.isArray(targetUserProfile.following) ? targetUserProfile.following : [];
+    
+    let isFollowing = false;
+    if (req.user && req.user.id) {
+      isFollowing = followers.includes(req.user.id);
+    }
+
+    // Fetch uploaded tracks
+    const catalog = await getGlobalData(CATALOG_FILE) || [];
+    const tracks = catalog.filter(t => t.uploaderId === user.id && (!t.status || t.status === 'Published'));
+    
+    // Privacy check for follower-only tracks can be done here if needed.
+    // For now we just return public ones.
+    const publicTracks = tracks.filter(t => {
+      if (t.privacy === 'private') return false;
+      if (t.privacy === 'follower-only' && !isFollowing && (!req.user || req.user.id !== user.id)) return false;
+      return true;
+    });
+
+    return res.json({ 
+      ...profile, 
+      tracks: publicTracks,
+      followersCount: followers.length,
+      followingCount: following.length,
+      isFollowing
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 // All routes here require authentication
 router.use(requireAuth);
@@ -365,6 +407,65 @@ router.delete('/sessions/others', async (req, res) => {
     }
     await saveAccountData(req.user.id, 'sessions.json', sessions);
     return res.json({ message: 'Signed out of all other devices', sessions });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/user/profile/:handle/follow
+ */
+router.post('/profile/:handle/follow', async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const targetUser = await findUserByUid(handle);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+    if (targetUser.id === req.user.id) return res.status(400).json({ error: 'Cannot follow yourself' });
+
+    const currentUserProfile = (await getAccountData(req.user.id, 'profile.json')) || {};
+    const targetUserProfile = (await getAccountData(targetUser.id, 'profile.json')) || {};
+
+    const following = Array.isArray(currentUserProfile.following) ? currentUserProfile.following : [];
+    const followers = Array.isArray(targetUserProfile.followers) ? targetUserProfile.followers : [];
+
+    if (!following.includes(targetUser.id)) {
+      following.push(targetUser.id);
+      await saveAccountData(req.user.id, 'profile.json', { ...currentUserProfile, following });
+    }
+    
+    if (!followers.includes(req.user.id)) {
+      followers.push(req.user.id);
+      await saveAccountData(targetUser.id, 'profile.json', { ...targetUserProfile, followers });
+    }
+
+    return res.json({ message: 'Followed user' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/user/profile/:handle/follow
+ */
+router.delete('/profile/:handle/follow', async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const targetUser = await findUserByUid(handle);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const currentUserProfile = (await getAccountData(req.user.id, 'profile.json')) || {};
+    const targetUserProfile = (await getAccountData(targetUser.id, 'profile.json')) || {};
+
+    const following = Array.isArray(currentUserProfile.following) ? currentUserProfile.following : [];
+    const followers = Array.isArray(targetUserProfile.followers) ? targetUserProfile.followers : [];
+
+    const newFollowing = following.filter(id => id !== targetUser.id);
+    const newFollowers = followers.filter(id => id !== req.user.id);
+
+    await saveAccountData(req.user.id, 'profile.json', { ...currentUserProfile, following: newFollowing });
+    await saveAccountData(targetUser.id, 'profile.json', { ...targetUserProfile, followers: newFollowers });
+
+    return res.json({ message: 'Unfollowed user' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

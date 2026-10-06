@@ -8,8 +8,8 @@ export default function MobileQueueSheet({
   queue = [],
   onPlayTrack,
   onRemoveFromQueue,
-  onMoveUp,
-  onMoveDown
+  onClearQueue,
+  onMoveInQueue
 }) {
   if (!isOpen) return null;
 
@@ -32,12 +32,26 @@ export default function MobileQueueSheet({
             <Radio className="w-4 h-4 text-teal-400 animate-pulse" />
             <h3 className="font-extrabold text-white text-base">Up Next Queue</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-full glass-card"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onClearQueue && queue.length > 0 && (
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to clear the upcoming queue?")) {
+                    onClearQueue();
+                  }
+                }}
+                className="px-3 py-1 text-[10px] font-bold text-rose-400 border border-rose-500/30 rounded-full bg-rose-500/10 hover:bg-rose-500/20 uppercase tracking-wider"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-white rounded-full glass-card"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Content */}
@@ -77,7 +91,7 @@ export default function MobileQueueSheet({
               <div className="space-y-2">
                 {queue.map((t, idx) => (
                   <div
-                    key={`q_${t.id || t.queueId}_${idx}`}
+                    key={`q_${t.queueItemId || t.id}_${idx}`}
                     className="flex items-center justify-between p-2.5 rounded-2xl glass-card border border-white/5 hover:border-white/10 transition group"
                   >
                     <div
@@ -107,18 +121,18 @@ export default function MobileQueueSheet({
 
                     {/* Move / Remove controls */}
                     <div className="flex items-center gap-1 shrink-0 ml-2">
-                      {onMoveUp && idx > 0 && (
+                      {onMoveInQueue && idx > 0 && (
                         <button
-                          onClick={() => onMoveUp(idx)}
+                          onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx - 1); }}
                           className="p-1.5 text-slate-400 hover:text-white"
                           title="Move Up"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      {onMoveDown && idx < queue.length - 1 && (
+                      {onMoveInQueue && idx < queue.length - 1 && (
                         <button
-                          onClick={() => onMoveDown(idx)}
+                          onClick={(e) => { e.stopPropagation(); onMoveInQueue(idx, idx + 1); }}
                           className="p-1.5 text-slate-400 hover:text-white"
                           title="Move Down"
                         >
@@ -127,7 +141,7 @@ export default function MobileQueueSheet({
                       )}
                       {onRemoveFromQueue && (
                         <button
-                          onClick={() => onRemoveFromQueue(t.id || t.queueId)}
+                          onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(t.queueItemId || t.id); }}
                           className="p-1.5 text-slate-400 hover:text-rose-400"
                           title="Remove"
                         >

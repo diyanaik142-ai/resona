@@ -37,6 +37,7 @@ import MobileNotificationsSheet from './components/mobile/MobileNotificationsShe
 import MobileTrackActionSheet from './components/mobile/MobileTrackActionSheet';
 import MobileQueueSheet from './components/mobile/MobileQueueSheet';
 import MobileProfileView from './components/mobile/MobileProfileView';
+import PublicProfileView from './components/PublicProfileView';
 
 import {
   Sparkles, Search, Library, Radio, User, Settings, Disc, Play, Pause,
@@ -153,7 +154,18 @@ export default function App() {
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
   const [mobileTrackAction, setMobileTrackAction] = useState(null);
   const [showMobileQueue, setShowMobileQueue] = useState(false);
-  const [playQueue, setPlayQueue] = useState([]);
+  const [playQueue, setPlayQueue] = useState(() => {
+    try {
+      const saved = localStorage.getItem('resona_play_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('resona_play_queue', JSON.stringify(playQueue));
+  }, [playQueue]);
   const [toastMsg, setToastMsg] = useState(null);
 
   const showToast = (msg) => {
@@ -184,23 +196,39 @@ export default function App() {
 
   const handleAddToQueue = (track) => {
     if (!track) return;
-    const isDuplicate = playQueue.some(t => t.id === track.id);
-    
-    if (isDuplicate) {
-      showToast("Already in queue");
-      return;
-    }
     
     try {
-      setPlayQueue(prev => [...prev, track]);
+      const queuedTrack = { ...track, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` };
+      setPlayQueue(prev => [...prev, queuedTrack]);
       showToast(`Added to queue — ${track.title}`);
     } catch (err) {
       showToast("Couldn't add to queue");
     }
   };
 
-  const handleRemoveFromQueue = (trackId) => {
-    setPlayQueue(prev => prev.filter(t => t.id !== trackId));
+  const handleRemoveFromQueue = (identifier) => {
+    setPlayQueue(prev => {
+      const next = prev.filter(t => (t.queueItemId || t.id) !== identifier);
+      if (next.length !== prev.length) {
+        showToast("Removed from queue");
+      }
+      return next;
+    });
+  };
+
+  const handleClearQueue = () => {
+    setPlayQueue([]);
+    showToast("Queue cleared");
+  };
+
+  const handleMoveInQueue = (dragIndex, hoverIndex) => {
+    setPlayQueue(prev => {
+      const next = [...prev];
+      const [draggedItem] = next.splice(dragIndex, 1);
+      next.splice(hoverIndex, 0, draggedItem);
+      return next;
+    });
+    showToast("Queue updated");
   };
 
   const audioRef = useRef(null);
@@ -553,6 +581,7 @@ export default function App() {
             onPlayTrack={handlePlayTrack}
             query={searchQuery}
             setQuery={setSearchQuery}
+            onNavigate={setActiveTab}
           />
         );
       case 'shelf':
@@ -571,6 +600,11 @@ export default function App() {
             onNavigate={setActiveTab}
             activeHuddle={activeHuddle}
             setShowHuddleRoom={setShowHuddleRoom}
+            playQueue={playQueue}
+            onRemoveFromQueue={handleRemoveFromQueue}
+            onClearQueue={handleClearQueue}
+            onMoveInQueue={handleMoveInQueue}
+            onPlayTrack={handlePlayTrack}
           />
         );
       case 'tuned':
@@ -596,6 +630,10 @@ export default function App() {
       case 'profile':
         return <SettingsView onNavigate={setActiveTab} />;
       default:
+        if (activeTab.startsWith('profile/')) {
+          const username = activeTab.split('/')[1];
+          return <PublicProfileView username={username} onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
+        }
         return <PulseView onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} onOpenNotifications={() => setShowNotificationDrawer(true)} unreadCount={unreadNotificationsCount} />;
     }
   };
@@ -620,6 +658,7 @@ export default function App() {
             onOpenTrackActions={(track) => setMobileTrackAction(track)}
             query={searchQuery}
             setQuery={setSearchQuery}
+            onNavigate={setActiveTab}
           />
         );
       case 'shelf':
@@ -655,6 +694,9 @@ export default function App() {
             onOpenHuddle={() => setShowHuddleRoom(true)}
             onToast={showToast}
             playQueue={playQueue}
+            onRemoveFromQueue={handleRemoveFromQueue}
+            onClearQueue={handleClearQueue}
+            onMoveInQueue={handleMoveInQueue}
           />
         );
       case 'social':
@@ -693,6 +735,10 @@ export default function App() {
       case 'tuned':
       case 'curated':
       default:
+        if (activeTab.startsWith('profile/')) {
+          const username = activeTab.split('/')[1];
+          return <PublicProfileView username={username} onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
+        }
         return (
           <MobilePulseView
             catalog={catalog}
@@ -1182,7 +1228,7 @@ export default function App() {
       {/* ============================================================ */}
       {/* PURPOSE-BUILT MOBILE EXPERIENCE (< 768px)                    */}
       {/* ============================================================ */}
-      <div className="flex md:hidden flex-col min-h-[100dvh] w-full relative bg-[#07080c] text-white">
+      <div className="flex md:hidden flex-col min-h-[100dvh] w-full max-w-[100vw] overflow-x-hidden relative bg-[#07080c] text-white">
         {/* Mobile Top Bar */}
         <MobileHeader
           activeTab={activeTab}
@@ -1196,7 +1242,7 @@ export default function App() {
         {/* Mobile Scrollable Page Content */}
         <main
           id="mobile-main-content"
-          className={`w-full min-h-[calc(100dvh-3.5rem)] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
+          className={`w-full max-w-[100vw] overflow-x-hidden min-h-[calc(100dvh-3.5rem)] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
             activeTab === 'onair'
               ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]'
               : currentTrack

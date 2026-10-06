@@ -145,7 +145,7 @@ export default function MobileSocialView({
   return (
     <div className="space-y-4 pb-6 pt-2 px-4">
       {/* Horizontal Category Switcher */}
-      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar touch-pan-y overscroll-x-contain snap-x">
+      <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar overscroll-x-contain snap-x">
         {['Friends & Following', 'Activity', 'Shared With', 'Fusion', 'Huddle'].map((tab) => (
           <button
             key={tab}
@@ -154,7 +154,7 @@ export default function MobileSocialView({
               // Ensure tab scrolls into view (centered)
               e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }}
-            className={`relative py-2 px-1 text-xs font-bold whitespace-nowrap transition-colors snap-center ${
+            className={`shrink-0 relative py-2 px-1 text-xs font-bold whitespace-nowrap transition-colors snap-center ${
               activeTab === tab
                 ? 'text-teal-400'
                 : 'text-slate-400 hover:text-slate-200'

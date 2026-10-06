@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Play, Mic, Music, Disc } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function SeekView({ onPlayTrack, query: propQuery, setQuery: propSetQuery }) {
+export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, setQuery: propSetQuery }) {
   const [internalQuery, setInternalQuery] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState({ songs: [], accounts: [] });
   const [genres, setGenres] = useState([]);
   const [trending, setTrending] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,8 +37,8 @@ export default function SeekView({ onPlayTrack, query: propQuery, setQuery: prop
   useEffect(() => {
     let timer;
     if (!query || !query.trim()) {
-      if (searchResults.length > 0) {
-          setSearchResults([]);
+      if (searchResults.songs.length > 0 || searchResults.accounts.length > 0) {
+          setSearchResults({ songs: [], accounts: [] });
       }
     } else {
         timer = setTimeout(async () => {
@@ -47,10 +47,10 @@ export default function SeekView({ onPlayTrack, query: propQuery, setQuery: prop
             const data = await api.search.query(query.trim());
             // Filter by active tab if needed
             if (activeTab !== 'All') {
-              // Implement filtering based on tab, for now just show tracks
-              setSearchResults(data.songs || []);
+              // Implement filtering based on tab
+              setSearchResults({ songs: data.songs || [], accounts: data.accounts || [] });
             } else {
-              setSearchResults(data.songs || []); // Just showing tracks for now
+              setSearchResults({ songs: data.songs || [], accounts: data.accounts || [] });
             }
           } catch (err) {
             console.error('Search error:', err);
@@ -158,26 +158,54 @@ export default function SeekView({ onPlayTrack, query: propQuery, setQuery: prop
           <h3 className="font-bold text-sm text-slate-400 uppercase tracking-wider">Search Results</h3>
           {isLoading ? (
             <p className="text-sm text-slate-400">Searching...</p>
-          ) : searchResults.length === 0 ? (
+          ) : (searchResults.songs.length === 0 && searchResults.accounts.length === 0) ? (
             <p className="text-sm text-slate-400">No results found for "{query}"</p>
           ) : (
-            <div className="space-y-2">
-              {searchResults.map((track) => (
-                <div
-                  key={track.id}
-                  onClick={() => onPlayTrack(track)}
-                  className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <img src={track.cover} alt={track.title} className="w-10 h-10 rounded-xl object-cover" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{track.title}</h4>
-                      <p className="text-[11px] text-slate-400">{track.artist}</p>
+            <div className="space-y-6">
+              {searchResults.accounts && searchResults.accounts.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-bold text-xs text-slate-500 uppercase tracking-wider mb-2">Accounts</h4>
+                  {searchResults.accounts.map((account) => (
+                    <div
+                      key={account.id}
+                      onClick={() => onNavigate(`profile/${account.handle}`)}
+                      className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img src={account.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.handle}`} alt={account.name} className="w-10 h-10 rounded-full object-cover" />
+                        <div>
+                          <h4 className="text-xs font-bold text-white">{account.name}</h4>
+                          <p className="text-[11px] text-teal-400">@{account.handle}</p>
+                        </div>
+                      </div>
+                      <button className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition">
+                        Follow
+                      </button>
                     </div>
-                  </div>
-                  <Play className="w-4 h-4 text-teal-400" />
+                  ))}
                 </div>
-              ))}
+              )}
+              {searchResults.songs && searchResults.songs.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-bold text-xs text-slate-500 uppercase tracking-wider mb-2">Songs</h4>
+                  {searchResults.songs.map((track) => (
+                    <div
+                      key={track.id}
+                      onClick={() => onPlayTrack(track)}
+                      className="p-3 rounded-2xl glass-card hover:bg-white/10 flex items-center justify-between cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img src={track.cover} alt={track.title} className="w-10 h-10 rounded-xl object-cover" />
+                        <div>
+                          <h4 className="text-xs font-bold text-white">{track.title}</h4>
+                          <p className="text-[11px] text-slate-400">{track.artist}</p>
+                        </div>
+                      </div>
+                      <Play className="w-4 h-4 text-teal-400" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
