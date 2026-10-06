@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { api } from '../../services/api';
+import { api, resolveMediaUrl } from '../../services/api';
 import { Music, Plus, Search, Trash2, Edit2, Play, Check, X, Upload } from 'lucide-react';
 import { GENRES } from '../../config/genres';
 
@@ -213,7 +213,7 @@ export default function AdminCatalog() {
               <tr key={track.id} className="hover:bg-white/[0.02] transition-colors group">
                 <td className="p-4">
                   {track.cover ? (
-                    <img src={track.cover} alt="Cover" className="w-10 h-10 rounded-md object-cover" />
+                    <img src={resolveMediaUrl(track.cover)} alt="Cover" className="w-10 h-10 rounded-md object-cover" />
                   ) : (
                     <div className="w-10 h-10 rounded-md bg-white/5 flex items-center justify-center">
                       <Music className="w-4 h-4 text-slate-500" />
@@ -250,7 +250,7 @@ export default function AdminCatalog() {
           <div key={track.id} className="bg-slate-900/50 rounded-xl border border-white/5 p-4 flex gap-3 hover:bg-white/[0.02] transition">
             <div className="w-12 h-12 shrink-0">
               {track.cover ? (
-                <img src={track.cover} alt="Cover" className="w-full h-full rounded-md object-cover" />
+                <img src={resolveMediaUrl(track.cover)} alt="Cover" className="w-full h-full rounded-md object-cover" />
               ) : (
                 <div className="w-full h-full rounded-md bg-white/5 flex items-center justify-center">
                   <Music className="w-5 h-5 text-slate-500" />

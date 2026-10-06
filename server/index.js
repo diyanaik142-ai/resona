@@ -202,6 +202,11 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Serve media files statically
+const catalogPath = process.env.NODE_ENV === 'production' 
+  ? '/opt/resona/media/catalog' 
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'media', 'catalog');
+app.use('/media/catalog', express.static(catalogPath));
+
 // Retain local media compatibility in development. Production media must use Storage URLs.
 if (process.env.NODE_ENV !== 'production') {
   const mediaPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'media');

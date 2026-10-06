@@ -593,7 +593,10 @@ router.post('/catalog', requireAdmin, upload.fields([{ name: 'audio', maxCount: 
       }
     }
 
-    const uploadDir = '/opt/resona/media/catalog/';
+    const uploadDir = process.env.NODE_ENV === 'production' 
+      ? '/opt/resona/media/catalog/' 
+      : path.resolve(__dirname, '..', 'data', 'media', 'catalog');
+      
     await fs.mkdir(uploadDir, { recursive: true });
 
     const saveLocally = async (file, type) => {
@@ -603,8 +606,17 @@ router.post('/catalog', requireAdmin, upload.fields([{ name: 'audio', maxCount: 
       const filename = `${type}_${uploadId}${ext}`;
       const destination = path.join(uploadDir, filename);
       
-      const bytes = file.buffer || await fs.readFile(file.path);
-      await fs.writeFile(destination, bytes);
+      if (file.buffer) {
+        await fs.writeFile(destination, file.buffer);
+      } else if (file.path) {
+        try {
+          await fs.rename(file.path, destination);
+        } catch (err) {
+          // Fallback if cross-device link error
+          await fs.copyFile(file.path, destination);
+          await fs.unlink(file.path).catch(() => {});
+        }
+      }
       return `/media/catalog/${filename}`;
     };
 
