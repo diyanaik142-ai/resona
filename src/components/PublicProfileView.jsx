@@ -2,30 +2,37 @@ import React, { useState, useEffect } from 'react';
 import { Play, UserPlus, Check, ChevronLeft, MapPin } from 'lucide-react';
 import { getAuthHeaders, getApiBaseUrl } from '../services/api';
 import Avatar from './Avatar';
+import { useAuth } from '../context/AuthContext';
+
+import { FollowersModal, FollowingModal } from './mobile/FollowersFollowingModals';
 
 export default function PublicProfileView({ username, onPlayTrack, onNavigate }) {
+  const { refreshAccountData } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const headers = await getAuthHeaders();
+      
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(username)}`, { headers });
+      if (!res.ok) {
+        throw new Error('Profile not found');
+      }
+      const data = await res.json();
+      setProfile(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadProfile() {
-      try {
-        setLoading(true);
-        const headers = await getAuthHeaders();
-        
-        const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(username)}`, { headers });
-        if (!res.ok) {
-          throw new Error('Profile not found');
-        }
-        const data = await res.json();
-        setProfile(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadProfile();
   }, [username]);
 
@@ -48,6 +55,9 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
         headers
       });
       if (!res.ok) throw new Error('Failed to update follow status');
+      if (refreshAccountData) {
+        refreshAccountData().catch(console.error);
+      }
     } catch (err) {
       console.error(err);
       // Revert optimistic update
@@ -78,8 +88,12 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
             <h1 className="text-3xl font-black text-white">{profile.name}</h1>
             <p className="text-teal-400 font-mono text-sm">@{profile.handle}</p>
             <div className="flex gap-4 items-center justify-center md:justify-start text-sm text-slate-400 mt-2">
-              <div><strong className="text-white">{profile.followersCount || 0}</strong> Followers</div>
-              <div><strong className="text-white">{profile.followingCount || 0}</strong> Following</div>
+              <div onClick={() => setShowFollowers(true)} className="cursor-pointer hover:text-white transition">
+                <strong className="text-white">{profile.followersCount || 0}</strong> Followers
+              </div>
+              <div onClick={() => setShowFollowing(true)} className="cursor-pointer hover:text-white transition">
+                <strong className="text-white">{profile.followingCount || 0}</strong> Following
+              </div>
             </div>
             <div className="flex justify-center md:justify-start gap-4 mt-4">
               <button 
@@ -120,6 +134,21 @@ export default function PublicProfileView({ username, onPlayTrack, onNavigate })
           )}
         </div>
       </div>
+      {showFollowers && (
+        <FollowersModal
+          user={profile}
+          onClose={() => setShowFollowers(false)}
+          onRefresh={loadProfile}
+        />
+      )}
+      
+      {showFollowing && (
+        <FollowingModal
+          user={profile}
+          onClose={() => setShowFollowing(false)}
+          onRefresh={loadProfile}
+        />
+      )}
     </div>
   );
 }

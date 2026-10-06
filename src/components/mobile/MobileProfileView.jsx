@@ -22,8 +22,6 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
   const [showFollowing, setShowFollowing] = useState(false);
 
   const uidValue = useMemo(() => (user?.uid || user?.handle || '').toString().replace(/^@+/, ''), [user]);
-  const likedCount = shelf?.likedTrackIds?.length || 0;
-  const playlistCount = shelf?.playlists?.length || 0;
 
   const handleUidChange = async (nextValue) => {
     setFormData((prev) => ({ ...prev, uid: nextValue }));
@@ -212,35 +210,21 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
           </div>
         )}
 
-        {/* Quick Shelf Metrics Grid */}
-        <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-white/5">
-          <div
-            onClick={() => onNavigate('shelf')}
-            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
-          >
-            <p className="text-base font-black text-white">{likedCount}</p>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Liked</p>
-          </div>
-          <div
-            onClick={() => onNavigate('shelf')}
-            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
-          >
-            <p className="text-base font-black text-white">{playlistCount}</p>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Playlists</p>
-          </div>
+        {/* Premium Profile Stats */}
+        <div className="grid grid-cols-2 gap-4 mt-6 pt-5 border-t border-white/10">
           <div
             onClick={() => setShowFollowers(true)}
-            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
+            className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 cursor-pointer transition active:scale-95"
           >
-            <p className="text-base font-black text-white">{user?.followersCount || 0}</p>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Followers</p>
+            <p className="text-sm font-black text-slate-400 uppercase tracking-widest mb-1">Followers</p>
+            <p className="text-3xl font-light text-white tracking-tight">{user?.followersCount || 0}</p>
           </div>
           <div
             onClick={() => setShowFollowing(true)}
-            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
+            className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 cursor-pointer transition active:scale-95"
           >
-            <p className="text-base font-black text-white">{user?.followingCount || 0}</p>
-            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Following</p>
+            <p className="text-sm font-black text-slate-400 uppercase tracking-widest mb-1">Following</p>
+            <p className="text-3xl font-light text-white tracking-tight">{user?.followingCount || 0}</p>
           </div>
         </div>
       </div>

@@ -42,7 +42,9 @@ export async function getResonaProfile(userId) {
     phone: profile.phone || '',
     avatar: profile.avatar || null,
     role: profile.role || identity?.customClaims?.role || 'listener',
-    planId
+    planId,
+    followers: Array.isArray(profile.followers) ? profile.followers : [],
+    following: Array.isArray(profile.following) ? profile.following : []
   };
 }
 

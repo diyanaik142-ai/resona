@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { X, UserMinus } from 'lucide-react';
 import { api } from '../../services/api';
 import Avatar from '../Avatar';
+import { useAuth } from '../../context/AuthContext';
 
 export function FollowersModal({ user, onClose, onRefresh }) {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isOwnProfile = currentUser?.id === user?.id;
 
   useEffect(() => {
     if (user?.handle) {
@@ -49,13 +52,15 @@ export function FollowersModal({ user, onClose, onRefresh }) {
                   <p className="text-xs text-slate-400">@{u.handle}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => handleRemove(u.handle)}
-                className="px-3 py-1.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold flex items-center gap-1 active:scale-95"
-              >
-                <UserMinus className="w-3 h-3" />
-                Remove
-              </button>
+              {isOwnProfile && (
+                <button 
+                  onClick={() => handleRemove(u.handle)}
+                  className="px-3 py-1.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold flex items-center gap-1 active:scale-95"
+                >
+                  <UserMinus className="w-3 h-3" />
+                  Remove
+                </button>
+              )}
             </div>
           ))
         )}
@@ -65,8 +70,10 @@ export function FollowersModal({ user, onClose, onRefresh }) {
 }
 
 export function FollowingModal({ user, onClose, onRefresh }) {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const isOwnProfile = currentUser?.id === user?.id;
 
   useEffect(() => {
     if (user?.handle) {
@@ -110,12 +117,14 @@ export function FollowingModal({ user, onClose, onRefresh }) {
                   <p className="text-xs text-slate-400">@{u.handle}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => handleUnfollow(u.handle)}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-white/10 text-xs font-bold active:scale-95"
-              >
-                Unfollow
-              </button>
+              {isOwnProfile && (
+                <button 
+                  onClick={() => handleUnfollow(u.handle)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 border border-white/10 text-xs font-bold active:scale-95"
+                >
+                  Unfollow
+                </button>
+              )}
             </div>
           ))
         )}
