@@ -75,7 +75,9 @@ export default function App() {
   // Navigation State with Browser History synchronization
   const getInitialTab = () => {
     if (typeof window === 'undefined' || !window.location) return 'pulse';
-    const path = window.location.pathname.replace(/^\/+/, '').split('/')[0].toLowerCase();
+    const rawPath = window.location.pathname.replace(/^\/+/, '');
+    if (rawPath.startsWith('song/')) return 'onair';
+    const path = rawPath.split('/')[0].toLowerCase();
     const validTabs = ['pulse', 'seek', 'onair', 'shelf', 'social', 'creator', 'settings', 'profile', 'tuned', 'curated'];
     return validTabs.includes(path) ? path : 'pulse';
   };
@@ -132,6 +134,57 @@ export default function App() {
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
   const [mobileTrackAction, setMobileTrackAction] = useState(null);
   const [showMobileQueue, setShowMobileQueue] = useState(false);
+  const [playQueue, setPlayQueue] = useState([]);
+  const [toastMsg, setToastMsg] = useState(null);
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  const deepLinkResolvedRef = useRef(false);
+
+  useEffect(() => {
+    if (catalog.length > 0 && typeof window !== 'undefined' && !deepLinkResolvedRef.current) {
+      deepLinkResolvedRef.current = true;
+      const path = window.location.pathname.replace(/^\/+/, '');
+      if (path.startsWith('song/')) {
+        const trackId = path.split('/')[1];
+        const t = catalog.find(tr => tr.id === trackId);
+        if (t) {
+          handlePlayTrack(t);
+        } else {
+          showToast('Song unavailable');
+          setActiveTab('pulse');
+        }
+        // clear the URL so it doesn't loop
+        window.history.replaceState({ tab: 'onair' }, '', '/onair');
+      }
+    }
+  });
+
+  const handleAddToQueue = (track) => {
+    if (!track) return;
+    const currentQueue = playQueue.length > 0 ? playQueue : catalog;
+    const isDuplicate = currentQueue.some(t => t.id === track.id);
+    
+    if (isDuplicate) {
+      showToast("Already in queue");
+      return;
+    }
+    
+    try {
+      setPlayQueue([...currentQueue, track]);
+      showToast(`Added to queue — ${track.title}`);
+    } catch (err) {
+      showToast("Couldn't add to queue");
+    }
+  };
+
+  const handleRemoveFromQueue = (trackId) => {
+    const currentQueue = playQueue.length > 0 ? playQueue : catalog;
+    setPlayQueue(currentQueue.filter(t => t.id !== trackId));
+  };
 
   const audioRef = useRef(null);
   const playbackSessionRef = useRef({ trackId: null, startedAt: null, completed: false });
@@ -244,10 +297,6 @@ export default function App() {
       if (updated.nowPlaying) {
         setCurrentTrack(updated.nowPlaying);
         setIsPlaying(true);
-        if (audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(() => { });
-        }
       } else {
         setCurrentTrack(null);
         setIsPlaying(false);
@@ -277,11 +326,16 @@ export default function App() {
     recordActivity({ trackId: track.id, type: 'PLAY_STARTED' });
     setCurrentTrack(track);
     setIsPlaying(true);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => { });
-    }
   };
+
+  // Synchronize Audio Element Playback State
+  useEffect(() => {
+    if (audioRef.current && currentTrack && isPlaying) {
+      audioRef.current.play().catch(err => {
+        console.warn('Playback prevented or failed:', err);
+      });
+    }
+  }, [currentTrack]);
 
   // Toggle Play / Pause
   const handleTogglePlay = () => {
@@ -297,24 +351,26 @@ export default function App() {
 
   // Next Track
   const handleNextTrack = (reason = 'skip') => {
-    if (catalog.length === 0) return;
+    const queueToUse = playQueue.length > 0 ? playQueue : catalog;
+    if (queueToUse.length === 0) return;
     if (reason === 'skip' && currentTrack?.id && isPlaying) {
       const completedRatio = duration ? Math.min(1, currentTime / duration) : 0;
       recordActivity({ trackId: currentTrack.id, type: 'SKIP', position: currentTime, duration, completedRatio });
     }
-    const idx = catalog.findIndex((t) => t.id === currentTrack?.id);
+    const idx = queueToUse.findIndex((t) => t.id === currentTrack?.id);
     let nextIdx;
     if (isShuffle || idx === -1) {
-      nextIdx = Math.floor(Math.random() * catalog.length);
+      nextIdx = Math.floor(Math.random() * queueToUse.length);
     } else {
-      nextIdx = (idx + 1) % catalog.length;
+      nextIdx = (idx + 1) % queueToUse.length;
     }
-    handlePlayTrack(catalog[nextIdx]);
+    handlePlayTrack(queueToUse[nextIdx]);
   };
 
   // Previous Track
   const handlePrevTrack = () => {
-    if (catalog.length === 0) return;
+    const queueToUse = playQueue.length > 0 ? playQueue : catalog;
+    if (queueToUse.length === 0) return;
     if (currentTime > 3) {
       if (audioRef.current) audioRef.current.currentTime = 0;
       setCurrentTime(0);
@@ -324,10 +380,10 @@ export default function App() {
       const completedRatio = duration ? Math.min(1, currentTime / duration) : 0;
       recordActivity({ trackId: currentTrack.id, type: 'SKIP', position: currentTime, duration, completedRatio });
     }
-    const idx = catalog.findIndex((t) => t.id === currentTrack?.id);
+    const idx = queueToUse.findIndex((t) => t.id === currentTrack?.id);
     if (idx === -1) return;
-    const prevIdx = (idx - 1 + catalog.length) % catalog.length;
-    handlePlayTrack(catalog[prevIdx]);
+    const prevIdx = (idx - 1 + queueToUse.length) % queueToUse.length;
+    handlePlayTrack(queueToUse[prevIdx]);
   };
 
   // Audio Time Update Event
@@ -369,8 +425,8 @@ export default function App() {
 
 
   // Seek Slider Event
-  const handleSeek = (e) => {
-    const newTime = parseFloat(e.target.value);
+  const handleSeek = (valueOrEvent) => {
+    const newTime = typeof valueOrEvent === 'number' ? valueOrEvent : parseFloat(valueOrEvent.target.value);
     setCurrentTime(newTime);
     if (audioRef.current) {
       audioRef.current.currentTime = newTime;
@@ -485,9 +541,12 @@ export default function App() {
           <OnAirView
             currentTrack={currentTrack}
             isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
             onTogglePlay={handleTogglePlay}
             onNext={handleNextTrack}
             onPrev={handlePrevTrack}
+            onSeek={handleSeek}
             onNavigate={setActiveTab}
             activeHuddle={activeHuddle}
             setShowHuddleRoom={setShowHuddleRoom}
@@ -573,6 +632,7 @@ export default function App() {
             onOpenQueue={() => setShowMobileQueue(true)}
             activeHuddle={activeHuddle}
             onOpenHuddle={() => setShowHuddleRoom(true)}
+            onToast={showToast}
           />
         );
       case 'social':
@@ -1174,8 +1234,9 @@ export default function App() {
           isOpen={showMobileQueue}
           onClose={() => setShowMobileQueue(false)}
           currentTrack={currentTrack}
-          queue={catalog}
+          queue={playQueue.length > 0 ? playQueue : catalog}
           onPlayTrack={handlePlayTrack}
+          onRemoveFromQueue={handleRemoveFromQueue}
         />
 
         {/* Mobile Track Action Sheet */}
@@ -1184,10 +1245,18 @@ export default function App() {
           onClose={() => setMobileTrackAction(null)}
           track={mobileTrackAction}
           onPlayTrack={(t) => { handlePlayTrack(t); setMobileTrackAction(null); }}
+          onAddToQueue={handleAddToQueue}
           isLiked={mobileTrackAction ? shelf?.likedTrackIds?.includes(mobileTrackAction.id) : false}
           onToggleLike={() => { if (mobileTrackAction) toggleLikeTrack(mobileTrackAction.id); }}
         />
       </div>
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900 border border-white/10 shadow-2xl px-4 py-2 rounded-xl flex items-center justify-center animate-in slide-in-from-bottom-2 fade-in duration-300">
+          <span className="text-white text-xs font-bold whitespace-nowrap">{toastMsg}</span>
+        </div>
+      )}
 
       {/* Switch Account Modal (Common) */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />

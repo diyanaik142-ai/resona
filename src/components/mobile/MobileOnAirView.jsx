@@ -22,7 +22,8 @@ export default function MobileOnAirView({
   onToggleShuffle,
   isLoop,
   onToggleLoop,
-  catalog = []
+  catalog = [],
+  onToast
 }) {
   const [showQueue, setShowQueue] = useState(false);
   const [showBeatCode, setShowBeatCode] = useState(false);
@@ -61,7 +62,14 @@ export default function MobileOnAirView({
       {/* TOP BAR: [Back] [Contextual Title] [More] */}
       <div className="relative z-10 flex items-center justify-between shrink-0">
         <button
-          onClick={onClose}
+          onClick={() => {
+            if (onClose) return onClose();
+            if (window.history.length > 2) {
+              window.history.back();
+            } else if (onNavigate) {
+              onNavigate('pulse');
+            }
+          }}
           className="w-10 h-10 rounded-full glass-card border border-white/10 flex items-center justify-center text-slate-300 hover:text-white active:scale-90 transition"
           aria-label="Minimize Player"
         >
@@ -220,17 +228,91 @@ export default function MobileOnAirView({
             <div className="p-3 bg-white rounded-2xl mx-auto w-48 h-48 flex items-center justify-center">
               <BeatCodeQR
                 trackId={currentTrack.id}
+                cover={currentTrack.cover}
                 title={currentTrack.title}
                 artist={currentTrack.artist}
                 size={160}
               />
             </div>
-            <button
-              onClick={() => setShowBeatCode(false)}
-              className="w-full py-2.5 rounded-xl glass-button-primary text-xs font-bold"
-            >
-              Close
-            </button>
+            <div className="flex flex-col gap-2 w-full mt-4">
+              <button
+                onClick={async () => {
+                  const url = `https://resona.anchorlyhms.com/song/${currentTrack.id}`;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: `Listen to ${currentTrack.title} on Resona`,
+                        text: `Listen to ${currentTrack.title} by ${currentTrack.artist} on Resona`,
+                        url
+                      });
+                      if (onToast) onToast('Shared successfully');
+                    } catch (err) {
+                      console.log('Share canceled', err);
+                    }
+                  } else {
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      if (onToast) onToast('Link copied');
+                    } catch (err) {
+                      if (onToast) onToast("Couldn't copy link");
+                    }
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl glass-button-primary text-xs font-bold"
+              >
+                Share Beat Code
+              </button>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    const url = `https://resona.anchorlyhms.com/song/${currentTrack.id}`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      if (onToast) onToast('Link copied');
+                    } catch (err) {
+                      if (onToast) onToast("Couldn't copy link");
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
+                >
+                  Copy Link
+                </button>
+                <button
+                  onClick={() => {
+                    const svg = document.getElementById('beatcode-qr-svg');
+                    if (!svg) return;
+                    const svgData = new XMLSerializer().serializeToString(svg);
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    const img = new Image();
+                    img.onload = () => {
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      ctx.fillStyle = "#ffffff";
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      ctx.drawImage(img, 0, 0);
+                      const pngFile = canvas.toDataURL("image/png");
+                      const downloadLink = document.createElement("a");
+                      downloadLink.download = `Resona-BeatCode-${currentTrack.id}.png`;
+                      downloadLink.href = pngFile;
+                      downloadLink.click();
+                      if (onToast) onToast('Beat Code saved');
+                    };
+                    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                  }}
+                  className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
+                >
+                  Save Beat Code
+                </button>
+              </div>
+              <button
+                onClick={() => setShowBeatCode(false)}
+                className="w-full py-2.5 mt-2 rounded-xl text-slate-400 text-xs font-bold hover:text-white"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

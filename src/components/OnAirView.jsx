@@ -4,13 +4,12 @@ import BeatCodeQR from './BeatCodeQR';
 import { api } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle } from 'lucide-react';
 
-export default function OnAirView({ currentTrack, isPlaying, onTogglePlay, onNext, onPrev, onNavigate, activeHuddle, setShowHuddleRoom }) {
+export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, duration = 0, onTogglePlay, onNext, onPrev, onSeek, onNavigate, activeHuddle, setShowHuddleRoom }) {
   const { user, catalog } = useAuth();
   const track = currentTrack || (catalog.length > 0 ? catalog[0] : null);
   if (!track) return <div className="p-8 text-center text-slate-400 mt-20">No track playing</div>;
   const [activeTab, setActiveTab] = useState('Lyrics'); // Lyrics, About, Related
   const [isLiked, setIsLiked] = useState(track.liked || false);
-  const [progress, setProgress] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBeatCodeModal, setShowBeatCodeModal] = useState(false);
   const [showStoryCardModal, setShowStoryCardModal] = useState(false);
@@ -271,31 +270,82 @@ export default function OnAirView({ currentTrack, isPlaying, onTogglePlay, onNex
             </div>
 
             <div className="mx-auto flex items-center justify-center p-2 rounded-3xl glass-panel border border-pink-500/30">
-              <BeatCodeQR cover={track.cover} primaryColor={beatColorHex} />
+              <BeatCodeQR trackId={track.id} cover={track.cover} primaryColor={beatColorHex} />
             </div>
 
-            <div className="space-y-3">
-              <button className="px-6 py-2 rounded-full glass-card border border-white/10 text-xs font-semibold text-slate-200">
-                Customize
-              </button>
-
-              <div className="flex justify-center gap-2">
-                {beatColors.map((c) => (
+              <div className="flex flex-col gap-2 w-full mt-4">
+                <button
+                  onClick={async () => {
+                    const url = `https://resona.anchorlyhms.com/song/${track.id}`;
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: `Listen to ${track.title} on Resona`,
+                          text: `Listen to ${track.title} by ${track.artist} on Resona`,
+                          url
+                        });
+                        triggerNotification('Shared successfully');
+                      } catch (err) {
+                        console.log('Share canceled', err);
+                      }
+                    } else {
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        triggerNotification('Link copied');
+                      } catch (err) {
+                        triggerNotification("Couldn't copy link");
+                      }
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl glass-button-primary text-xs font-bold"
+                >
+                  Share Beat Code
+                </button>
+                
+                <div className="flex gap-2">
                   <button
-                    key={c.id}
-                    onClick={() => setBeatColorHex(c.hex)}
-                    style={{ backgroundColor: c.hex }}
-                    className={`w-6 h-6 rounded-full transition border-2 ${
-                      beatColorHex === c.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-70 hover:opacity-100'
-                    }`}
-                  />
-                ))}
+                    onClick={async () => {
+                      const url = `https://resona.anchorlyhms.com/song/${track.id}`;
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        triggerNotification('Link copied');
+                      } catch (err) {
+                        triggerNotification("Couldn't copy link");
+                      }
+                    }}
+                    className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
+                  >
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={() => {
+                      const svg = document.getElementById('beatcode-qr-svg');
+                      if (!svg) return;
+                      const svgData = new XMLSerializer().serializeToString(svg);
+                      const canvas = document.createElement("canvas");
+                      const ctx = canvas.getContext("2d");
+                      const img = new Image();
+                      img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.fillStyle = "#ffffff";
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0);
+                        const pngFile = canvas.toDataURL("image/png");
+                        const downloadLink = document.createElement("a");
+                        downloadLink.download = `Resona-BeatCode-${track.id}.png`;
+                        downloadLink.href = pngFile;
+                        downloadLink.click();
+                        triggerNotification('Beat Code saved');
+                      };
+                      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                    }}
+                    className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
+                  >
+                    Save Beat Code
+                  </button>
+                </div>
               </div>
-
-              <p className="text-[11px] text-slate-400 px-4 leading-relaxed">
-                Let others scan your Beat Code to play this song on Resona.
-              </p>
-            </div>
 
             <div className="flex gap-3 pt-1">
               <button
@@ -342,12 +392,20 @@ export default function OnAirView({ currentTrack, isPlaying, onTogglePlay, onNex
 
       {/* Progress & Scrub Bar */}
       <div className="space-y-1.5 z-10 px-1">
-        <div className="relative w-full h-1.5 bg-slate-800 rounded-full cursor-pointer overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full" style={{ width: `${progress}%` }} />
+        <div 
+          onClick={(e) => {
+            if (!onSeek || !duration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            onSeek(pos * duration);
+          }}
+          className="relative w-full h-1.5 bg-slate-800 rounded-full cursor-pointer overflow-hidden py-0.5"
+        >
+          <div className="h-full bg-gradient-to-r from-teal-400 to-cyan-400 rounded-full transition-all duration-100" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }} />
         </div>
         <div className="flex justify-between text-[11px] font-medium text-slate-400">
-          <span>0:00</span>
-          <span>{track.duration || 'Unavailable'}</span>
+          <span>{Math.floor(currentTime / 60)}:{(Math.floor(currentTime % 60)).toString().padStart(2, '0')}</span>
+          <span>{duration ? `${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}` : (track.duration || '0:00')}</span>
         </div>
       </div>
 
