@@ -248,6 +248,53 @@ export const api = {
          profileImage: resolveMediaUrl(json.profileImage)
       };
     },
+    getProfileByHandle: async (handle) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(handle)}`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch profile');
+      return {
+         ...json,
+         photo: resolveMediaUrl(json.photo),
+         avatar: resolveMediaUrl(json.avatar),
+         profileImage: resolveMediaUrl(json.profileImage)
+      };
+    },
+    followUser: async (handle) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(handle)}/follow`, { method: 'POST', headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to follow user');
+      return json;
+    },
+    unfollowUser: async (handle) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(handle)}/follow`, { method: 'DELETE', headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to unfollow user');
+      return json;
+    },
+    removeFollower: async (handle) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/followers/${encodeURIComponent(handle)}`, { method: 'DELETE', headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to remove follower');
+      return json;
+    },
+    getFollowers: async (handle) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(handle)}/followers`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch followers');
+      return json.followers || [];
+    },
+    getFollowing: async (handle) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/profile/${encodeURIComponent(handle)}/following`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch following');
+      return json.following || [];
+    },
     getEntitlements: async () => {
       const headers = await getAuthHeaders();
       const res = await fetch(`${getApiBaseUrl()}/api/user/entitlements`, { headers });
@@ -288,6 +335,46 @@ export const api = {
       const json = await res.json().catch(() => ([]));
       if (!res.ok) throw new Error(json.error || 'Failed to fetch sessions');
       return json;
+    }
+  },
+
+  // Notifications
+  notifications: {
+    getNotifications: async (limit = 50) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/notifications?limit=${limit}`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch notifications');
+      return json;
+    },
+    markAsRead: async (notificationIds) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/notifications/read`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ notificationIds })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to mark notifications read');
+      return json;
+    },
+    registerFcmToken: async (token) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/notifications/fcm/register`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ token })
+      });
+      return res.json().catch(() => ({}));
+    },
+    unregisterFcmToken: async (token) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/notifications/fcm/unregister`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ token })
+      });
+      return res.json().catch(() => ({}));
     }
   },
 

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
+import { initPushNotifications } from './services/pushService';
 import PlanBadge from './components/PlanBadge';
 import OnboardingView from './components/OnboardingView';
 import LoginView from './components/LoginView';
@@ -245,9 +246,12 @@ export default function App() {
 
     // Register user presence & personal room
     registerSocketUser(user.id);
+    
+    // Initialize native push notifications (Capacitor)
+    initPushNotifications();
 
     // Fetch initial notifications
-    api.social.getNotifications().then(res => {
+    api.notifications.getNotifications().then(res => {
       setNotifications(res.notifications || []);
     }).catch(err => console.warn('[App] Could not load notifications:', err.message));
 

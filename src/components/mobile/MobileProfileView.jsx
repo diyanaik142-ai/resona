@@ -8,6 +8,7 @@ import { api, resolveMediaUrl } from '../../services/api';
 import PlanBadge from '../PlanBadge';
 import ImageCropModal from '../ImageCropModal';
 import Avatar from '../Avatar';
+import { FollowersModal, FollowingModal } from './FollowersFollowingModals';
 
 export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }) {
   const { user, logout, updateProfile, refreshAccountData, creatorData } = useAuth();
@@ -17,6 +18,8 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
   const [uidMessage, setUidMessage] = useState('');
   const [uidState, setUidState] = useState('idle');
   const [cropImage, setCropImage] = useState(null);
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
 
   const uidValue = useMemo(() => (user?.uid || user?.handle || '').toString().replace(/^@+/, ''), [user]);
   const likedCount = shelf?.likedTrackIds?.length || 0;
@@ -210,31 +213,34 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
         )}
 
         {/* Quick Shelf Metrics Grid */}
-        <div className="grid grid-cols-2 gap-2 mt-5 pt-4 border-t border-white/5">
+        <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-white/5">
           <div
             onClick={() => onNavigate('shelf')}
-            className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition"
+            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
           >
-            <div className="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center shrink-0">
-              <Heart className="w-4 h-4 fill-pink-400" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-white">{likedCount}</p>
-              <p className="text-[10px] text-slate-400">Liked Tracks</p>
-            </div>
+            <p className="text-base font-black text-white">{likedCount}</p>
+            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Liked</p>
           </div>
-
           <div
             onClick={() => onNavigate('shelf')}
-            className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition"
+            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
           >
-            <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
-              <Library className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-white">{playlistCount}</p>
-              <p className="text-[10px] text-slate-400">Playlists</p>
-            </div>
+            <p className="text-base font-black text-white">{playlistCount}</p>
+            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Playlists</p>
+          </div>
+          <div
+            onClick={() => setShowFollowers(true)}
+            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
+          >
+            <p className="text-base font-black text-white">{user?.followersCount || 0}</p>
+            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Followers</p>
+          </div>
+          <div
+            onClick={() => setShowFollowing(true)}
+            className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer active:scale-95 transition"
+          >
+            <p className="text-base font-black text-white">{user?.followingCount || 0}</p>
+            <p className="text-[9px] text-slate-400 uppercase tracking-wide">Following</p>
           </div>
         </div>
       </div>
@@ -348,6 +354,22 @@ export default function MobileProfileView({ onNavigate, onOpenAuthModal, shelf }
               setUidState('error');
             }
           }}
+        />
+      )}
+      
+      {showFollowers && (
+        <FollowersModal
+          user={user}
+          onClose={() => setShowFollowers(false)}
+          onRefresh={refreshAccountData}
+        />
+      )}
+      
+      {showFollowing && (
+        <FollowingModal
+          user={user}
+          onClose={() => setShowFollowing(false)}
+          onRefresh={refreshAccountData}
         />
       )}
     </div>

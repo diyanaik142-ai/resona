@@ -14,6 +14,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
+import { createNotification } from '../services/notificationService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +37,8 @@ const PLAN_OPTIONS = ['resona', 'resona_silver', 'resona_gold', 'resona_platinum
 
 const serializeProfile = (profile = {}) => {
   const uid = normalizeUid(profile.uid || profile.handle || profile.username || '');
+  const followers = Array.isArray(profile.followers) ? profile.followers : [];
+  const following = Array.isArray(profile.following) ? profile.following : [];
   return {
     id: profile.id || '',
     uid,
@@ -47,7 +50,9 @@ const serializeProfile = (profile = {}) => {
     avatar: profile.avatar || null,
     role: profile.role || 'listener',
     planId: normalizePlanId(profile.planId),
-    ...(profile.tier ? { tier: profile.tier } : {})
+    ...(profile.tier ? { tier: profile.tier } : {}),
+    followersCount: followers.length,
+    followingCount: following.length
   };
 };
 
@@ -79,8 +84,14 @@ router.get('/profile/:handle', optionalAuth, async (req, res) => {
     const following = Array.isArray(targetUserProfile.following) ? targetUserProfile.following : [];
     
     let isFollowing = false;
+    let isRequested = false;
     if (req.user && req.user.id) {
       isFollowing = followers.includes(req.user.id);
+      if (!isFollowing) {
+        const targetSocial = (await getAccountData(user.id, 'social.json')) || {};
+        const notifications = Array.isArray(targetSocial.notifications) ? targetSocial.notifications : [];
+        isRequested = notifications.some(n => n.type === 'follow_request' && n.fromUserId === req.user.id && n.status === 'pending');
+      }
     }
 
     // Fetch uploaded tracks
@@ -100,7 +111,8 @@ router.get('/profile/:handle', optionalAuth, async (req, res) => {
       tracks: publicTracks,
       followersCount: followers.length,
       followingCount: following.length,
-      isFollowing
+      isFollowing,
+      isRequested
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -430,6 +442,47 @@ router.post('/profile/:handle/follow', async (req, res) => {
     const currentUserProfile = (await getAccountData(req.user.id, 'profile.json')) || {};
     const targetUserProfile = (await getAccountData(targetUser.id, 'profile.json')) || {};
 
+    const targetPreferences = (await getAccountData(targetUser.id, 'preferences.json')) || {};
+    const isPrivate = targetPreferences.privateProfile === true;
+
+    if (isPrivate) {
+      const targetSocial = (await getAccountData(targetUser.id, 'social.json')) || {};
+      const notifications = Array.isArray(targetSocial.notifications) ? targetSocial.notifications : [];
+      const existing = notifications.find(n => n.type === 'follow_request' && n.fromUserId === req.user.id && n.status === 'pending');
+      
+      if (!existing) {
+        // Keep the old social notification for backward compatibility if needed, 
+        // or just rely on the new service
+        notifications.push({
+          id: randomUUID(),
+          type: 'follow_request',
+          fromUserId: req.user.id,
+          fromUserName: currentUserProfile.name || req.user.name || 'A user',
+          fromUserHandle: currentUserProfile.handle || req.user.handle || req.user.id,
+          fromUserAvatar: currentUserProfile.avatar || null,
+          title: 'Follow Request',
+          message: 'Requested to follow you.',
+          timestamp: new Date().toISOString(),
+          read: false,
+          status: 'pending'
+        });
+        await saveAccountData(targetUser.id, 'social.json', { ...targetSocial, notifications });
+        
+        // Dispatch new notification system event (in-app + FCM)
+        await createNotification(targetUser.id, {
+          type: 'follow_request',
+          title: 'New follow request',
+          message: `@${currentUserProfile.handle || req.user.handle || req.user.id} requested to follow you`,
+          actorUserId: req.user.id,
+          actorName: currentUserProfile.name || req.user.name,
+          actorHandle: currentUserProfile.handle || req.user.handle || req.user.id,
+          actorAvatar: currentUserProfile.avatar || null,
+          targetUrl: '/profile'
+        });
+      }
+      return res.json({ message: 'Requested to follow user', requested: true });
+    }
+
     const following = Array.isArray(currentUserProfile.following) ? currentUserProfile.following : [];
     const followers = Array.isArray(targetUserProfile.followers) ? targetUserProfile.followers : [];
 
@@ -441,9 +494,20 @@ router.post('/profile/:handle/follow', async (req, res) => {
     if (!followers.includes(req.user.id)) {
       followers.push(req.user.id);
       await saveAccountData(targetUser.id, 'profile.json', { ...targetUserProfile, followers });
+      
+      await createNotification(targetUser.id, {
+        type: 'follow',
+        title: 'New follower',
+        message: `@${currentUserProfile.handle || req.user.handle || req.user.id} started following you`,
+        actorUserId: req.user.id,
+        actorName: currentUserProfile.name || req.user.name,
+        actorHandle: currentUserProfile.handle || req.user.handle || req.user.id,
+        actorAvatar: currentUserProfile.avatar || null,
+        targetUrl: `/profile/${currentUserProfile.handle || req.user.handle || req.user.id}`
+      });
     }
 
-    return res.json({ message: 'Followed user' });
+    return res.json({ message: 'Followed user', requested: false });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -471,6 +535,79 @@ router.delete('/profile/:handle/follow', async (req, res) => {
     await saveAccountData(targetUser.id, 'profile.json', { ...targetUserProfile, followers: newFollowers });
 
     return res.json({ message: 'Unfollowed user' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/user/profile/:handle/followers
+ */
+router.get('/profile/:handle/followers', async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const targetUser = await findUserByUid(handle);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const targetUserProfile = (await getAccountData(targetUser.id, 'profile.json')) || {};
+    const followers = Array.isArray(targetUserProfile.followers) ? targetUserProfile.followers : [];
+
+    const users = [];
+    for (const id of followers) {
+      const u = await getResonaProfile(id);
+      if (u) users.push({ id: u.id, name: u.name, handle: u.handle, avatar: u.avatar });
+    }
+    return res.json({ followers: users });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/user/profile/:handle/following
+ */
+router.get('/profile/:handle/following', async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const targetUser = await findUserByUid(handle);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const targetUserProfile = (await getAccountData(targetUser.id, 'profile.json')) || {};
+    const following = Array.isArray(targetUserProfile.following) ? targetUserProfile.following : [];
+
+    const users = [];
+    for (const id of following) {
+      const u = await getResonaProfile(id);
+      if (u) users.push({ id: u.id, name: u.name, handle: u.handle, avatar: u.avatar });
+    }
+    return res.json({ following: users });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/user/followers/:handle
+ */
+router.delete('/followers/:handle', async (req, res) => {
+  try {
+    const { handle } = req.params;
+    const targetUser = await findUserByUid(handle);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const currentUserProfile = (await getAccountData(req.user.id, 'profile.json')) || {};
+    const targetUserProfile = (await getAccountData(targetUser.id, 'profile.json')) || {};
+
+    const followers = Array.isArray(currentUserProfile.followers) ? currentUserProfile.followers : [];
+    const following = Array.isArray(targetUserProfile.following) ? targetUserProfile.following : [];
+
+    const newFollowers = followers.filter(id => id !== targetUser.id);
+    const newFollowing = following.filter(id => id !== req.user.id);
+
+    await saveAccountData(req.user.id, 'profile.json', { ...currentUserProfile, followers: newFollowers });
+    await saveAccountData(targetUser.id, 'profile.json', { ...targetUserProfile, following: newFollowing });
+
+    return res.json({ message: 'Removed follower' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

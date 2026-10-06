@@ -2,6 +2,7 @@ import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth as adminAuth } from 'firebase-admin/auth';
 import { getFirestore as adminFirestore } from 'firebase-admin/firestore';
 import { getStorage as adminStorage } from 'firebase-admin/storage';
+import { getMessaging as adminMessaging } from 'firebase-admin/messaging';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -100,6 +101,7 @@ export function getAdminFirestore() {
   return firestoreInstance;
 }
 export function getStorageBucket() { return bucketInstance ||= adminStorage(app).bucket(); }
+export function getAdminMessaging() { return adminMessaging(app); }
 
 // Lazy proxies allow the local server process and health endpoint to start even
 // before a developer configures ADC; protected operations fail with clear setup text.

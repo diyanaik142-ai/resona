@@ -130,7 +130,11 @@ export default function NotificationDrawer({
   // Dismiss generic notification
   const handleDismiss = async (notifId) => {
     try {
-      await api.social.notificationAction(notifId, 'dismiss');
+      if (api.notifications && api.notifications.markAsRead) {
+        await api.notifications.markAsRead([notifId]);
+      } else if (api.social && api.social.notificationAction) {
+        await api.social.notificationAction(notifId, 'dismiss');
+      }
       setNotifications(prev => prev.filter(n => n.id !== notifId));
     } catch (err) {
       console.warn('Failed to dismiss notification:', err);
@@ -260,7 +264,7 @@ export default function NotificationDrawer({
                           </span>
                           <span className="text-[10px] text-white/40 flex items-center gap-1 font-mono">
                             <Clock className="w-2.5 h-2.5" />
-                            {formatTimeAgo(notif.timestamp)}
+                            {formatTimeAgo(notif.createdAt || notif.timestamp)}
                           </span>
                         </div>
 
@@ -330,7 +334,7 @@ export default function NotificationDrawer({
                       <h5 className="text-xs font-semibold text-white">{notif.title || 'Update'}</h5>
                       <p className="text-[11px] text-white/60 mt-0.5">{notif.message || notif.desc}</p>
                       <span className="text-[10px] text-white/40 font-mono mt-1 block">
-                        {formatTimeAgo(notif.timestamp)}
+                        {formatTimeAgo(notif.createdAt || notif.timestamp)}
                       </span>
                     </div>
                   </div>
