@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "953282841798",
+    "project_id": "resona-13",
+    "storage_bucket": "resona-13.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:953282841798:android:91bcc882fe9cd392ad1bc7",
+        "android_client_info": {
+          "package_name": "com.resona.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "953282841798-4ck5fe5qkio2tvr6a79iq4018744i920.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5mRvV_LNlto0ZFctUOiLXenSbwKP8eSU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "953282841798-4ck5fe5qkio2tvr6a79iq4018744i920.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
