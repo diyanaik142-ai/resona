@@ -289,7 +289,9 @@ router.post('/profile/picture', upload.single('picture'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No picture uploaded.' });
     
-    const profilesDir = path.resolve(__dirname, '..', 'data', 'media', 'profiles');
+    const profilesDir = process.env.NODE_ENV === 'production'
+      ? '/opt/resona/media/profiles'
+      : path.resolve(__dirname, '..', 'data', 'media', 'profiles');
     await fs.mkdir(profilesDir, { recursive: true });
     
     const ext = path.extname(req.file.originalname) || '.jpg';
@@ -323,8 +325,11 @@ router.delete('/profile/picture', async (req, res) => {
     if (current.avatar && current.avatar.startsWith('/media/profiles/')) {
       const filename = path.basename(current.avatar);
       if (filename) {
-        const filePath = path.resolve(__dirname, '..', 'data', 'media', 'profiles', filename);
-        if (filePath.startsWith(path.resolve(__dirname, '..', 'data', 'media', 'profiles'))) {
+        const profilesDir = process.env.NODE_ENV === 'production'
+          ? '/opt/resona/media/profiles'
+          : path.resolve(__dirname, '..', 'data', 'media', 'profiles');
+        const filePath = path.join(profilesDir, filename);
+        if (filePath.startsWith(profilesDir)) {
           await fs.unlink(filePath).catch(() => {});
         }
       }
