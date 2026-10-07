@@ -235,6 +235,11 @@ const profilesPath = process.env.NODE_ENV === 'production'
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'media', 'profiles');
 app.use('/media/profiles', express.static(profilesPath));
 
+const playlistsPath = process.env.NODE_ENV === 'production'
+  ? '/opt/resona/media/playlists'
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'media', 'playlists');
+app.use('/media/playlists', express.static(playlistsPath));
+
 // Retain local media compatibility in development. Production media must use Storage URLs.
 if (process.env.NODE_ENV !== 'production') {
   const mediaPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'media');
