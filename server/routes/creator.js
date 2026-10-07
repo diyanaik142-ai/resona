@@ -7,7 +7,7 @@ import { requireFeature } from '../middleware/entitlements.js';
 
 const router = express.Router();
 router.use(requireAuth);
-router.use(requireFeature('creator_studio'));
+router.use(requireFeature('creator_hub'));
 
 /**
  * GET /api/creator
@@ -20,13 +20,22 @@ router.get('/', async (req, res) => {
       return res.status(403).json({ error: 'Creator Hub is currently disabled by platform settings.' });
     }
 
-    const creator = (await getAccountData(req.user.id, 'creator.json')) || {
-      isCreator: false,
-      status: 'none', // none, pending, approved, rejected
-      artistName: '',
-      stats: { uploads: 0, plays: '0', followers: '0' },
-      uploads: [],
-      songRequests: []
+    const storedCreator = (await getAccountData(req.user.id, 'creator.json')) || {};
+    const creator = {
+      ...storedCreator,
+      isCreator: storedCreator.isCreator === true,
+      status: storedCreator.status || (storedCreator.isCreator ? 'approved' : 'none'),
+      artistName: typeof storedCreator.artistName === 'string' ? storedCreator.artistName : '',
+      stats: {
+        uploads: 0,
+        plays: '0',
+        followers: '0',
+        ...(storedCreator.stats && typeof storedCreator.stats === 'object' && !Array.isArray(storedCreator.stats)
+          ? storedCreator.stats
+          : {})
+      },
+      uploads: Array.isArray(storedCreator.uploads) ? storedCreator.uploads : [],
+      songRequests: Array.isArray(storedCreator.songRequests) ? storedCreator.songRequests : []
     };
     return res.json(creator);
   } catch (err) {

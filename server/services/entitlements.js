@@ -1,4 +1,5 @@
 import { FEATURE_REGISTRY, normalizeFeatureMap } from '../../shared/featureRegistry.js';
+import { OVERRIDES_FILE, PLANS_FILE } from '../config.js';
 
 /**
  * RESONA ENTITLEMENT SERVICE (server-authoritative).
@@ -104,12 +105,12 @@ export async function getUserFeatureEntitlements(userId) {
   const platform = await getPlatformSettings();
   const globalFeatures = getGlobalFeatureMap(platform);
 
-  const plansData = (await getGlobalData('plans.json')) || {};
+  const plansData = (await getGlobalData(PLANS_FILE)) || {};
   const normalizedPlans = normalizePlans(plansData);
   const planConfig = normalizedPlans[planId] || {};
 
-  const overridesData = (await getGlobalData('entitlement_overrides.json')) || {};
-  const userOverrides = overridesData[userId] || {};
+  const overridesData = (await getGlobalData(OVERRIDES_FILE)) || {};
+  const userOverrides = overridesData?.[userId] || {};
 
   return computeEntitlements(planConfig, userOverrides, globalFeatures);
 }
