@@ -3,6 +3,8 @@ import { resolveMediaUrl,  api } from '../../services/api';
 import { Music, Plus, Search, Trash2, Edit3, GripVertical, Check, X, Image as ImageIcon, Globe, Lock } from 'lucide-react';
 import { formatTime } from '../../utils/formatTime';
 
+const createPlaylistItemId = () => `pi_${globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
+
 export default function AdminPlaylists() {
   const [playlists, setPlaylists] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -60,7 +62,15 @@ export default function AdminPlaylists() {
     setFormStatus(playlist.status);
     setFormCover(null);
     setFormCoverPreview(playlist.coverUrl);
-    setFormTracks(playlist.trackItems || []);
+    const usedItemIds = new Set();
+    setFormTracks((Array.isArray(playlist.trackItems) ? playlist.trackItems : []).map((item) => {
+      let playlistItemId = item.playlistItemId;
+      if (!playlistItemId || usedItemIds.has(playlistItemId)) {
+        playlistItemId = createPlaylistItemId();
+      }
+      usedItemIds.add(playlistItemId);
+      return { ...item, playlistItemId };
+    }));
     setActiveView('editor');
   };
 
@@ -87,11 +97,10 @@ export default function AdminPlaylists() {
       formData.append('description', formDescription.trim());
       formData.append('status', formStatus);
       
-      // Ensure unique identities for drag-and-drop ordering when saving
-      const tracksToSave = formTracks.map((t, idx) => ({
-        playlistItemId: t.playlistItemId || `pi_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        trackId: t.trackId || t.id, // Support dragging from search directly
-        position: idx
+      const tracksToSave = formTracks.map((item, order) => ({
+        playlistItemId: item.playlistItemId || createPlaylistItemId(),
+        trackId: item.trackId || item.id || item.track?.id,
+        order
       }));
       formData.append('trackItems', JSON.stringify(tracksToSave));
       
@@ -124,25 +133,29 @@ export default function AdminPlaylists() {
 
   const addTrack = (track) => {
     const newItem = {
-      playlistItemId: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      playlistItemId: createPlaylistItemId(),
       trackId: track.id,
       track
     };
-    setFormTracks([...formTracks, newItem]);
+    setFormTracks((current) => [...current, newItem]);
   };
 
   const removeTrack = (playlistItemId) => {
-    setFormTracks(formTracks.filter(t => t.playlistItemId !== playlistItemId));
+    setFormTracks((current) => current.filter(item => item.playlistItemId !== playlistItemId));
   };
 
-  const moveTrack = (index, direction) => {
-    const newTracks = [...formTracks];
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= newTracks.length) return;
-    const temp = newTracks[index];
-    newTracks[index] = newTracks[newIndex];
-    newTracks[newIndex] = temp;
-    setFormTracks(newTracks);
+  const moveTrack = (playlistItemId, direction) => {
+    setFormTracks((current) => {
+      const index = current.findIndex(item => item.playlistItemId === playlistItemId);
+      if (index < 0) return current;
+      const newTracks = [...current];
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= newTracks.length) return current;
+      const temp = newTracks[index];
+      newTracks[index] = newTracks[newIndex];
+      newTracks[newIndex] = temp;
+      return newTracks;
+    });
   };
 
   const filteredCatalog = catalog.filter(t => {
@@ -263,10 +276,10 @@ export default function AdminPlaylists() {
                     return (
                       <div key={item.playlistItemId} className="flex items-center gap-3 p-3 bg-black/20 border border-white/5 rounded-xl hover:border-white/10 transition group">
                         <div className="flex flex-col gap-1 px-1">
-                          <button onClick={() => moveTrack(index, -1)} disabled={index === 0} className="text-slate-500 hover:text-white disabled:opacity-30">
+                          <button onClick={() => moveTrack(item.playlistItemId, -1)} disabled={index === 0} className="text-slate-500 hover:text-white disabled:opacity-30">
                             <span className="text-[10px]">▲</span>
                           </button>
-                          <button onClick={() => moveTrack(index, 1)} disabled={index === formTracks.length - 1} className="text-slate-500 hover:text-white disabled:opacity-30">
+                          <button onClick={() => moveTrack(item.playlistItemId, 1)} disabled={index === formTracks.length - 1} className="text-slate-500 hover:text-white disabled:opacity-30">
                             <span className="text-[10px]">▼</span>
                           </button>
                         </div>

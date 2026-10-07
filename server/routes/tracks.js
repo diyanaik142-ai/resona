@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import { getGlobalData } from '../db/storage.js';
 import { CATALOG_FILE } from '../config.js';
 
@@ -80,20 +81,29 @@ router.get('/playlists/:id', async (req, res) => {
     };
     
     // Populate trackItems with actual track data
-    const populatedTrackItems = (playlist.trackItems || []).map(item => {
+    const usedPlaylistItemIds = new Set();
+    const populatedTrackItems = (Array.isArray(playlist.trackItems) ? playlist.trackItems : []).map((item, order) => {
+      if (!item || typeof item !== 'object' || typeof item.trackId !== 'string') return null;
       const track = customCatalog.find(t => t.id === item.trackId);
-      if (track) {
-        return {
-          ...item,
-          track: {
-            ...track,
-            audioUrl: sanitizeMediaUrl(track.audioUrl),
-            cover: sanitizeMediaUrl(track.cover)
-          }
-        };
+      if (!track) return null;
+
+      let playlistItemId = item.playlistItemId;
+      if (typeof playlistItemId !== 'string' || !playlistItemId || usedPlaylistItemIds.has(playlistItemId)) {
+        playlistItemId = `pi_${randomUUID()}`;
       }
-      return item;
-    }).filter(item => item.track); // filter out deleted tracks
+      usedPlaylistItemIds.add(playlistItemId);
+      return {
+        ...item,
+        playlistItemId,
+        trackId: track.id,
+        order,
+        track: {
+          ...track,
+          audioUrl: sanitizeMediaUrl(track.audioUrl),
+          cover: sanitizeMediaUrl(track.cover)
+        }
+      };
+    }).filter(Boolean);
     
     res.json({ ...playlist, trackItems: populatedTrackItems });
   } catch (error) {

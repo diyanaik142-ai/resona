@@ -895,6 +895,14 @@ export const api = {
       const playlist = await res.json();
       return {
         ...playlist,
+        tracks: (Array.isArray(playlist.trackItems) ? playlist.trackItems : [])
+          .filter(item => item?.track)
+          .map(item => ({
+            ...item.track,
+            playlistItemId: item.playlistItemId,
+            trackId: item.trackId,
+            order: item.order
+          })),
         coverUrl: resolveMediaUrl(playlist.coverUrl)
       };
     }

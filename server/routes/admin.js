@@ -40,6 +40,7 @@ import { FEATURE_REGISTRY, FEATURE_CATEGORIES, FEATURE_IDS } from '../../shared/
 import { normalizePlans, computeEntitlements } from '../services/entitlements.js';
 import { getResonaProfile, normalizePlanId, planName } from '../services/userService.js';
 import { createNotification } from '../services/notificationService.js';
+import { normalizePlaylistItems, PlaylistInputError } from '../services/adminPlaylistItems.js';
 import {
   getPlatformSettings,
   updatePlatformSettings,
@@ -766,6 +767,21 @@ router.get('/playlists/:id', requireAdmin, async (req, res) => {
 
 router.post('/playlists', requireAdmin, upload.single('cover'), async (req, res) => {
   try {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    if (!name) throw new PlaylistInputError('Playlist name is required.');
+    if (name.length > 120) throw new PlaylistInputError('Playlist name must be 120 characters or fewer.');
+    const description = typeof req.body.description === 'string' ? req.body.description : '';
+    if (description.length > 2000) throw new PlaylistInputError('Playlist description must be 2000 characters or fewer.');
+    const status = req.body.status || 'draft';
+    if (!['draft', 'published', 'Published'].includes(status)) {
+      throw new PlaylistInputError('Playlist status must be draft or published.');
+    }
+    const catalog = await getGlobalData(CATALOG_FILE) || [];
+    const trackItems = normalizePlaylistItems(
+      req.body.trackItems ?? req.body.tracks,
+      new Set(catalog.map(track => track.id))
+    );
+
     const uploadDir = process.env.NODE_ENV === 'production' 
       ? '/opt/resona/media/playlists/' 
       : path.resolve(__dirname, '..', 'data', 'media', 'playlists');
@@ -792,17 +808,17 @@ router.post('/playlists', requireAdmin, upload.single('cover'), async (req, res)
       coverUrl = `/media/playlists/${filename}`;
     }
 
-    const { name, description, status, trackItems } = req.body;
-    
+    const playlistId = `ap_${randomUUID()}`;
     const newPlaylist = {
-      playlistId: `ap_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      name: name || 'Untitled Playlist',
-      description: description || '',
+      id: playlistId,
+      playlistId,
+      name,
+      description,
       coverUrl,
       ownerType: 'admin',
       ownerId: req.admin.id,
-      trackItems: trackItems ? JSON.parse(trackItems) : [],
-      status: status || 'draft',
+      trackItems,
+      status: status === 'Published' ? 'published' : status,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -812,7 +828,10 @@ router.post('/playlists', requireAdmin, upload.single('cover'), async (req, res)
 
     res.status(201).json(newPlaylist);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Admin playlist create error]', error);
+    res.status(error instanceof PlaylistInputError ? error.statusCode : 500).json({
+      error: error instanceof PlaylistInputError ? error.message : 'Failed to create playlist.'
+    });
   }
 });
 
@@ -847,15 +866,35 @@ router.put('/playlists/:id', requireAdmin, upload.single('cover'), async (req, r
       coverUrl = `/media/playlists/${filename}`;
     }
 
-    const { name, description, status, trackItems } = req.body;
+    const name = req.body.name;
+    if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+      throw new PlaylistInputError('Playlist name cannot be empty.');
+    }
+    if (typeof name === 'string' && name.trim().length > 120) {
+      throw new PlaylistInputError('Playlist name must be 120 characters or fewer.');
+    }
+    const description = req.body.description;
+    if (description !== undefined && (typeof description !== 'string' || description.length > 2000)) {
+      throw new PlaylistInputError('Playlist description must be 2000 characters or fewer.');
+    }
+    const status = req.body.status;
+    if (status !== undefined && !['draft', 'published', 'Published'].includes(status)) {
+      throw new PlaylistInputError('Playlist status must be draft or published.');
+    }
+    const rawTrackItems = req.body.trackItems ?? req.body.tracks;
+    let trackItems = existing.trackItems || [];
+    if (rawTrackItems !== undefined) {
+      const catalog = await getGlobalData(CATALOG_FILE) || [];
+      trackItems = normalizePlaylistItems(rawTrackItems, new Set(catalog.map(track => track.id)));
+    }
     
     const updated = {
       ...existing,
-      name: name || existing.name,
+      name: name !== undefined ? name.trim() : existing.name,
       description: description !== undefined ? description : existing.description,
       coverUrl,
-      status: status || existing.status,
-      trackItems: trackItems ? JSON.parse(trackItems) : existing.trackItems,
+      status: status === 'Published' ? 'published' : (status || existing.status),
+      trackItems,
       updatedAt: new Date().toISOString()
     };
 
@@ -864,7 +903,10 @@ router.put('/playlists/:id', requireAdmin, upload.single('cover'), async (req, r
 
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Admin playlist update error]', error);
+    res.status(error instanceof PlaylistInputError ? error.statusCode : 500).json({
+      error: error instanceof PlaylistInputError ? error.message : 'Failed to update playlist.'
+    });
   }
 });
 
@@ -877,6 +919,7 @@ router.delete('/playlists/:id', requireAdmin, async (req, res) => {
     await auditAction(req.admin.id, 'DELETE_ADMIN_PLAYLIST', req.params.id, { name: existing.name });
     res.json({ success: true });
   } catch (error) {
+    console.error('[Admin playlist delete error]', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -64,7 +64,7 @@ export default function PlaylistView({ playlistId,  onPlayPlaylist,   onNavigate
     );
   }
 
-  const tracks = playlist.tracks || [];
+  const tracks = Array.isArray(playlist.tracks) ? playlist.tracks : [];
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -130,7 +130,7 @@ export default function PlaylistView({ playlistId,  onPlayPlaylist,   onNavigate
             const isPlayingThis = currentTrack?.id === track.id && isPlaying;
             return (
               <div 
-                key={track.id + idx}
+                key={track.playlistItemId}
                 onClick={() => onPlayTrack(track)}
                 className="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition"
               >
