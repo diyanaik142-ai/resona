@@ -1,7 +1,8 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireFeature } from '../middleware/entitlements.js';
-import { getAccountData, saveAccountData } from '../db/storage.js';
+import { CATALOG_FILE } from '../config.js';
+import { getAccountData, getGlobalData, saveAccountData } from '../db/storage.js';
 import { getPlatformSettings } from '../services/platformSettings.js';
 import { getAllRealUsers, getRealUserProfile } from '../services/userService.js';
 import { userStatusTracker } from '../services/userStatusTracker.js';
@@ -47,29 +48,117 @@ router.get('/', async (req, res) => {
  */
 router.get('/friends', async (req, res) => {
   try {
-    const social = (await getAccountData(req.user.id, 'social.json')) || {};
-    const friendIds = Array.isArray(social.friends) ? social.friends : [];
+    const [social, profile, platform] = await Promise.all([
+      getAccountData(req.user.id, 'social.json'),
+      getAccountData(req.user.id, 'profile.json'),
+      getPlatformSettings()
+    ]);
+    const friendIds = new Set([
+      ...(Array.isArray(social?.friends) ? social.friends : []),
+      ...(Array.isArray(profile?.following) ? profile.following : []),
+      ...(Array.isArray(profile?.followers) ? profile.followers : [])
+    ].filter((id) => typeof id === 'string' && id && id !== req.user.id));
 
-    const friends = [];
-    for (const fid of friendIds) {
-      if (fid === req.user.id) continue;
-      const profile = await getRealUserProfile(fid);
-      if (profile) {
-        const status = userStatusTracker.getStatus(profile.id);
-        friends.push({
-          id: profile.id,
-          name: profile.name,
-          handle: profile.handle,
-          planId: profile.planId,
-          avatar: profile.avatar,
-          isOnline: status.isOnline,
-          statusText: status.statusText,
-          lastActive: status.lastActive
-        });
+    const friends = (await Promise.all(Array.from(friendIds, async (friendId) => {
+      const friendProfile = await getRealUserProfile(friendId);
+      if (!friendProfile || friendProfile.id === req.user.id) return null;
+
+      const [friendSocial, preferences] = await Promise.all([
+        getAccountData(friendId, 'social.json'),
+        getAccountData(friendId, 'preferences.json')
+      ]);
+      const status = userStatusTracker.getStatus(friendProfile.id);
+      const canShareActivity = platform.social?.enableFriendActivity !== false &&
+        platform.social?.defaultActivityVisibility !== 'private' &&
+        preferences?.friendActivityVisible !== false;
+
+      return {
+        id: friendProfile.id,
+        name: friendProfile.name,
+        handle: friendProfile.handle,
+        planId: friendProfile.planId,
+        avatar: friendProfile.avatar,
+        isOnline: status.isOnline,
+        statusText: status.statusText,
+        lastActive: status.lastActive,
+        listeningActivity: canShareActivity ? userStatusTracker.getListeningActivity(friendProfile.id) : null
+      };
+    }))).filter(Boolean);
+
+    return res.json({ friends });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/social/listening-activity
+ * Publish or clear the authenticated user's current playback presence.
+ */
+router.post('/listening-activity', async (req, res) => {
+  try {
+    const { isPlaying, trackId } = req.body || {};
+    if (typeof isPlaying !== 'boolean') {
+      return res.status(400).json({ error: 'isPlaying must be a boolean' });
+    }
+    if (isPlaying && (typeof trackId !== 'string' || !trackId.trim())) {
+      return res.status(400).json({ error: 'trackId is required while playing' });
+    }
+
+    const [preferences, profile, social, platform] = await Promise.all([
+      getAccountData(req.user.id, 'preferences.json'),
+      getAccountData(req.user.id, 'profile.json'),
+      getAccountData(req.user.id, 'social.json'),
+      getPlatformSettings()
+    ]);
+    let track = null;
+    const canShareActivity = preferences?.friendActivityVisible !== false &&
+      platform.social?.enableFriendActivity !== false &&
+      platform.social?.defaultActivityVisibility !== 'private';
+    if (isPlaying && canShareActivity) {
+      const catalog = (await getGlobalData(CATALOG_FILE)) || [];
+      track = catalog.find((item) =>
+        String(item.id) === trackId.trim() &&
+        (!item.status || item.status === 'Published') &&
+        !item.deleted &&
+        item.title &&
+        (item.audioUrl || item.streamUrl)
+      );
+      if (!track) {
+        const previousActivity = userStatusTracker.getListeningActivity(req.user.id);
+        userStatusTracker.setListeningActivity(req.user.id, null, false);
+        if (previousActivity) {
+          const relatedUserIds = new Set([
+            ...(Array.isArray(profile?.following) ? profile.following : []),
+            ...(Array.isArray(profile?.followers) ? profile.followers : []),
+            ...(Array.isArray(social?.friends) ? social.friends : [])
+          ].filter((id) => typeof id === 'string' && id && id !== req.user.id));
+          const io = req.app.get('io');
+          for (const relatedUserId of relatedUserIds) {
+            io?.to(`user:${relatedUserId}`).emit('listening_activity_updated', { userId: req.user.id });
+          }
+        }
+        return res.status(404).json({ error: 'Track not found' });
       }
     }
 
-    return res.json({ friends });
+    const previousActivity = userStatusTracker.getListeningActivity(req.user.id);
+    userStatusTracker.setListeningActivity(req.user.id, track, isPlaying && canShareActivity);
+    const listeningActivity = userStatusTracker.getListeningActivity(req.user.id);
+
+    const relatedUserIds = new Set([
+      ...(Array.isArray(profile?.following) ? profile.following : []),
+      ...(Array.isArray(profile?.followers) ? profile.followers : []),
+      ...(Array.isArray(social?.friends) ? social.friends : [])
+    ].filter((id) => typeof id === 'string' && id && id !== req.user.id));
+    if (previousActivity?.trackId !== listeningActivity?.trackId) {
+      const io = req.app.get('io');
+      for (const relatedUserId of relatedUserIds) {
+        io?.to(`user:${relatedUserId}`).emit('listening_activity_updated', { userId: req.user.id });
+      }
+    }
+
+    return res.json({ success: true, listeningActivity });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -189,6 +278,50 @@ router.get('/notifications', async (req, res) => {
   }
 });
 
+router.post('/notifications/read', async (req, res) => {
+  try {
+    const { notificationIds } = req.body;
+    if (!Array.isArray(notificationIds)) {
+      return res.status(400).json({ error: 'notificationIds must be an array' });
+    }
+
+    const social = (await getAccountData(req.user.id, 'social.json')) || {};
+    const notifications = Array.isArray(social.notifications) ? social.notifications : [];
+    const ids = new Set(notificationIds);
+    const now = new Date().toISOString();
+
+    notifications.forEach((notification) => {
+      if (ids.has(notification.id)) {
+        notification.read = true;
+        notification.readAt = now;
+      }
+    });
+
+    await saveAccountData(req.user.id, 'social.json', { ...social, notifications });
+    return res.json({ message: 'Notifications marked as read' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    const social = (await getAccountData(req.user.id, 'social.json')) || {};
+    const notifications = Array.isArray(social.notifications) ? social.notifications : [];
+    const now = new Date().toISOString();
+
+    notifications.forEach((notification) => {
+      notification.read = true;
+      notification.readAt = now;
+    });
+
+    await saveAccountData(req.user.id, 'social.json', { ...social, notifications });
+    return res.json({ message: 'All social notifications marked as read' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 /**
  * POST /api/social/notifications/:id/action
  * Handles actions on a notification (e.g. Accept/Decline)
@@ -230,15 +363,16 @@ router.get('/fusions', requireFeature('fusion'), async (req, res) => {
     const fusions = await fusionService.getUserFusions(req.user.id);
     
     // Resolve participant profiles for each fusion
-    const enrichedFusions = await Promise.all(fusions.map(async (f) => {
+    const enrichedFusions = (await Promise.all(fusions.map(async (f) => {
       const participantProfiles = await Promise.all(
         f.participants.map(async (uid) => {
           const profile = await getRealUserProfile(uid);
-          return profile ? { id: profile.id, name: profile.name, handle: profile.handle, avatar: profile.avatar } : { id: uid, name: 'Unknown' };
+          return profile ? { id: profile.id, name: profile.name, handle: profile.handle, avatar: profile.avatar } : null;
         })
       );
-      return { ...f, participantsData: participantProfiles };
-    }));
+      const participantsData = participantProfiles.filter(Boolean);
+      return participantsData.length >= 2 ? { ...f, participantsData } : null;
+    }))).filter(Boolean);
     
     return res.json({ fusions: enrichedFusions });
   } catch (err) {
@@ -277,10 +411,14 @@ router.get('/fusions/:id', requireFeature('fusion'), async (req, res) => {
     const participantProfiles = await Promise.all(
       fusion.participants.map(async (uid) => {
         const profile = await getRealUserProfile(uid);
-        return profile ? { id: profile.id, name: profile.name, handle: profile.handle, avatar: profile.avatar } : { id: uid, name: 'Unknown' };
+        return profile ? { id: profile.id, name: profile.name, handle: profile.handle, avatar: profile.avatar } : null;
       })
     );
-    return res.json({ fusion: { ...fusion, participantsData: participantProfiles } });
+    const realParticipants = participantProfiles.filter(Boolean);
+    if (realParticipants.length < 2) {
+      return res.status(404).json({ error: 'Fusion participants are no longer available' });
+    }
+    return res.json({ fusion: { ...fusion, participantsData: realParticipants } });
   } catch (err) {
     return res.status(403).json({ error: err.message });
   }

@@ -26,3 +26,25 @@ test('null optional Firestore values do not break entitlement calculation', () =
 
   assert.ok(Object.values(result.features).every((enabled) => enabled === false));
 });
+
+test('a user override cannot restore a feature excluded from their plan', () => {
+  const plans = normalizePlans({
+    resona: { features: { huddle: false, fusion: false } },
+    resona_silver: { features: { huddle: true, fusion: true } }
+  });
+
+  const resona = computeEntitlements(plans.resona, { huddle: true, fusion: true });
+  const silver = computeEntitlements(plans.resona_silver, { huddle: false, fusion: false });
+
+  assert.equal(resona.features.huddle, false);
+  assert.equal(resona.features.fusion, false);
+  assert.equal(silver.features.huddle, false);
+  assert.equal(silver.features.fusion, false);
+});
+
+test('a user override does not disable a feature enabled by global policy when unset', () => {
+  const plans = normalizePlans({ resona_silver: { features: { huddle: true } } });
+  const result = computeEntitlements(plans.resona_silver, {}, { huddle: true });
+
+  assert.equal(result.features.huddle, true);
+});

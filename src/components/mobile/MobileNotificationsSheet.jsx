@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { isNotificationUnread } from '../../utils/notifications';
 import { 
   Bell, 
   X, 
@@ -49,6 +50,9 @@ export default function MobileNotificationsSheet({
   onClose,
   notifications = [],
   setNotifications,
+  unreadCount,
+  onMarkAsRead,
+  onMarkAllAsRead,
   activeHuddle = null,
   setActiveHuddle,
   setShowHuddleRoom,
@@ -56,6 +60,7 @@ export default function MobileNotificationsSheet({
 }) {
   const { refreshAccountData } = useAuth();
   const [processingId, setProcessingId] = useState(null);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [conflictModal, setConflictModal] = useState(null);
   const [followStatuses, setFollowStatuses] = useState({});
@@ -100,7 +105,8 @@ export default function MobileNotificationsSheet({
       const res = await api.huddle.acceptInvitation(invitationId, notif.huddleId);
       
       if (res.huddle) {
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'accepted', read: true } : n));
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'accepted' } : n));
+        await onMarkAsRead?.([notif.id]);
         if (setActiveHuddle) setActiveHuddle(res.huddle);
         if (setShowHuddleRoom) setShowHuddleRoom(true);
         onClose();
@@ -130,7 +136,8 @@ export default function MobileNotificationsSheet({
       const res = await api.huddle.leaveAndJoin(currentHuddle.id, notification.huddleId, invitationId);
       
       if (res.huddle) {
-        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, status: 'accepted', read: true } : n));
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, status: 'accepted' } : n));
+        await onMarkAsRead?.([notification.id]);
         if (setActiveHuddle) setActiveHuddle(res.huddle);
         if (setShowHuddleRoom) setShowHuddleRoom(true);
         setConflictModal(null);
@@ -149,7 +156,8 @@ export default function MobileNotificationsSheet({
     try {
       const invitationId = notif.invitationId || notif.id;
       await api.huddle.declineInvitation(invitationId);
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'declined', read: true } : n));
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'declined' } : n));
+      await onMarkAsRead?.([notif.id]);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to decline invitation');
     } finally {
@@ -159,6 +167,43 @@ export default function MobileNotificationsSheet({
 
   const todayNotifs = notifications.filter(n => isToday(n.createdAt || n.timestamp));
   const earlierNotifs = notifications.filter(n => !isToday(n.createdAt || n.timestamp));
+
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      if (onMarkAsRead) {
+        await onMarkAsRead([notificationId]);
+      } else {
+        await api.notifications.markAsRead([notificationId]);
+        const readAt = new Date().toISOString();
+        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true, readAt } : n));
+      }
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to mark notification as read');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = notifications.filter(isNotificationUnread).map((notif) => notif.id);
+    if (unreadIds.length === 0 && !onMarkAllAsRead) return;
+
+    setIsMarkingAllRead(true);
+    setErrorMessage('');
+    try {
+      if (onMarkAllAsRead) {
+        await onMarkAllAsRead();
+      } else if (onMarkAsRead) {
+        await onMarkAsRead(unreadIds);
+      } else {
+        await api.notifications.markAsRead(unreadIds);
+        const readAt = new Date().toISOString();
+        setNotifications(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true, readAt } : n));
+      }
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to mark notifications as read');
+    } finally {
+      setIsMarkingAllRead(false);
+    }
+  };
 
   const renderNotifItem = (notif) => {
     const isHuddleInvite = notif.type === 'huddle_invite';
@@ -172,7 +217,7 @@ export default function MobileNotificationsSheet({
         <div
           key={notif.id}
           className={`p-3.5 rounded-2xl border transition-all ${
-            isPending && !notif.read
+            isPending && isNotificationUnread(notif)
               ? 'bg-cyan-500/[0.06] border-cyan-500/30'
               : 'bg-white/[0.02] border-white/5'
           }`}
@@ -315,7 +360,9 @@ export default function MobileNotificationsSheet({
     return (
       <div
         key={notif.id}
-        className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 flex items-start gap-3"
+        className={`p-3.5 rounded-2xl border flex items-start gap-3 ${
+          isNotificationUnread(notif) ? 'bg-cyan-500/[0.04] border-cyan-500/25' : 'bg-white/[0.02] border-white/5'
+        }`}
       >
         <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/60 shrink-0 mt-0.5">
           <Info className="w-4 h-4" />
@@ -329,6 +376,16 @@ export default function MobileNotificationsSheet({
           </div>
           <p className="text-[11px] text-white/60 mt-0.5 leading-snug">{notif.message}</p>
         </div>
+        {isNotificationUnread(notif) && (
+          <button
+            type="button"
+            onClick={() => handleMarkAsRead(notif.id)}
+            aria-label="Mark notification as read"
+            className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold text-cyan-300 hover:bg-white/5"
+          >
+            Read
+          </button>
+        )}
       </div>
     );
   };
@@ -349,18 +406,31 @@ export default function MobileNotificationsSheet({
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-cyan-400" />
             <h3 className="text-sm font-semibold text-white">Notifications</h3>
-            {notifications.filter(n => !n.read).length > 0 && (
+            {(unreadCount > 0 || notifications.filter(isNotificationUnread).length > 0) && (
               <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold">
-                {notifications.filter(n => !n.read).length}
+                {unreadCount ?? notifications.filter(isNotificationUnread).length}
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {(unreadCount > 0 || notifications.some(isNotificationUnread)) && (
+              <button
+                type="button"
+                onClick={handleMarkAllAsRead}
+                disabled={isMarkingAllRead}
+                className="text-[10px] font-semibold text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
+              >
+                {isMarkingAllRead ? 'Marking…' : 'Mark all read'}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close notifications"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Conflict Warning */}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { api, resolveMediaUrl } from '../services/api';
 
 const PlayerContext = createContext(null);
@@ -45,6 +45,7 @@ export const PlayerProvider = ({ children }) => {
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState(null);
   const [networkState, setNetworkState] = useState(navigator.onLine ? 'ONLINE' : 'OFFLINE');
+  const activityUpdateRef = useRef(Promise.resolve());
   
   // Ref to track current track without stale closures
   const trackRef = useRef(currentTrack);
@@ -65,6 +66,50 @@ export const PlayerProvider = ({ children }) => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const syncListeningActivity = (forceInactive = false) => {
+      const hasUserSession = !localStorage.getItem('adminToken') &&
+        Boolean(localStorage.getItem('authToken') || localStorage.getItem('resona_token'));
+      if (!hasUserSession) return;
+
+      const shouldShareActivePlayback = !forceInactive &&
+        document.visibilityState === 'visible' &&
+        isPlaying &&
+        currentTrack?.id;
+      const update = {
+        isPlaying: Boolean(shouldShareActivePlayback),
+        trackId: shouldShareActivePlayback ? String(currentTrack.id) : null
+      };
+      activityUpdateRef.current = activityUpdateRef.current
+        .catch(() => {})
+        .then(() => active ? api.social.updateListeningActivity(update) : undefined)
+        .catch((err) => console.warn('[ListeningActivity] Could not sync playback status:', err.message));
+    };
+    const handleVisibilityChange = () => syncListeningActivity();
+    const handlePageHide = () => syncListeningActivity(true);
+
+    syncListeningActivity();
+    const heartbeat = window.setInterval(() => syncListeningActivity(), 30_000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      active = false;
+      window.clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      const hasUserSession = !localStorage.getItem('adminToken') &&
+        Boolean(localStorage.getItem('authToken') || localStorage.getItem('resona_token'));
+      if (hasUserSession) {
+        activityUpdateRef.current = activityUpdateRef.current
+          .catch(() => {})
+          .then(() => api.social.updateListeningActivity({ isPlaying: false }))
+          .catch((err) => console.warn('[ListeningActivity] Could not clear playback status:', err.message));
+      }
+    };
+  }, [currentTrack?.id, isPlaying]);
 
   // Save state on change
   useEffect(() => { savePersisted('currentTrack', currentTrack); }, [currentTrack]);
@@ -274,6 +319,7 @@ export const PlayerProvider = ({ children }) => {
   };
 
   const toggleMute = () => setIsMuted(m => !m);
+  const setShuffle = (value) => setIsShuffle(value);
   const toggleShuffle = () => setIsShuffle(s => !s);
   const toggleLoop = () => setIsLoop(l => !l);
 
@@ -343,6 +389,7 @@ export const PlayerProvider = ({ children }) => {
     seekTo,
     toggleMute,
     toggleShuffle,
+    setShuffle,
     toggleLoop,
     playTrack,
     addToQueue,

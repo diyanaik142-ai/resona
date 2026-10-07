@@ -2,7 +2,9 @@ import { usePlayer } from '../context/PlayerContext';
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { resolveMediaUrl,  api } from '../services/api';
-import { Search, Bell, Play, Sparkles, X, ShieldCheck, Database, Music, Heart, Radio } from 'lucide-react';
+import { Search, Play, Sparkles, X, ShieldCheck, Database, Music, Heart, Radio } from 'lucide-react';
+import NotificationBell from './NotificationBell';
+import { isNotificationUnread } from '../utils/notifications';
 
 export default function PulseView({  onNavigate, onOpenNotifications, unreadCount = 0 }) {
   const {
@@ -92,19 +94,11 @@ export default function PulseView({  onNavigate, onOpenNotifications, unreadCoun
           <button onClick={() => onNavigate('seek')} className="p-2.5 rounded-full glass-card text-slate-300 hover:text-white transition">
             <Search className="w-4 h-4" />
           </button>
-          <button
+          <NotificationBell
             onClick={() => onOpenNotifications ? onOpenNotifications() : setShowNotifications(true)}
-            className="p-2.5 rounded-full glass-card text-slate-300 hover:text-white relative transition"
-            title="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            {(onOpenNotifications ? unreadCount > 0 : notifications.length > 0) && (
-              <>
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full" />
-              </>
-            )}
-          </button>
+            unreadCount={onOpenNotifications ? unreadCount : notifications.filter(isNotificationUnread).length}
+            className="p-2.5 rounded-full glass-card text-slate-300 hover:text-white transition"
+          />
         </div>
       </div>
 

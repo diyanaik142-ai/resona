@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownToLine, Check, ChevronLeft, Clipboard, Disc3, Heart, ListPlus, MoreHorizontal, Pause, Play, RefreshCw, Share2, Shuffle, Sparkles, UserRound } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
@@ -19,14 +19,18 @@ function PlaylistSkeleton() {
 }
 
 export default function PlaylistView({ playlistId, onNavigate }) {
-  const { currentTrack, isPlaying, isLoading: playerLoading, playTrack, addToQueue, togglePlay } = usePlayer();
-  const { user, shelf, toggleLikeTrack } = useAuth();
+  const { currentTrack, isPlaying, isLoading: playerLoading, isShuffle, playTrack, addToQueue, togglePlay, setShuffle } = usePlayer();
+  const { user, shelf, toggleLikeTrack, toggleSavePlaylist } = useAuth();
   const [playlist, setPlaylist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openMenu, setOpenMenu] = useState(null);
   const [scrolled, setScrolled] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [shuffleActive, setShuffleActive] = useState(false);
+  const shuffleHeadRef = useRef(null);
 
   const loadPlaylist = () => {
     if (!playlistId) return;
@@ -47,15 +51,52 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
   const tracks = useMemo(() => (Array.isArray(playlist?.tracks) ? playlist.tracks : []), [playlist]);
   const likedTrackIds = shelf?.likedTrackIds || [];
+  const savedPlaylist = shelf?.playlists?.some((item) => item?.sourcePlaylistId === playlistId || item?.id === ('saved_' + playlistId));
   const isOwner = user?.role === 'admin' || Boolean(playlist && (playlist.ownerId === user?.id || playlist.createdBy === user?.id));
   const ownerName = playlist?.owner?.name || playlist?.ownerName || playlist?.createdByName || (playlist?.isAdminCurated ? 'Resona' : '');
   const currentIsInPlaylist = currentTrack && tracks.some(track => track.id === currentTrack.id);
   const isCurrentPlaying = currentIsInPlaylist && isPlaying;
 
+  const shuffleTracks = () => {
+    const ordered = [...tracks];
+    for (let index = ordered.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [ordered[index], ordered[randomIndex]] = [ordered[randomIndex], ordered[index]];
+    }
+    if (ordered.length > 1 && ordered[0].id === shuffleHeadRef.current) {
+      [ordered[0], ordered[1]] = [ordered[1], ordered[0]];
+    }
+    shuffleHeadRef.current = ordered[0]?.id || null;
+    return ordered;
+  };
+
   const playFrom = (track, shuffle = false) => {
     if (!track || tracks.length === 0) return;
-    const ordered = shuffle ? [...tracks].sort(() => Math.random() - 0.5) : tracks;
-    playTrack(ordered.find(item => item.id === track.id) || ordered[0], ordered);
+    if (!shuffle) {
+      setShuffleActive(false);
+      playTrack(track, tracks);
+      return;
+    }
+    if (isShuffle) setShuffle(false);
+    const ordered = shuffleTracks();
+    setShuffleActive(true);
+    playTrack(ordered[0], ordered);
+  };
+
+  const handleSavePlaylist = async () => {
+    if (!user) {
+      setSaveError('Sign in to save playlists to My Shelf.');
+      return;
+    }
+    setSaveLoading(true);
+    setSaveError(null);
+    try {
+      await toggleSavePlaylist(playlistId);
+    } catch (err) {
+      setSaveError(err.message || 'Unable to update My Shelf.');
+    } finally {
+      setSaveLoading(false);
+    }
   };
   const link = () => `${window.location.origin}/playlist/${playlistId}`;
   const handleCopyLink = async () => {
@@ -83,7 +124,7 @@ export default function PlaylistView({ playlistId, onNavigate }) {
 
     <section className="playlist-hero" aria-labelledby="playlist-title"><div className="playlist-cover-frame"><Artwork src={resolveMediaUrl(playlist.coverUrl)} alt={`${playlist.name} cover`} className="playlist-cover" /></div><div className="playlist-hero-copy"><p className="playlist-eyebrow">Playlist</p><h1 id="playlist-title">{playlist.name}</h1>{playlist.description && <p className="playlist-description">{playlist.description}</p>}<p className="playlist-meta">{ownerName && <><span>{ownerName}</span><i>•</i></>}<span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span></p></div></section>
 
-    <section className="playlist-actions" aria-label="Playlist controls"><div className="playlist-actions-secondary"><IconButton label="Save playlist" disabled><Heart size={21} /></IconButton><IconButton label="Download playlist" disabled><ArrowDownToLine size={20} /></IconButton><IconButton label="Shuffle playlist" onClick={() => playFrom(tracks[0], true)} disabled={!tracks.length}><Shuffle size={20} /></IconButton></div><button type="button" className="playlist-play-button" onClick={() => (isCurrentPlaying ? togglePlay() : playFrom(tracks[0]))} disabled={!tracks.length || playerLoading} aria-label={isCurrentPlaying ? 'Pause playlist' : 'Play playlist'}>{isCurrentPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={21} fill="currentColor" />}<span>{isCurrentPlaying ? 'Pause' : 'Play'}</span></button></section>
+    <section className="playlist-actions" aria-label="Playlist controls"><div className="playlist-actions-secondary"><IconButton label={savedPlaylist ? "Remove playlist from My Shelf" : "Save playlist to My Shelf"} active={savedPlaylist} onClick={handleSavePlaylist} disabled={saveLoading}>{saveLoading ? <RefreshCw size={20} className="animate-spin" /> : <Heart size={21} fill={savedPlaylist ? "currentColor" : "none"} />}</IconButton><IconButton label="Offline playback isn't available yet" disabled><ArrowDownToLine size={20} /></IconButton><IconButton label={shuffleActive ? "Shuffle playback active" : "Shuffle playlist"} active={shuffleActive} onClick={() => playFrom(tracks[0], true)} disabled={!tracks.length || playerLoading}><Shuffle size={20} /></IconButton></div><button type="button" className="playlist-play-button" onClick={() => (isCurrentPlaying ? togglePlay() : playFrom(tracks[0]))} disabled={!tracks.length || playerLoading} aria-label={isCurrentPlaying ? 'Pause playlist' : 'Play playlist'}>{isCurrentPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={21} fill="currentColor" />}<span>{isCurrentPlaying ? 'Pause' : 'Play'}</span></button></section>
 
     <section className="playlist-track-section" aria-labelledby="track-list-heading"><div className="playlist-track-heading"><span id="track-list-heading">Tracks</span><span>{tracks.length}</span></div>
       {tracks.length === 0 ? <div className="playlist-empty"><div className="playlist-state-icon playlist-empty-icon"><Disc3 /></div><h2>No tracks yet</h2><p>This playlist is ready for its first listen.</p></div> : <div className="playlist-track-list">{tracks.map((track, index) => {
@@ -94,6 +135,6 @@ export default function PlaylistView({ playlistId, onNavigate }) {
           <div className="playlist-menu-wrap"><IconButton label={`More actions for ${track.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === track.id ? null : track.id); }}><MoreHorizontal size={19} /></IconButton>{openMenu === track.id && <div className="playlist-menu playlist-menu-track" onClick={event => event.stopPropagation()}><button type="button" onClick={() => { addToQueue(track); setOpenMenu(null); }}><ListPlus size={16} /> Add to queue</button><button type="button" onClick={() => { toggleLikeTrack(track.id); setOpenMenu(null); }}><Heart size={16} /> {liked ? 'Remove from Heartbeats' : 'Add to Heartbeats'}</button><button type="button" onClick={() => { handleShare(); setOpenMenu(null); }}><Share2 size={16} /> Share</button><button type="button" onClick={() => setOpenMenu(null)}><UserRound size={16} /> View artist</button></div>}</div>
         </article>;
       })}</div>}
-    </section><div className="playlist-bottom-space" />
+    </section>{saveError && <p className="playlist-action-error" role="alert">{saveError}</p>}<div className="playlist-bottom-space" />
   </main>;
 }

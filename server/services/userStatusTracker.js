@@ -3,10 +3,14 @@
  * Tracks online presence and last active timestamps without mock data.
  */
 
-class UserStatusTracker {
-  constructor() {
+const DEFAULT_ACTIVITY_TTL_MS = 90_000;
+
+export class UserStatusTracker {
+  constructor(activityTtlMs = DEFAULT_ACTIVITY_TTL_MS) {
     this.userSockets = new Map(); // userId -> Set<socketId>
     this.lastSeen = new Map();    // userId -> timestamp (ms)
+    this.listeningActivity = new Map();
+    this.activityTtlMs = activityTtlMs;
   }
 
   setOnline(userId, socketId) {
@@ -30,6 +34,7 @@ class UserStatusTracker {
       if (sockets.size === 0) {
         this.userSockets.delete(userId);
         this.lastSeen.set(userId, Date.now());
+        this.listeningActivity.delete(userId);
       }
     }
   }
@@ -37,6 +42,36 @@ class UserStatusTracker {
   touch(userId) {
     if (!userId) return;
     this.lastSeen.set(userId, Date.now());
+  }
+
+  setListeningActivity(userId, track, isPlaying) {
+    if (!userId) return;
+    if (!isPlaying || !track) {
+      this.listeningActivity.delete(userId);
+      return;
+    }
+
+    const now = Date.now();
+    this.listeningActivity.set(userId, {
+      trackId: track.id,
+      title: track.title,
+      artist: track.artist,
+      artwork: track.artwork || track.coverUrl || null,
+      updatedAt: new Date(now).toISOString(),
+      expiresAt: now + this.activityTtlMs
+    });
+  }
+
+  getListeningActivity(userId) {
+    const activity = this.listeningActivity.get(userId);
+    if (!activity) return null;
+    if (activity.expiresAt <= Date.now()) {
+      this.listeningActivity.delete(userId);
+      return null;
+    }
+
+    const { expiresAt, ...publicActivity } = activity;
+    return publicActivity;
   }
 
   isOnline(userId) {

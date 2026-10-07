@@ -37,9 +37,10 @@ import { fileURLToPath } from 'url';
 import { GENRES, isValidGenre } from '../config/genres.js';
 import admin from '../firebaseAdmin.js';
 import { FEATURE_REGISTRY, FEATURE_CATEGORIES, FEATURE_IDS } from '../../shared/featureRegistry.js';
-import { normalizePlans, computeEntitlements } from '../services/entitlements.js';
+import { normalizePlans, computeEntitlements, getUserFeatureEntitlements, hasFeature } from '../services/entitlements.js';
 import { getResonaProfile, normalizePlanId, planName } from '../services/userService.js';
 import { createNotification } from '../services/notificationService.js';
+import { huddleService } from '../services/huddleService.js';
 import { normalizePlaylistItems, PlaylistInputError } from '../services/adminPlaylistItems.js';
 import {
   getPlatformSettings,
@@ -250,7 +251,29 @@ router.get('/settings', requireAdmin, async (req, res) => {
 
 router.put('/settings', requireAdmin, async (req, res) => {
   try {
+    const previousFeatureMap = getGlobalFeatureMap(await getPlatformSettings());
     const result = await updatePlatformSettings(req.body, req.admin.id);
+    const updatedFeatureMap = getGlobalFeatureMap(result.settings);
+    const changedFeatures = Object.keys(updatedFeatureMap).filter(
+      (featureId) => updatedFeatureMap[featureId] !== previousFeatureMap[featureId]
+    );
+    if (changedFeatures.length > 0) {
+      const io = req.app.get('io');
+      const profiles = await getAllProfiles();
+      if (changedFeatures.includes('huddle') && !updatedFeatureMap.huddle) {
+        const plans = normalizePlans(await getGlobalData(PLANS_FILE));
+        const overrides = (await getGlobalData(OVERRIDES_FILE)) || {};
+        for (const { id, profile } of profiles) {
+          const plan = plans[normalizePlanId(profile?.planId)];
+          if (plan?.features.huddle && overrides[id]?.huddle !== false && !(await hasFeature(id, 'huddle'))) {
+            await huddleService.revokeUserHuddleAccess(id);
+          }
+        }
+      }
+      for (const { id } of profiles) {
+        io?.to(`user:${id}`).emit('plan_entitlements_changed', {});
+      }
+    }
     res.json({
       success: true,
       settings: result.settings,
@@ -429,6 +452,12 @@ router.put('/users/:id/plan', requireAdmin, async (req, res) => {
     }
     
     await saveGlobalData(PLAN_CHANGE_REQUESTS_FILE, planRequests);
+    if (current.planId !== planId) {
+      if (!(await hasFeature(id, 'huddle'))) {
+        await huddleService.revokeUserHuddleAccess(id);
+      }
+      req.app.get('io')?.to(`user:${id}`).emit('plan_entitlements_changed', { planId });
+    }
     await auditAction(req.admin.id, 'UPDATE_PLAN', id, { oldPlan: current.planId, newPlan: planId });
     res.json({ success: true, planId, planName: planName(planId) });
   } catch (error) {
@@ -496,7 +525,15 @@ router.post('/plan-change-requests/:id/review', requireAdmin, async (req, res) =
     });
     
     const io = req.app.get('io');
-    if (io) io.to(`user:${request.userId}`).emit('notification_received', { type: 'PLAN_CHANGED' });
+    if (io) {
+      io.to(`user:${request.userId}`).emit('notification_received', { type: 'PLAN_CHANGED' });
+      if (decision === 'approved' && updatedProfile.planId !== profile.planId) {
+        if (!(await hasFeature(request.userId, 'huddle'))) {
+          await huddleService.revokeUserHuddleAccess(request.userId);
+        }
+        io.to(`user:${request.userId}`).emit('plan_entitlements_changed', { planId: updatedProfile.planId });
+      }
+    }
     res.json({ request, planId: updatedProfile.planId, planName: planName(updatedProfile.planId) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -516,11 +553,15 @@ router.put('/users/:id/overrides', requireAdmin, async (req, res) => {
     }
     // Strict validation against the central registry
     const clean = {};
+    const entitlement = await getUserFeatureEntitlements(id);
     for (const [featureId, value] of Object.entries(overrides)) {
       const feature = FEATURE_REGISTRY.find(f => f.id === featureId);
       if (!feature) return res.status(400).json({ error: `Unknown feature: ${featureId}` });
       if (!feature.controllable) return res.status(400).json({ error: `Feature not controllable: ${featureId}` });
       if (typeof value !== 'boolean') return res.status(400).json({ error: `Override for ${featureId} must be boolean` });
+      if (value && !entitlement.planFeatures[featureId]) {
+        return res.status(400).json({ error: `${featureId} is not included in the user's current plan.` });
+      }
       clean[featureId] = value;
     }
 
@@ -529,6 +570,12 @@ router.put('/users/:id/overrides', requireAdmin, async (req, res) => {
     else delete overridesData[id];
 
     await saveGlobalData(OVERRIDES_FILE, overridesData);
+
+    const updatedEntitlement = await getUserFeatureEntitlements(id);
+    if (entitlement.features.huddle && !updatedEntitlement.features.huddle) {
+      await huddleService.revokeUserHuddleAccess(id);
+    }
+    req.app.get('io')?.to(`user:${id}`).emit('plan_entitlements_changed', {});
 
     await auditAction(req.admin.id, 'UPDATE_OVERRIDES', id, { overrides: clean });
 
@@ -559,6 +606,7 @@ router.put('/plans/:planId/features', requireAdmin, async (req, res) => {
     const plans = normalizePlans(await getGlobalData(PLANS_FILE));
     if (!plans[planId]) return res.status(404).json({ error: `Unknown plan: ${planId}` });
     if (!features || typeof features !== 'object') return res.status(400).json({ error: 'features must be an object' });
+    const previousFeatures = { ...plans[planId].features };
 
     for (const [featureId, value] of Object.entries(features)) {
       if (!FEATURE_IDS.has(featureId)) return res.status(400).json({ error: `Unknown feature: ${featureId}` });
@@ -566,6 +614,18 @@ router.put('/plans/:planId/features', requireAdmin, async (req, res) => {
       plans[planId].features[featureId] = value;
     }
     await saveGlobalData(PLANS_FILE, plans);
+
+    const affectedUsers = (await getAllProfiles()).filter(({ profile }) =>
+      normalizePlanId(profile?.planId) === normalizePlanId(planId)
+    );
+    const io = req.app.get('io');
+    for (const { id } of affectedUsers) {
+      if (previousFeatures.huddle && !plans[planId].features.huddle && !(await hasFeature(id, 'huddle'))) {
+        await huddleService.revokeUserHuddleAccess(id);
+      }
+      io?.to(`user:${id}`).emit('plan_entitlements_changed', { planId });
+    }
+
     await auditAction(req.admin.id, 'UPDATE_PLAN_FEATURES', planId, { features });
     res.json({ success: true, plan: plans[planId] });
   } catch (error) {

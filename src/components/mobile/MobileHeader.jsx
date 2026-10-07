@@ -1,7 +1,8 @@
 import React from 'react';
-import { Bell, Sparkles, Radio, Search, Library, Users, Settings, Disc, Shield } from 'lucide-react';
+import { Sparkles, Radio, Search, Library, Users, Settings, Disc, Shield } from 'lucide-react';
 import { resolveMediaUrl } from '../../services/api';
 import Avatar from '../Avatar';
+import NotificationBell from '../NotificationBell';
 
 export default function MobileHeader({
   activeTab,
@@ -46,20 +47,11 @@ export default function MobileHeader({
 
       {/* Right: Notifications & Profile Avatar */}
       <div className="flex items-center gap-2.5 shrink-0">
-        <button
+        <NotificationBell
           onClick={onOpenNotifications}
-          className="w-9 h-9 rounded-full glass-card border border-white/10 flex items-center justify-center text-slate-300 hover:text-white relative transition active:scale-90"
-          title="Notifications"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          {unreadNotificationsCount > 0 && (
-            <>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-cyan-400 rounded-full" />
-            </>
-          )}
-        </button>
+          unreadCount={unreadNotificationsCount}
+          className="w-9 h-9 min-h-9 min-w-9 rounded-full glass-card border border-white/10 text-slate-300 hover:text-white transition active:scale-90"
+        />
 
         <div
           onClick={onOpenProfile}

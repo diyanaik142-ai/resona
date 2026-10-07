@@ -12,15 +12,18 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit || '50', 10);
-    const snap = await db.collection('users')
+    const notificationsRef = db.collection('users')
       .doc(req.user.id)
-      .collection('notifications')
-      .orderBy('createdAt', 'desc')
+      .collection('notifications');
+    const [snap, unreadSnap] = await Promise.all([
+      notificationsRef.orderBy('createdAt', 'desc')
       .limit(limit)
-      .get();
+      .get(),
+      notificationsRef.where('read', '==', false).count().get()
+    ]);
       
     const notifications = snap.docs.map(doc => doc.data());
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = unreadSnap.data().count;
 
     return res.json({ notifications, unreadCount });
   } catch (err) {
@@ -48,6 +51,28 @@ router.post('/read', async (req, res) => {
     
     await batch.commit();
     return res.json({ message: 'Notifications marked as read' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/read-all', async (req, res) => {
+  try {
+    const notificationsRef = db.collection('users')
+      .doc(req.user.id)
+      .collection('notifications');
+    const snap = await notificationsRef.get();
+    const now = new Date().toISOString();
+
+    for (let offset = 0; offset < snap.docs.length; offset += 500) {
+      const batch = db.batch();
+      snap.docs.slice(offset, offset + 500).forEach(doc => {
+        batch.update(doc.ref, { read: true, readAt: now });
+      });
+      await batch.commit();
+    }
+
+    return res.json({ message: 'All notifications marked as read' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

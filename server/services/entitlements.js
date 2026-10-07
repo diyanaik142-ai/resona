@@ -4,7 +4,7 @@ import { OVERRIDES_FILE, PLANS_FILE } from '../config.js';
 /**
  * RESONA ENTITLEMENT SERVICE (server-authoritative).
  *
- *   effectiveAccess = userOverride ?? planDefault
+ *   effectiveAccess = planDefault && (userOverride ?? true)
  *
  * Plan defaults are read from plans.json. This file only provides the SEED used to
  * fill in features that a stored plan has never been configured for. Values already
@@ -85,7 +85,8 @@ export function computeEntitlements(plan, userOverrides = {}, globalFeatureMap =
   for (const f of FEATURE_REGISTRY) {
     const planDefault = plan?.features?.[f.id] === true;
     planFeatures[f.id] = planDefault;
-    const requested = Object.prototype.hasOwnProperty.call(overrides, f.id) ? overrides[f.id] : planDefault;
+    const requested = planDefault &&
+      (!Object.prototype.hasOwnProperty.call(overrides, f.id) || overrides[f.id] === true);
     // Hierarchy: GLOBAL PLATFORM AVAILABILITY → PLAN ENTITLEMENT → USER OVERRIDE
     // If feature is globally disabled, effective access is strictly false.
     const isGloballyAllowed = globalFeatureMap ? (globalFeatureMap[f.id] !== false) : true;

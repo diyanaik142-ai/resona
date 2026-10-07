@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile as updateFirebaseProfile, signOut } from 'firebase/auth';
 import { auth as firebaseAuth } from '../firebase';
 import { api, setToken } from '../services/api';
@@ -93,7 +93,15 @@ export function AuthProvider({ children }) {
     const savedToken = localStorage.getItem('authToken') || localStorage.getItem('resona_token');
     if (savedToken) {
       setToken(savedToken);
-      refreshAccountData().catch((err) => {
+      const initializePersistedSession = async () => {
+        if (!localStorage.getItem('resona_session_id')) {
+          const sessionRes = await api.auth.createSession(navigator.userAgent);
+          if (!sessionRes.sessionId) throw new Error('Failed to establish a backend session');
+          localStorage.setItem('resona_session_id', sessionRes.sessionId);
+        }
+        await refreshAccountData();
+      };
+      initializePersistedSession().catch((err) => {
         console.warn('[AuthContext] Failed to refresh account data', err);
         setAuthError(err.message || 'Could not load your account. Retry signing in.');
         setUser(null);
@@ -245,6 +253,7 @@ export function AuthProvider({ children }) {
         } catch (e) {}
       }
       setToken(null);
+      localStorage.removeItem('resona_session_id');
       setUser(null);
       setPreferences(null);
       setShelf({ likedTrackIds: [], playlists: [], recentlyPlayed: [] });
@@ -271,11 +280,11 @@ export function AuthProvider({ children }) {
     setUser((current) => current ? { ...current, planId: entitlements.planId, planFeatures: entitlements.planFeatures, features: entitlements.features } : current);
   };
 
-  const refreshPlan = async () => {
+  const refreshPlan = useCallback(async () => {
     const [profile, entitlements] = await Promise.all([api.user.getProfile(), api.user.getEntitlements()]);
     setUser((current) => current ? { ...current, ...profile, planId: entitlements.planId, planFeatures: entitlements.planFeatures, features: entitlements.features } : current);
     return entitlements;
-  };
+  }, []);
 
   // Update Preferences
   const updatePreferences = async (updates) => {
@@ -291,6 +300,13 @@ export function AuthProvider({ children }) {
       ...prev,
       likedTrackIds: res.likedTrackIds
     }));
+    return res;
+  };
+
+  // Toggle save for a published curated playlist
+  const toggleSavePlaylist = async (playlistId) => {
+    const res = await api.shelf.toggleSavePlaylist(playlistId);
+    setShelf(res.shelf);
     return res;
   };
 
@@ -332,6 +348,7 @@ export function AuthProvider({ children }) {
     updateProfile,
     updatePreferences,
     toggleLikeTrack,
+    toggleSavePlaylist,
     createPlaylist,
     deletePlaylist,
     uploadTrack,

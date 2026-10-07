@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
 import { api } from '../services/api';
 import Avatar from './Avatar';
+import FeatureUnavailable from './FeatureUnavailable';
 
 export default function CreatorHubView({ }) {
   const {
@@ -220,6 +221,7 @@ export default function CreatorHubView({ }) {
 
       {/* UPLOAD MUSIC WIZARD */}
       {activeTab === 'Upload Music' && (
+        user?.features?.creator_upload !== true ? <FeatureUnavailable title="Creator Upload" /> :
         <div className="p-5 rounded-3xl glass-panel border border-white/10 space-y-5">
           {/* Step Indicator */}
           <div className="flex justify-between items-center px-4">
@@ -431,6 +433,7 @@ export default function CreatorHubView({ }) {
 
       {/* ANALYTICS TAB */}
       {activeTab === 'Analytics' && (
+        user?.features?.creator_analytics !== true ? <FeatureUnavailable title="Creator Analytics" /> :
         <div className="space-y-4">
           <div className="p-6 rounded-3xl glass-panel border border-white/10 space-y-4">
             <div className="flex justify-between items-center">

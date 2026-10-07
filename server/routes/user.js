@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { createNotification } from '../services/notificationService.js';
 import { logSecurityEvent } from '../services/securityService.js';
+import { userStatusTracker } from '../services/userStatusTracker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -385,6 +386,24 @@ router.put('/preferences', async (req, res) => {
       ...req.body
     };
     await saveAccountData(req.user.id, 'preferences.json', updated);
+    if (typeof req.body?.friendActivityVisible === 'boolean') {
+      if (!req.body.friendActivityVisible) {
+        userStatusTracker.setListeningActivity(req.user.id, null, false);
+      }
+      const [profile, social] = await Promise.all([
+        getAccountData(req.user.id, 'profile.json'),
+        getAccountData(req.user.id, 'social.json')
+      ]);
+      const relatedUserIds = new Set([
+        ...(Array.isArray(profile?.following) ? profile.following : []),
+        ...(Array.isArray(profile?.followers) ? profile.followers : []),
+        ...(Array.isArray(social?.friends) ? social.friends : [])
+      ].filter((id) => typeof id === 'string' && id && id !== req.user.id));
+      const io = req.app.get('io');
+      for (const relatedUserId of relatedUserIds) {
+        io?.to(`user:${relatedUserId}`).emit('listening_activity_updated', { userId: req.user.id });
+      }
+    }
     return res.json({ message: 'Preferences saved', preferences: updated });
   } catch (err) {
     return res.status(500).json({ error: err.message });

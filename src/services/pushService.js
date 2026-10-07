@@ -3,6 +3,12 @@ import { api } from './api';
 
 let isRegistered = false;
 
+function dispatchNotificationSync(notification) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('resona:notification-sync', { detail: notification }));
+  }
+}
+
 export async function initPushNotifications() {
   if (typeof window === 'undefined' || !window.Capacitor || !window.Capacitor.isNativePlatform()) {
     console.log('[Push] Not running on native device, skipping push init.');
@@ -44,12 +50,12 @@ export async function initPushNotifications() {
 
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       console.log('[Push] Notification received: ', notification);
-      // In-app notifications will be handled by the websocket, but we can do extra logic here if needed
+      dispatchNotificationSync(notification);
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
       console.log('[Push] Notification action performed: ', notification);
-      // E.g. Navigate to profile or huddle depending on notification payload
+      dispatchNotificationSync(notification);
     });
     
   } catch (err) {

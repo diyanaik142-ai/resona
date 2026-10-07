@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+﻿import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config.js';
 import { findAccountById, getAccountData } from '../db/storage.js';
 import { getAuth } from 'firebase-admin/auth';
@@ -22,7 +22,7 @@ export async function requireAuth(req, res, next) {
 
       // Session Validation
       const sessionId = req.headers['x-session-id'];
-      if (sessionId) {
+      if (!req.skipSessionValidation && sessionId) {
         let sessions = (await getAccountData(decodedFirebase.uid, 'sessions.json')) || [];
         const activeSession = sessions.find(s => s.id === sessionId);
         if (!activeSession || activeSession.revokedAt) {
@@ -80,7 +80,7 @@ export async function requireAuth(req, res, next) {
           const account = await findAccountById(decoded.id);
           
           const sessionId = req.headers['x-session-id'];
-          if (sessionId && account) {
+          if (!req.skipSessionValidation && sessionId && account) {
             let sessions = (await getAccountData(account.id, 'sessions.json')) || [];
             const activeSession = sessions.find(s => s.id === sessionId);
             if (!activeSession || activeSession.revokedAt) {

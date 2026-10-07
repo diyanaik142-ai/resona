@@ -137,3 +137,6 @@ textarea {
 @media (max-width:360px){.playlist-page{padding-inline:10px}.playlist-hero{padding-inline:4px}.playlist-cover-frame{width:72vw}.playlist-track-row{grid-template-columns:20px 52px minmax(0,1fr) 35px 34px 34px;gap:5px}.playlist-track-art{width:52px;height:52px}.playlist-track-row>.playlist-icon-button{width:34px;height:34px;flex-basis:34px}.playlist-track-copy h3{font-size:12px}.playlist-track-copy p{font-size:10px}.playlist-play-button{padding-inline:14px;font-size:13px}}
 @media (min-width:768px){.playlist-page{padding-top:0}.playlist-topbar{margin-inline:-16px;padding-inline:16px}.playlist-actions{padding-top:18px}.playlist-track-row{min-height:80px;padding-inline:12px}.playlist-track-section{padding-bottom:18px}}
 @media (min-width:1200px){.playlist-page{width:min(100%,1180px);padding-inline:54px}.playlist-hero{padding-top:58px}.playlist-cover-frame{width:320px}}
+
+.playlist-action-error{margin:0 0 8px;color:#fb7185;font-size:12px;text-align:right}
+.playlist-menu button:disabled{opacity:.42;cursor:not-allowed}

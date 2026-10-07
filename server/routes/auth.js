@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config.js';
@@ -253,7 +253,10 @@ router.post('/logout', requireAuth, async (req, res) => {
  * Create a new device session (used after Firebase authentication)
  * POST /api/auth/session
  */
-router.post('/session', requireAuth, async (req, res) => {
+router.post('/session', (req, res, next) => {
+  req.skipSessionValidation = true;
+  next();
+}, requireAuth, async (req, res) => {
   try {
     const { deviceName } = req.body;
     let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];

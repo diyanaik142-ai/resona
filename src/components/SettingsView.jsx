@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import PlanBadge from './PlanBadge';
 import { api, resolveMediaUrl } from '../services/api';
@@ -6,6 +6,7 @@ import AuthModal from './AuthModal';
 import ChangePasswordModal from './ChangePasswordModal';
 import Avatar from './Avatar';
 import ImageCropModal from './ImageCropModal';
+import FeatureUnavailable from './FeatureUnavailable';
 import {
   User, PlayCircle, Sliders, Bell, Eye, Users, Cast, Globe, Database, Heart,
   Accessibility, HelpCircle, Info, Sparkles, ChevronRight, ChevronLeft, Check,
@@ -151,6 +152,17 @@ export default function SettingsView({ onNavigate }) {
     triggerToast(`Setting saved to your account`);
   };
 
+  const handleFriendActivityVisibilityChange = async (event) => {
+    const enabled = event.target.checked;
+    try {
+      const saved = await updatePreferences({ friendActivityVisible: enabled });
+      setFriendActivityVisible(saved.friendActivityVisible !== false);
+      triggerToast('Listening activity privacy saved');
+    } catch (err) {
+      triggerToast(err.message || 'Could not update listening activity privacy');
+    }
+  };
+
   // 13 Core Listener Settings Menus + 4 Creator Menus
   const mainMenus = [
     { id: 'account', title: 'Account', desc: 'Manage your account and login details', icon: User },
@@ -227,9 +239,10 @@ export default function SettingsView({ onNavigate }) {
                   {(JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]')).map((acc) => (
                     <div key={acc.email} className="p-3.5 rounded-2xl glass-card border border-white/10 flex items-center justify-between cursor-pointer hover:bg-white/5 transition" onClick={() => {
                       if (acc.email !== user?.email) {
+                        localStorage.removeItem('resona_session_id');
                         localStorage.setItem('authToken', acc.token);
                         localStorage.setItem('resona_token', acc.token);
-                        if (acc.sessionId) localStorage.setItem('resona_session_id', acc.sessionId);
+
                         window.location.reload();
                       }
                     }}>
@@ -307,13 +320,13 @@ export default function SettingsView({ onNavigate }) {
                     {[['Display Name','name'],['UID','uid'],['Phone','phone']].map(([label,key]) => <label key={key} className="block text-xs text-slate-400">{label}{key==='phone' && ' (optional)'}<input value={profileDraft[key]} onChange={e=>setProfileDraft(d=>({...d,[key]:e.target.value}))} className="mt-1 w-full min-w-0 bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-sm" /></label>)}
                     <p className="text-[11px] text-slate-400">Email: {user?.email || 'Not provided'} (managed by your sign-in provider)</p>
                     {profileError && <p role="alert" className="text-xs text-rose-300">{profileError}</p>}
-                    <div className="flex gap-2 sticky bottom-0 bg-slate-950 py-2"><button onClick={()=>{setEditingProfile(false);setProfileError('');}} className="flex-1 py-2 rounded-xl border border-white/10 text-slate-200">Cancel</button><button disabled={profileSaving} onClick={saveProfile} className="flex-1 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">{profileSaving?'Saving…':'Save Changes'}</button></div>
+                    <div className="flex gap-2 sticky bottom-0 bg-slate-950 py-2"><button onClick={()=>{setEditingProfile(false);setProfileError('');}} className="flex-1 py-2 rounded-xl border border-white/10 text-slate-200">Cancel</button><button disabled={profileSaving} onClick={saveProfile} className="flex-1 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold">{profileSaving?'Savingâ€¦':'Save Changes'}</button></div>
                   </div>}
                   <section className="p-4 rounded-2xl bg-slate-950/50 border border-teal-500/20 space-y-3">
                     <div>
                       <h4 className="text-sm font-bold text-white">Your Resona Plan</h4>
-                      {planRequestLoading ? <p className="mt-2 text-sm text-slate-400">Loading plan…</p> : user?.planId ? <PlanBadge plan={user.planId} className="inline-block mt-2 text-lg font-black text-teal-300" /> : <p className="mt-2 text-sm text-rose-300">Plan unavailable. Retry to load it.</p>}
-                      <p className="text-[11px] text-slate-400 mt-1">Active plan · Features available with your current plan.</p>
+                      {planRequestLoading ? <p className="mt-2 text-sm text-slate-400">Loading planâ€¦</p> : user?.planId ? <PlanBadge plan={user.planId} className="inline-block mt-2 text-lg font-black text-teal-300" /> : <p className="mt-2 text-sm text-rose-300">Plan unavailable. Retry to load it.</p>}
+                      <p className="text-[11px] text-slate-400 mt-1">Active plan Â· Features available with your current plan.</p>
                     </div>
                     {planRequestError && <p role="alert" className="text-xs text-rose-300">{planRequestError} <button onClick={loadPlanRequest} className="underline">Retry</button></p>}
                     {planRequestData?.request?.status === 'pending' ? <div className="rounded-xl bg-amber-500/10 border border-amber-400/20 p-3 space-y-2 text-xs">
@@ -329,7 +342,7 @@ export default function SettingsView({ onNavigate }) {
                         <input type="radio" name="requestedPlan" value={id} disabled={id === user?.planId || planRequestBusy} checked={requestedPlan === id} onChange={() => setRequestedPlan(id)} />
                         {name}{id === user?.planId && <span className="ml-auto text-[10px]">Current plan</span>}
                       </label>)}</div>
-                      <div className="flex gap-2"><button onClick={() => setPlanRequestView('summary')} className="flex-1 py-2 rounded-lg border border-white/10 text-slate-200">Cancel</button><button onClick={submitPlanRequest} disabled={!requestedPlan || requestedPlan === user?.planId || planRequestBusy} className="flex-1 py-2 rounded-lg bg-teal-500 text-slate-950 font-bold disabled:opacity-50">{planRequestBusy ? 'Submitting…' : 'Submit Request'}</button></div>
+                      <div className="flex gap-2"><button onClick={() => setPlanRequestView('summary')} className="flex-1 py-2 rounded-lg border border-white/10 text-slate-200">Cancel</button><button onClick={submitPlanRequest} disabled={!requestedPlan || requestedPlan === user?.planId || planRequestBusy} className="flex-1 py-2 rounded-lg bg-teal-500 text-slate-950 font-bold disabled:opacity-50">{planRequestBusy ? 'Submittingâ€¦' : 'Submit Request'}</button></div>
                     </div> : <button disabled={!user?.planId || !planRequestData || planRequestBusy} onClick={() => { setRequestedPlan(''); setPlanRequestView('request'); }} className="w-full sm:w-auto px-4 py-2 rounded-xl bg-teal-500 text-slate-950 text-xs font-bold disabled:opacity-50">Request Plan Change</button>}
                     {planRequestData?.request && ['approved','rejected'].includes(planRequestData.request.status) && <p className="text-xs text-slate-300">Last request {planRequestData.request.status}. {planRequestData.request.adminNote || ''}</p>}
                   </section>
@@ -536,7 +549,12 @@ export default function SettingsView({ onNavigate }) {
                 <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Listening Activity & Content</h4>
                 <div className="flex justify-between items-center py-1 border-b border-white/5">
                   <div><p className="font-bold text-white text-xs">Show or hide listening activity</p><p className="text-[10px] text-slate-400">Broadcast live playing track to friends</p></div>
-                  <input type="checkbox" defaultChecked className="accent-teal-400 w-4 h-4 cursor-pointer" />
+                  <input
+                    type="checkbox"
+                    checked={friendActivityVisible}
+                    onChange={handleFriendActivityVisibilityChange}
+                    className="accent-teal-400 w-4 h-4 cursor-pointer"
+                  />
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-white/5">
                   <div><p className="font-bold text-white text-xs">Show or hide recently played music</p><p className="text-[10px] text-slate-400">Display recent history on profile</p></div>
@@ -685,7 +703,7 @@ export default function SettingsView({ onNavigate }) {
                     <div key={ev.id} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0 last:pb-0">
                       <div>
                         <p className="font-bold text-white text-xs">{ev.type.replace(/_/g, ' ').toUpperCase()}</p>
-                        <p className="text-[10px] text-slate-400">{ev.device || 'Unknown Device'} • {ev.ip || 'Unknown IP'}</p>
+                        <p className="text-[10px] text-slate-400">{ev.device || 'Unknown Device'} â€¢ {ev.ip || 'Unknown IP'}</p>
                       </div>
                       <p className="text-[10px] text-slate-500">{new Date(ev.timestamp).toLocaleDateString()}</p>
                     </div>
@@ -711,7 +729,7 @@ export default function SettingsView({ onNavigate }) {
                 </div>
                 <div className="flex justify-between items-center py-1">
                   <div><p className="font-bold text-white text-xs">Automatically share listening activity</p><p className="text-[10px] text-slate-400">Broadcast your playing track in real-time</p></div>
-                  <input type="checkbox" checked={friendActivityVisible} onChange={() => setFriendActivityVisible(!friendActivityVisible)} className="accent-teal-400 w-4 h-4 cursor-pointer" />
+                  <input type="checkbox" checked={friendActivityVisible} onChange={handleFriendActivityVisibilityChange} className="accent-teal-400 w-4 h-4 cursor-pointer" />
                 </div>
               </div>
 
@@ -771,7 +789,7 @@ export default function SettingsView({ onNavigate }) {
                   <div>
                     <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Currently Connected Device</span>
                     <p className="font-extrabold text-white text-base mt-0.5">{activeDevice}</p>
-                    <p className="text-[10px] text-slate-400">Playing on this device • Resona Connect</p>
+                    <p className="text-[10px] text-slate-400">Playing on this device â€¢ Resona Connect</p>
                   </div>
                   <button
                     onClick={() => triggerToast(activeDevice === 'This Phone' ? 'Connected to This Phone' : `Disconnected from ${activeDevice}`)}
@@ -864,11 +882,11 @@ export default function SettingsView({ onNavigate }) {
                   <label className="font-bold text-white text-xs block">App language</label>
                   <select className="w-full p-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white">
                     <option value="English">English (US)</option>
-                    <option value="Spanish">Español</option>
-                    <option value="French">Français</option>
+                    <option value="Spanish">EspaÃ±ol</option>
+                    <option value="French">FranÃ§ais</option>
                     <option value="German">Deutsch</option>
-                    <option value="Hindi">हिन्दी (Hindi)</option>
-                    <option value="Japanese">日本語 (Japanese)</option>
+                    <option value="Hindi">à¤¹à¤¿à¤¨à¥à¤¦à¥€ (Hindi)</option>
+                    <option value="Japanese">æ—¥æœ¬èªž (Japanese)</option>
                   </select>
                 </div>
 
@@ -944,12 +962,16 @@ export default function SettingsView({ onNavigate }) {
           {activeSubpage === 'data-storage' && (
             <div className="space-y-4">
               <p className="text-xs text-slate-400">Manage downloads and local storage.</p>
+              {user?.features?.offline_playback !== true ? (
+                <FeatureUnavailable title="Offline playback" />
+              ) : (
+                <>
               
               {/* 1. Downloaded songs and playlists */}
               <div className="p-3.5 rounded-2xl glass-card flex justify-between items-center">
                 <div>
                   <p className="font-bold text-white text-xs">Downloaded songs and playlists</p>
-                  <p className="text-[10px] text-slate-400">46 songs • 3 playlists stored offline</p>
+                  <p className="text-[10px] text-slate-400">46 songs â€¢ 3 playlists stored offline</p>
                 </div>
                 <button onClick={() => triggerToast('Opening downloaded media list...')} className="px-3 py-1.5 rounded-xl bg-white/10 text-teal-400 font-bold text-xs">
                   Manage
@@ -1038,6 +1060,8 @@ export default function SettingsView({ onNavigate }) {
                 </div>
                 <input type="checkbox" defaultChecked onChange={(e) => triggerToast(e.target.checked ? 'Wi-Fi-only downloads active' : 'Downloads allowed over cellular')} className="accent-teal-400 w-4 h-4" />
               </div>
+                </>
+              )}
 
               {/* 9. Clear playback history */}
               <button onClick={() => triggerToast('Playback history cleared!')} className="w-full p-3.5 rounded-2xl glass-card flex justify-between items-center text-xs font-bold text-rose-400 border border-rose-500/20">
@@ -1064,7 +1088,7 @@ export default function SettingsView({ onNavigate }) {
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {['Lo-Fi Chill', 'Synthwave', 'Indie Acoustic', 'K-Pop', 'Cyberpunk Electro'].map((g, i) => (
                     <span key={i} className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-teal-500/20 text-teal-300 border border-teal-500/30 flex items-center gap-1">
-                      {g} <button onClick={() => triggerToast(`Removed ${g}`)} className="hover:text-white">×</button>
+                      {g} <button onClick={() => triggerToast(`Removed ${g}`)} className="hover:text-white">Ã—</button>
                     </span>
                   ))}
                   <button onClick={() => triggerToast('Opening genre & artist picker...')} className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/10 text-slate-300 border border-white/10">
@@ -1082,7 +1106,7 @@ export default function SettingsView({ onNavigate }) {
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {['English', 'Hindi', 'Spanish', 'Japanese'].map((lang, i) => (
                     <span key={i} className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                      {lang} <button onClick={() => triggerToast(`Removed ${lang}`)} className="hover:text-white">×</button>
+                      {lang} <button onClick={() => triggerToast(`Removed ${lang}`)} className="hover:text-white">Ã—</button>
                     </span>
                   ))}
                   <button onClick={() => triggerToast('Language picker opened...')} className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/10 text-slate-300 border border-white/10">
@@ -1364,7 +1388,7 @@ export default function SettingsView({ onNavigate }) {
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-500 text-center pt-2">© 2026 Resona Music Technologies Inc. All rights reserved.</p>
+              <p className="text-[10px] text-slate-500 text-center pt-2">Â© 2026 Resona Music Technologies Inc. All rights reserved.</p>
             </div>
           )}
 
@@ -1379,7 +1403,7 @@ export default function SettingsView({ onNavigate }) {
                     S
                   </div>
                   <div>
-                    <p className="font-extrabold text-white text-sm flex items-center gap-1">Shree <span className="text-teal-400 text-xs">✓ Verified</span></p>
+                    <p className="font-extrabold text-white text-sm flex items-center gap-1">Shree <span className="text-teal-400 text-xs">âœ“ Verified</span></p>
                     <p className="text-[10px] text-purple-300 font-medium">Indie Electronic & Ambient Artist</p>
                   </div>
                 </div>
@@ -1454,14 +1478,14 @@ export default function SettingsView({ onNavigate }) {
                   <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-white/5">
                     <div>
                       <p className="font-bold text-white text-xs">"Acoustic Cover of Cyberpunk Night"</p>
-                      <p className="text-[10px] text-slate-400">Requested by @alex_m • 2h ago</p>
+                      <p className="text-[10px] text-slate-400">Requested by @alex_m â€¢ 2h ago</p>
                     </div>
                     <button onClick={() => triggerToast('Accepted request!')} className="px-2.5 py-1 rounded-lg bg-teal-500 text-slate-950 font-bold text-[10px]">Accept</button>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900 border border-white/5">
                     <div>
                       <p className="font-bold text-white text-xs">"Remix Stems Release"</p>
-                      <p className="text-[10px] text-slate-400">Requested by @beats_by_sam • 5h ago</p>
+                      <p className="text-[10px] text-slate-400">Requested by @beats_by_sam â€¢ 5h ago</p>
                     </div>
                     <button onClick={() => triggerToast('Accepted request!')} className="px-2.5 py-1 rounded-lg bg-teal-500 text-slate-950 font-bold text-[10px]">Accept</button>
                   </div>
@@ -1493,14 +1517,14 @@ export default function SettingsView({ onNavigate }) {
                       {isCreator 
                         ? 'Publish music, inspect analytics, track royalties' 
                         : isPendingCreator 
-                          ? 'Application submitted • Under review' 
+                          ? 'Application submitted â€¢ Under review'
                           : 'Submit an application for artist verification'}
                     </p>
                   </div>
                 </div>
 
                 <button onClick={() => onNavigate('creator')} className="w-full p-3.5 rounded-2xl glass-button-primary font-bold text-xs">
-                  {isCreator ? 'Launch Creator Hub Dashboard →' : isPendingCreator ? 'View Application Status →' : 'Apply to Become a Creator →'}
+                  {isCreator ? 'Launch Creator Hub Dashboard â†’' : isPendingCreator ? 'View Application Status â†’' : 'Apply to Become a Creator â†’'}
                 </button>
               </div>
             </div>

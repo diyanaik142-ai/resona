@@ -483,7 +483,7 @@ export default function AdminUsers() {
                             className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-cyan-500 disabled:opacity-50"
                           >
                             <option value="default">Default</option>
-                            <option value="enabled">Enabled</option>
+                            <option value="enabled" disabled={!basePlanDefault}>Enabled</option>
                             <option value="disabled">Disabled</option>
                           </select>
                         </div>
@@ -552,7 +552,7 @@ export default function AdminUsers() {
                                 className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-cyan-500 disabled:opacity-50 mt-0.5"
                               >
                                 <option value="default">Default</option>
-                                <option value="enabled">Enabled</option>
+                                <option value="enabled" disabled={!basePlanDefault}>Enabled</option>
                                 <option value="disabled">Disabled</option>
                               </select>
                             </td>

@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api, resolveMediaUrl } from '../../services/api';
+import { subscribeHuddleEvent } from '../../services/huddleSocket';
 import StartHuddleModal from '../StartHuddleModal';
 import Avatar from '../Avatar';
+import FeatureUnavailable from '../FeatureUnavailable';
 
 export default function MobileSocialView({
   user,
@@ -41,11 +43,14 @@ export default function MobileSocialView({
     setQueue
   } = usePlayer();
   const onClearQueue = () => setQueue([]);
+  const hasHuddle = user?.features?.huddle === true;
+  const hasFusion = user?.features?.fusion === true;
 
   const [activeTab, setActiveTab] = useState('Friends & Following'); // 'Friends & Following' | 'Activity' | 'Shared With' | 'Fusion' | 'Huddle'
   const [showStartHuddleModal, setShowStartHuddleModal] = useState(false);
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
+  const [friendsError, setFriendsError] = useState('');
   const [pinnedFriendIds, setPinnedFriendIds] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('resona_pinned_friends') || '[]');
@@ -81,15 +86,23 @@ export default function MobileSocialView({
         if (isMounted) {
           const list = Array.isArray(res.friends) ? res.friends : Array.isArray(res) ? res : [];
           setFriends(list);
+          setFriendsError('');
         }
       } catch (err) {
+        if (isMounted) setFriendsError(err.message || 'Could not load your connections.');
         console.warn('[MobileSocial] Failed to fetch friends:', err.message);
       } finally {
         if (isMounted) setLoadingFriends(false);
       }
     };
     loadFriends();
-    return () => { isMounted = false; };
+    const unsubscribeActivity = subscribeHuddleEvent('listening_activity_updated', loadFriends);
+    const refreshInterval = window.setInterval(loadFriends, 30_000);
+    return () => {
+      isMounted = false;
+      unsubscribeActivity();
+      window.clearInterval(refreshInterval);
+    };
   }, []);
 
   // Load fusions from backend on mount
@@ -206,6 +219,10 @@ export default function MobileSocialView({
             <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
               Syncing friend roster...
             </div>
+          ) : friendsError ? (
+            <div className="p-8 rounded-3xl glass-card border border-white/5 text-center text-xs text-slate-400">
+              {friendsError}
+            </div>
           ) : friends.length === 0 ? (
             <div className="p-8 rounded-3xl glass-card border border-dashed border-white/10 text-center space-y-3">
               <Users className="w-10 h-10 text-slate-500 mx-auto opacity-50" />
@@ -231,7 +248,7 @@ export default function MobileSocialView({
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="relative w-12 h-12 rounded-2xl overflow-hidden shrink-0 shadow-md border border-white/10 bg-slate-800">
                         <Avatar user={{ avatar: f.avatar || f.photoURL, name: f.name }} className="w-full h-full" />
-                        <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-teal-400 border-2 border-slate-950" />
+                        <span className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-slate-950 ${f.isOnline ? 'bg-teal-400' : 'bg-slate-500'}`} />
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -244,9 +261,13 @@ export default function MobileSocialView({
                           )}
                         </div>
                         <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                          {f.handle || `@${(f.name || 'user').toLowerCase().replace(/\s+/g, '')}`}
-                          {' · '}
-                          <span className="text-teal-300 font-medium">Listening now</span>
+                          {f.handle ? `@${f.handle.replace(/^@+/, '')} · ` : ''}
+                          <span className={f.listeningActivity ? 'text-teal-300 font-medium' : ''}>
+                            {f.listeningActivity
+                              ? `Listening to ${f.listeningActivity.title}`
+                              : f.statusText || 'Offline'}
+                          </span>
+                          {f.listeningActivity?.artist ? ` · ${f.listeningActivity.artist}` : ''}
                         </p>
                       </div>
                     </div>
@@ -264,10 +285,13 @@ export default function MobileSocialView({
 
                       <button
                         onClick={() => {
+                          if (!hasHuddle) return;
                           if (onInitiateHuddle) onInitiateHuddle();
                         }}
-                        className="p-2 rounded-xl bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition border border-purple-500/30 active:scale-90"
+                        disabled={!hasHuddle}
+                        className="p-2 rounded-xl bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition border border-purple-500/30 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
                         title="Start Huddle"
+                        aria-label={hasHuddle ? 'Start Huddle' : 'Huddle is unavailable on your plan'}
                       >
                         <Radio className="w-3.5 h-3.5" />
                       </button>
@@ -284,20 +308,33 @@ export default function MobileSocialView({
       {activeTab === 'Activity' && (
         <div className="space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recent Activity</p>
-          {friends.length === 0 ? (
+          {loadingFriends ? (
             <div className="p-8 text-center text-xs text-slate-400 rounded-2xl glass-card border border-white/5">
-              No friend activity to display.
+              Loading friend activity...
+            </div>
+          ) : friendsError ? (
+            <div className="p-8 text-center text-xs text-slate-400 rounded-2xl glass-card border border-white/5">
+              {friendsError}
+            </div>
+          ) : friends.filter((friend) => friend.listeningActivity).length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400 rounded-2xl glass-card border border-white/5">
+              No friends are listening right now.
             </div>
           ) : (
             <div className="space-y-2">
-              {friends.slice(0, 5).map((f, idx) => (
-                <div key={`act_${f.id}_${idx}`} className="p-3 rounded-2xl glass-card border border-white/5 flex items-center gap-3">
-                  <Avatar user={{ avatar: f.avatar, name: f.name || 'User' }} className="w-10 h-10 rounded-xl shrink-0 object-cover" />
+              {friends.filter((friend) => friend.listeningActivity).map((f) => (
+                <div key={`act_${f.id}`} className="p-3 rounded-2xl glass-card border border-white/5 flex items-center gap-3">
+                  <Avatar user={{ avatar: f.avatar, name: f.name }} className="w-10 h-10 rounded-xl shrink-0 object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-white">
-                      <span className="font-bold text-teal-300">{f.name}</span> started listening to a master stream
+                      <span className="font-bold text-teal-300">{f.name}</span>
+                      {' is listening to '}
+                      <span>{f.listeningActivity.title}</span>
+                      {f.listeningActivity.artist ? ` by ${f.listeningActivity.artist}` : ''}
                     </p>
-                    <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">15m ago</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      {f.listeningActivity.updatedAt ? new Date(f.listeningActivity.updatedAt).toLocaleTimeString() : ''}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -311,10 +348,10 @@ export default function MobileSocialView({
         <div className="space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Shared Library Overview</p>
           <div className="p-4 rounded-3xl glass-card border border-teal-500/20 space-y-3">
-            <h4 className="font-bold text-white text-sm">Factual Connection Metrics</h4>
+            <h4 className="font-bold text-white text-sm">Your Connections</h4>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Active Friends</p>
+                <p className="text-slate-400 text-[10px]">Friends & Following</p>
                 <p className="text-base font-black text-white mt-0.5">{friends.length}</p>
               </div>
               <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
@@ -325,10 +362,6 @@ export default function MobileSocialView({
                 <p className="text-slate-400 text-[10px]">Catalog Tracks</p>
                 <p className="text-base font-black text-white mt-0.5">{catalog.length}</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Huddle Audio Mode</p>
-                <p className="text-base font-black text-purple-300 mt-0.5">Lossless Master</p>
-              </div>
             </div>
           </div>
         </div>
@@ -336,6 +369,7 @@ export default function MobileSocialView({
 
       {/* TAB 4: FUSION */}
       {activeTab === 'Fusion' && (
+        !hasFusion ? <FeatureUnavailable title="Fusion" /> :
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Your Fusions</p>
@@ -417,7 +451,7 @@ export default function MobileSocialView({
                     </div>
                     <div>
                       <h4 className="font-bold text-white text-xs">
-                        Fusion: {fus.participantsData?.filter(p => p.id !== user?.id).map(p => p.name).join(', ') || 'Unknown'}
+                        {fus.participantsData?.filter(p => p.id !== user?.id).map(p => p.name).join(', ') || 'Shared Fusion'}
                       </h4>
                       <p className="text-[10px] text-slate-400">Shared Mix</p>
                     </div>
@@ -438,6 +472,7 @@ export default function MobileSocialView({
 
       {/* TAB 5: HUDDLE */}
       {activeTab === 'Huddle' && (
+        !hasHuddle ? <FeatureUnavailable title="Huddle" /> :
         <div className="space-y-3">
           {activeHuddle ? (
             <div className="p-4 rounded-3xl glass-card border border-teal-500/40 bg-teal-950/20 space-y-3">
@@ -509,10 +544,12 @@ export default function MobileSocialView({
               <button
                 onClick={() => {
                   setShowProfileSheet(false);
+                  if (!hasHuddle) return;
                   if (onInitiateHuddle) onInitiateHuddle();
                   else setShowStartHuddleModal(true);
                 }}
-                className="py-2.5 px-3 rounded-xl bg-purple-500/20 text-purple-300 font-bold text-xs flex flex-col items-center gap-1 border border-purple-500/30 active:scale-95"
+                disabled={!hasHuddle}
+                className="py-2.5 px-3 rounded-xl bg-purple-500/20 text-purple-300 font-bold text-xs flex flex-col items-center gap-1 border border-purple-500/30 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Radio className="w-4 h-4" />
                 <span>Huddle</span>
@@ -550,7 +587,7 @@ export default function MobileSocialView({
 
       {/* START HUDDLE FRIEND SELECTION MODAL */}
       <StartHuddleModal
-        isOpen={showStartHuddleModal}
+        isOpen={hasHuddle && showStartHuddleModal}
         onClose={() => setShowStartHuddleModal(false)}
         mode="create"
         activeHuddle={activeHuddle}

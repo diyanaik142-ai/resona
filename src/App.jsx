@@ -1,7 +1,8 @@
 import { usePlayer } from './context/PlayerContext';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from './context/AuthContext';
 import { initPushNotifications } from './services/pushService';
+import { App as CapacitorApp } from '@capacitor/app';
 import PlanBadge from './components/PlanBadge';
 import OnboardingView from './components/OnboardingView';
 import LoginView from './components/LoginView';
@@ -42,12 +43,15 @@ import MobileProfileView from './components/mobile/MobileProfileView';
 import PublicProfileView from './components/PublicProfileView';
 import PlaylistView from './components/PlaylistView';
 import Avatar from './components/Avatar';
+import NotificationBell from './components/NotificationBell';
+import FeatureUnavailable from './components/FeatureUnavailable';
+import { isNotificationUnread, mergeNotifications } from './utils/notifications';
 
 import {
   Sparkles, Search, Library, Radio, User, Settings, Disc, Play, Pause,
   SkipBack, SkipForward, Shuffle, Repeat, Volume2, VolumeX, Heart,
   Flame, Plus, ChevronLeft, ChevronRight, LogOut, ShieldCheck,
-  Maximize2, Bell, Music
+  Maximize2, Music
 } from 'lucide-react';
 
 
@@ -58,13 +62,117 @@ export default function App() {
     toggleMute, toggleShuffle, toggleLoop
   } = usePlayer();
 
-  const { user, shelf, creatorData, isAuthenticated, loading, logout, toggleLikeTrack, catalog } = useAuth();
+  const { user, shelf, creatorData, isAuthenticated, loading, logout, toggleLikeTrack, catalog, refreshPlan } = useAuth();
 
   const [activeHuddle, setActiveHuddle] = useState(null);
   const [showHuddleRoom, setShowHuddleRoom] = useState(false);
   const [fusionsList, setFusionsList] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [inAppUnreadCount, setInAppUnreadCount] = useState(0);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+  const notificationUserIdRef = useRef(user?.id);
+  useEffect(() => {
+    notificationUserIdRef.current = user?.id;
+  }, [user?.id]);
+
+  const loadNotifications = useCallback(async () => {
+    const requestedUserId = user?.id;
+    const [inAppResult, socialResult] = await Promise.allSettled([
+      api.notifications.getNotifications(),
+      api.social.getNotifications()
+    ]);
+
+    if (notificationUserIdRef.current !== requestedUserId) return;
+
+    if (inAppResult.status === 'rejected') {
+      console.warn('[App] Could not load in-app notifications:', inAppResult.reason?.message);
+    }
+    if (socialResult.status === 'rejected') {
+      console.warn('[App] Could not load social notifications:', socialResult.reason?.message);
+    }
+
+    if (inAppResult.status === 'rejected' && socialResult.status === 'rejected') {
+      throw inAppResult.reason;
+    }
+
+    if (inAppResult.status === 'fulfilled') {
+      setInAppUnreadCount(Math.max(0, Number(inAppResult.value?.unreadCount) || 0));
+    }
+
+    setNotifications((current) => mergeNotifications(
+      inAppResult.status === 'fulfilled'
+        ? (Array.isArray(inAppResult.value?.notifications) ? inAppResult.value.notifications : [])
+          .map((notification) => ({ ...notification, notificationSource: 'inApp' }))
+        : current.filter((notification) => notification.notificationSource === 'inApp'),
+      socialResult.status === 'fulfilled'
+        ? (Array.isArray(socialResult.value?.notifications) ? socialResult.value.notifications : [])
+          .map((notification) => ({ ...notification, notificationSource: 'social' }))
+        : current.filter((notification) => notification.notificationSource === 'social')
+    ));
+  }, [user?.id]);
+
+  const markNotificationsAsRead = useCallback(async (notificationIds) => {
+    const ids = new Set(notificationIds);
+    const unreadNotifications = notifications.filter(
+      (notification) => ids.has(notification.id) && isNotificationUnread(notification)
+    );
+    const inAppIds = unreadNotifications
+      .filter((notification) => notification.notificationSource !== 'social')
+      .map((notification) => notification.id);
+    const socialIds = unreadNotifications
+      .filter((notification) => notification.notificationSource === 'social')
+      .map((notification) => notification.id);
+
+    if (inAppIds.length > 0) {
+      await api.notifications.markAsRead(inAppIds);
+      const readAt = new Date().toISOString();
+      setNotifications((current) => current.map((notification) => (
+        inAppIds.includes(notification.id)
+          ? { ...notification, read: true, readAt }
+          : notification
+      )));
+      setInAppUnreadCount((count) => Math.max(0, count - inAppIds.length));
+    }
+
+    if (socialIds.length > 0) {
+      await api.social.markNotificationsAsRead(socialIds);
+      const readAt = new Date().toISOString();
+      setNotifications((current) => current.map((notification) => (
+        socialIds.includes(notification.id)
+          ? { ...notification, read: true, readAt }
+          : notification
+      )));
+    }
+  }, [notifications]);
+
+  const markAllNotificationsAsRead = useCallback(async () => {
+    const [inAppResult, socialResult] = await Promise.allSettled([
+      api.notifications.markAllAsRead(),
+      api.social.markAllNotificationsAsRead()
+    ]);
+    const readAt = new Date().toISOString();
+
+    if (inAppResult.status === 'fulfilled') {
+      setInAppUnreadCount(0);
+      setNotifications((current) => current.map((notification) => (
+        notification.notificationSource !== 'social'
+          ? { ...notification, read: true, readAt }
+          : notification
+      )));
+    }
+    if (socialResult.status === 'fulfilled') {
+      setNotifications((current) => current.map((notification) => (
+        notification.notificationSource === 'social'
+          ? { ...notification, read: true, readAt }
+          : notification
+      )));
+    }
+
+    const failures = [inAppResult, socialResult]
+      .filter((result) => result.status === 'rejected')
+      .map((result) => result.reason?.message || 'Failed to mark notifications as read');
+    if (failures.length > 0) throw new Error(failures.join('; '));
+  }, []);
   const [mobileTrackAction, setMobileTrackAction] = useState(null);
   const [showMobileQueue, setShowMobileQueue] = useState(false);
 
@@ -237,6 +345,7 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated || !user?.id || user?.role === 'admin') {
       setNotifications([]);
+      setInAppUnreadCount(0);
       return;
     }
 
@@ -246,20 +355,41 @@ export default function App() {
     // Initialize native push notifications (Capacitor)
     initPushNotifications();
 
-    // Fetch initial notifications
-    api.notifications.getNotifications().then(res => {
-      setNotifications(Array.isArray(res?.notifications) ? res.notifications : []);
-    }).catch(err => console.warn('[App] Could not load notifications:', err.message));
+    loadNotifications().catch(err => console.warn('[App] Could not load notifications:', err.message));
 
     // Listen to real-time events
     const unsubNotif = subscribeHuddleEvent('notification_received', (newNotif) => {
-      setNotifications(prev => [newNotif, ...prev.filter(n => n.id !== newNotif.id)]);
+      if (newNotif?.id) {
+        const source = newNotif.type === 'huddle_invite' ? 'social' : 'inApp';
+        setNotifications((previous) => mergeNotifications(
+          previous,
+          [{ ...newNotif, notificationSource: source }]
+        ));
+      }
+      if (['PLAN_CHANGED', 'plan_change', 'plan_changed'].includes(newNotif?.type)) {
+        refreshPlan().then((entitlements) => {
+          if (!entitlements.features.huddle) {
+            setActiveHuddle(null);
+            setShowHuddleRoom(false);
+          }
+        }).catch(err => console.warn('[App] Could not refresh plan entitlements:', err.message));
+      }
+      loadNotifications().catch(err => console.warn('[App] Could not sync notifications:', err.message));
+    });
+    const unsubPlanChanged = subscribeHuddleEvent('plan_entitlements_changed', ({ planId } = {}) => {
+      refreshPlan().then((entitlements) => {
+        if (!entitlements.features.huddle) {
+          setActiveHuddle(null);
+          setShowHuddleRoom(false);
+        }
+      }).catch(err => console.warn(`[App] Could not refresh plan ${planId || ''}:`, err.message));
     });
 
     const unsubInvite = subscribeHuddleEvent('huddle_invitation', (inviteData) => {
-      setNotifications(prev => {
+      const notificationId = inviteData.notificationId || inviteData.id || inviteData.invitationId;
+      if (notificationId) {
         const notif = {
-          id: inviteData.notificationId || `notif_${Date.now()}`,
+          id: notificationId,
           type: 'huddle_invite',
           huddleId: inviteData.huddleId,
           huddleName: inviteData.huddleName,
@@ -270,10 +400,12 @@ export default function App() {
           message: `${inviteData.senderName || 'A friend'} invited you to join a Huddle.`,
           timestamp: inviteData.timestamp || new Date().toISOString(),
           read: false,
-          status: 'pending'
+          status: 'pending',
+          notificationSource: 'social'
         };
-        return [notif, ...prev.filter(n => n.id !== notif.id && n.invitationId !== inviteData.invitationId)];
-      });
+        setNotifications((previous) => mergeNotifications(previous, [notif]));
+      }
+      loadNotifications().catch(err => console.warn('[App] Could not sync notifications:', err.message));
     });
 
     const unsubCancelled = subscribeHuddleEvent('invitation_cancelled', (data) => {
@@ -287,17 +419,73 @@ export default function App() {
 
     return () => {
       unsubNotif();
+      unsubPlanChanged();
       unsubInvite();
       unsubCancelled();
     };
-  }, [isAuthenticated, user?.id, user?.role]);
+  }, [isAuthenticated, user?.id, user?.role, loadNotifications, refreshPlan]);
 
-  const unreadNotificationsCount = notifications.filter(n => !n.read && n.status === 'pending').length;
+  useEffect(() => {
+    if (!showNotificationDrawer || !isAuthenticated || user?.role === 'admin') return;
+    loadNotifications().catch(err => console.warn('[App] Could not refresh notifications:', err.message));
+  }, [showNotificationDrawer, isAuthenticated, user?.role, loadNotifications]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || user?.role === 'admin') return;
+
+    let active = true;
+    let appStateListener;
+    const sync = () => {
+      loadNotifications().catch(err => console.warn('[App] Could not sync notifications:', err.message));
+      refreshPlan().then((entitlements) => {
+        if (!entitlements.features.huddle) {
+          setActiveHuddle(null);
+          setShowHuddleRoom(false);
+        }
+      }).catch(err => console.warn('[App] Could not refresh plan entitlements:', err.message));
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') sync();
+    };
+    const handlePushNotification = () => sync();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', sync);
+    window.addEventListener('resona:notification-sync', handlePushNotification);
+    if (window.Capacitor?.isNativePlatform?.()) {
+      CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) sync();
+      }).then((listener) => {
+        if (active) {
+          appStateListener = listener;
+        } else {
+          listener.remove();
+        }
+      }).catch((err) => console.warn('[App] Could not subscribe to app foreground events:', err.message));
+    }
+
+    return () => {
+      active = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', sync);
+      window.removeEventListener('resona:notification-sync', handlePushNotification);
+      appStateListener?.remove();
+    };
+  }, [isAuthenticated, user?.id, user?.role, loadNotifications, refreshPlan]);
+
+  const unreadNotificationsCount = inAppUnreadCount + notifications.filter(
+    (notification) => notification.notificationSource === 'social' && isNotificationUnread(notification)
+  ).length;
 
   // Synchronize Active Huddle Session from Backend
   useEffect(() => {
     if (!isAuthenticated || user?.role === 'admin') {
       setActiveHuddle(null);
+      return;
+    }
+    if (user?.features?.huddle === false) {
+      setActiveHuddle(null);
+      setShowHuddleRoom(false);
       return;
     }
 
@@ -319,7 +507,7 @@ export default function App() {
     };
 
     checkActiveHuddle();
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, user?.features?.huddle]);
 
   // Real-time synchronization for active Huddle
   useEffect(() => {
@@ -343,14 +531,20 @@ export default function App() {
     const unsubEnded = subscribeHuddleEvent('huddle_ended', (updated) => {
       setActiveHuddle(updated);
     });
+    const unsubAccessRevoked = subscribeHuddleEvent('huddle_access_revoked', () => {
+      setActiveHuddle(null);
+      setShowHuddleRoom(false);
+      refreshPlan().catch(err => console.warn('[App] Could not refresh plan entitlements:', err.message));
+    });
 
     return () => {
       unsubState();
       unsubTrack();
       unsubEnded();
+      unsubAccessRevoked();
       leaveHuddleRoom(activeHuddle.id);
     };
-  }, [activeHuddle?.id]);
+  }, [activeHuddle?.id, refreshPlan]);
 
   // Handle Track Play
   const handlePlayTrack = (track, queue = null) => {
@@ -508,7 +702,9 @@ export default function App() {
         );
 
       case 'creator':
-        return <CreatorHubView />;
+        return user?.features?.creator_hub === true
+          ? <CreatorHubView />
+          : <FeatureUnavailable title="Creator Hub" />;
       case 'settings':
       case 'profile':
         return <SettingsView onNavigate={setActiveTab} />;
@@ -596,7 +792,9 @@ export default function App() {
           />
         );
       case 'creator':
-        return <MobileCreatorHubView />;
+        return user?.features?.creator_hub === true
+          ? <MobileCreatorHubView />
+          : <FeatureUnavailable title="Creator Hub" />;
       case 'settings':
         return (
           <MobileSettingsView
@@ -710,19 +908,11 @@ export default function App() {
 
           {/* Right: Notification Bell & Authenticated User Profile Chip & Menu */}
           <div className="relative flex items-center gap-3">
-            <button
+            <NotificationBell
               onClick={() => setShowNotificationDrawer(true)}
-              className="p-2 rounded-full glass-card border border-white/10 hover:border-cyan-500/40 text-slate-400 hover:text-white transition relative"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadNotificationsCount > 0 && (
-                <>
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-400 rounded-full" />
-                </>
-              )}
-            </button>
+              unreadCount={unreadNotificationsCount}
+              className="rounded-full glass-card border border-white/10 text-slate-400 hover:border-cyan-500/40 hover:text-white transition"
+            />
 
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -1123,6 +1313,9 @@ export default function App() {
           onClose={() => setShowNotificationDrawer(false)}
           notifications={notifications}
           setNotifications={setNotifications}
+          unreadCount={unreadNotificationsCount}
+          onMarkAsRead={markNotificationsAsRead}
+          onMarkAllAsRead={markAllNotificationsAsRead}
           activeHuddle={activeHuddle}
           setActiveHuddle={setActiveHuddle}
           setShowHuddleRoom={setShowHuddleRoom}
@@ -1138,7 +1331,7 @@ export default function App() {
         <MobileHeader
           activeTab={activeTab}
           onNavigate={setActiveTab}
-          unreadCount={unreadNotificationsCount}
+          unreadNotificationsCount={unreadNotificationsCount}
           onOpenNotifications={() => setShowNotificationDrawer(true)}
           onOpenProfile={() => setActiveTab('profile')}
           user={user}
@@ -1181,6 +1374,9 @@ export default function App() {
           onClose={() => setShowNotificationDrawer(false)}
           notifications={notifications}
           setNotifications={setNotifications}
+          unreadCount={unreadNotificationsCount}
+          onMarkAsRead={markNotificationsAsRead}
+          onMarkAllAsRead={markAllNotificationsAsRead}
           activeHuddle={activeHuddle}
           setActiveHuddle={setActiveHuddle}
           setShowHuddleRoom={setShowHuddleRoom}

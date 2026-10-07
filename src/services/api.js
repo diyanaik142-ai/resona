@@ -1,4 +1,4 @@
-export function getApiBaseUrl() {
+﻿export function getApiBaseUrl() {
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
   }
@@ -181,6 +181,7 @@ export const api = {
     },
     createSession: async (deviceName) => {
       const headers = await getAuthHeaders();
+      delete headers['X-Session-Id'];
       const res = await fetch(`${getApiBaseUrl()}/api/auth/session`, {
         method: 'POST', headers, body: JSON.stringify({ deviceName })
       });
@@ -189,7 +190,6 @@ export const api = {
       return json;
     }
   },
-
   // User
   user: {
     getEntitlements: async () => {
@@ -321,13 +321,6 @@ export const api = {
       if (!res.ok) throw new Error(json.error || 'Failed to fetch following');
       return json.following || [];
     },
-    getEntitlements: async () => {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${getApiBaseUrl()}/api/user/entitlements`, { headers });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Failed to load feature access');
-      return json;
-    },
     checkUid: async (uid) => {
       const headers = await getAuthHeaders();
       const res = await fetch(`${getApiBaseUrl()}/api/user/uid/check?uid=${encodeURIComponent(uid || '')}`, { headers });
@@ -407,6 +400,16 @@ export const api = {
       if (!res.ok) throw new Error(json.error || 'Failed to mark notifications read');
       return json;
     },
+    markAllAsRead: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/notifications/read-all`, {
+        method: 'POST',
+        headers
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to mark all notifications read');
+      return json;
+    },
     registerFcmToken: async (token) => {
       const headers = await getAuthHeaders();
       const res = await fetch(`${getApiBaseUrl()}/api/notifications/fcm/register`, {
@@ -450,6 +453,15 @@ export const api = {
       });
       if (!res.ok) throw new Error('Failed to create playlist');
       return res.json();
+    },
+    toggleSavePlaylist: async (playlistId) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/shelf/playlist/save`, {
+        method: 'POST', headers, body: JSON.stringify({ playlistId })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to save playlist');
+      return json;
     },
     deletePlaylist: async (id) => {
       const headers = await getAuthHeaders();
@@ -495,6 +507,18 @@ export const api = {
       const res = await fetch(`${getApiBaseUrl()}/api/social/friends`, { headers });
       if (!res.ok) throw new Error('Failed to fetch friends');
       return res.json();
+    },
+    updateListeningActivity: async ({ trackId = null, isPlaying }) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/social/listening-activity`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ trackId, isPlaying }),
+        keepalive: true
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to update listening activity');
+      return json;
     },
     searchUsers: async (q) => {
       const headers = await getAuthHeaders();
@@ -555,6 +579,27 @@ export const api = {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Failed to perform notification action');
+      return json;
+    },
+    markNotificationsAsRead: async (notificationIds) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/social/notifications/read`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ notificationIds })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to mark social notifications read');
+      return json;
+    },
+    markAllNotificationsAsRead: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/social/notifications/read-all`, {
+        method: 'POST',
+        headers
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to mark all social notifications read');
       return json;
     }
   },

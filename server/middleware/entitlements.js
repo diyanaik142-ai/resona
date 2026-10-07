@@ -17,10 +17,8 @@ export function requireFeature(featureId) {
 
       if (!hasAccess) {
         return res.status(403).json({
-          error: 'Feature not enabled',
-          code: 'FEATURE_NOT_ENABLED',
-          feature: featureId,
-          message: `The ${featureId} feature is not enabled for your current Resona plan.`
+          error: 'FEATURE_NOT_ENABLED',
+          feature: featureId
         });
       }
 

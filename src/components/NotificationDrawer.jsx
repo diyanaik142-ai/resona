@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { isNotificationUnread } from '../utils/notifications';
 import { 
   Bell, 
   X, 
@@ -43,6 +44,9 @@ export default function NotificationDrawer({
   onClose,
   notifications = [],
   setNotifications,
+  unreadCount,
+  onMarkAsRead,
+  onMarkAllAsRead,
   activeHuddle = null,
   setActiveHuddle,
   setShowHuddleRoom,
@@ -50,6 +54,7 @@ export default function NotificationDrawer({
 }) {
   const { refreshAccountData } = useAuth();
   const [processingId, setProcessingId] = useState(null);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [followStatuses, setFollowStatuses] = useState({});
   
@@ -98,7 +103,8 @@ export default function NotificationDrawer({
       
       if (res.huddle) {
         // Mark notification as accepted locally
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'accepted', read: true } : n));
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'accepted' } : n));
+        await onMarkAsRead?.([notif.id]);
         
         if (setActiveHuddle) setActiveHuddle(res.huddle);
         if (setShowHuddleRoom) setShowHuddleRoom(true);
@@ -131,7 +137,8 @@ export default function NotificationDrawer({
       const res = await api.huddle.leaveAndJoin(currentHuddle.id, notification.huddleId, invitationId);
       
       if (res.huddle) {
-        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, status: 'accepted', read: true } : n));
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, status: 'accepted' } : n));
+        await onMarkAsRead?.([notification.id]);
         if (setActiveHuddle) setActiveHuddle(res.huddle);
         if (setShowHuddleRoom) setShowHuddleRoom(true);
         setConflictModal(null);
@@ -152,7 +159,8 @@ export default function NotificationDrawer({
       const invitationId = notif.invitationId || notif.id;
       await api.huddle.declineInvitation(invitationId);
       // Mark as declined
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'declined', read: true } : n));
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'declined' } : n));
+      await onMarkAsRead?.([notif.id]);
     } catch (err) {
       setErrorMessage(err.message || 'Failed to decline invitation');
     } finally {
@@ -163,14 +171,37 @@ export default function NotificationDrawer({
   // Dismiss generic notification
   const handleDismiss = async (notifId) => {
     try {
-      if (api.notifications && api.notifications.markAsRead) {
+      if (onMarkAsRead) {
+        await onMarkAsRead([notifId]);
+      } else if (api.notifications?.markAsRead) {
         await api.notifications.markAsRead([notifId]);
-      } else if (api.social && api.social.notificationAction) {
-        await api.social.notificationAction(notifId, 'dismiss');
+        setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true, readAt: new Date().toISOString() } : n));
       }
-      setNotifications(prev => prev.filter(n => n.id !== notifId));
     } catch (err) {
-      console.warn('Failed to dismiss notification:', err);
+      setErrorMessage(err.message || 'Failed to mark notification as read');
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = notifications.filter(isNotificationUnread).map((notif) => notif.id);
+    if (unreadIds.length === 0 && !onMarkAllAsRead) return;
+
+    setIsMarkingAllRead(true);
+    setErrorMessage('');
+    try {
+      if (onMarkAllAsRead) {
+        await onMarkAllAsRead();
+      } else if (onMarkAsRead) {
+        await onMarkAsRead(unreadIds);
+      } else {
+        await api.notifications.markAsRead(unreadIds);
+        const readAt = new Date().toISOString();
+        setNotifications(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true, readAt } : n));
+      }
+    } catch (err) {
+      setErrorMessage(err.message || 'Failed to mark notifications as read');
+    } finally {
+      setIsMarkingAllRead(false);
     }
   };
 
@@ -191,12 +222,25 @@ export default function NotificationDrawer({
               <p className="text-xs text-white/50">Huddle invitations & activity updates</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            {(unreadCount > 0 || notifications.some(isNotificationUnread)) && (
+              <button
+                type="button"
+                onClick={handleMarkAllAsRead}
+                disabled={isMarkingAllRead}
+                className="text-[11px] font-semibold text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
+              >
+                {isMarkingAllRead ? 'Marking…' : 'Mark all as read'}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close notifications"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Conflict Modal Overlay (Requirement 10: One Active Huddle Rule) */}
@@ -268,7 +312,7 @@ export default function NotificationDrawer({
                   <div
                     key={notif.id}
                     className={`p-3.5 rounded-xl border transition-all ${
-                      isPending && !notif.read
+                      isPending && isNotificationUnread(notif)
                         ? 'bg-cyan-500/[0.04] border-cyan-500/30 shadow-md shadow-cyan-500/5'
                         : 'bg-white/[0.02] border-white/5'
                     }`}
@@ -363,7 +407,9 @@ export default function NotificationDrawer({
                 return (
                   <div 
                     key={notif.id}
-                    className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-3 cursor-pointer hover:bg-white/[0.04] transition-colors"
+                    className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer hover:bg-white/[0.04] transition-colors ${
+                      isNotificationUnread(notif) ? 'bg-cyan-500/[0.04] border-cyan-500/25' : 'bg-white/[0.02] border-white/5'
+                    }`}
                     onClick={() => {
                       if (onNavigate) onNavigate(`profile/${notif.actorHandle}`);
                       onClose();
@@ -421,7 +467,9 @@ export default function NotificationDrawer({
               return (
                 <div 
                   key={notif.id}
-                  className="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-start justify-between gap-3"
+                  className={`p-3 rounded-xl border flex items-start justify-between gap-3 ${
+                    isNotificationUnread(notif) ? 'bg-cyan-500/[0.04] border-cyan-500/25' : 'bg-white/[0.02] border-white/5'
+                  }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="p-2 rounded-lg bg-white/5 text-white/60 shrink-0 mt-0.5">
@@ -435,13 +483,17 @@ export default function NotificationDrawer({
                       </span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDismiss(notif.id)}
-                    className="text-white/30 hover:text-white p-1"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  {isNotificationUnread(notif) && (
+                    <button
+                      type="button"
+                      onClick={() => handleDismiss(notif.id)}
+                      aria-label="Mark notification as read"
+                      title="Mark as read"
+                      className="text-white/30 hover:text-cyan-300 p-1"
+                    >
+                      <Check className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               );
             })

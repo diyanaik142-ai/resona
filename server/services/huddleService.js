@@ -4,6 +4,7 @@ import { getAccountData, saveAccountData, getGlobalData, saveGlobalData } from '
 import { getRealUserProfile } from './userService.js';
 
 let ioInstance = null;
+let huddleIo = null;
 let lockPromise = Promise.resolve();
 
 /**
@@ -93,11 +94,11 @@ function logHuddleEvent(huddle, { text, type, userId, userName, trackTitle }) {
  * Broadcast event and authoritative state to room participants
  */
 function broadcast(huddleId, eventName, payload) {
-  if (!ioInstance) return;
+  if (!huddleIo && !ioInstance) return;
   const room = `huddle:${huddleId}`;
-  ioInstance.to(room).emit(eventName, payload);
+  (huddleIo || ioInstance).to(room).emit(eventName, payload);
   if (eventName !== 'huddle_state_updated') {
-    ioInstance.to(room).emit('huddle_state_updated', payload);
+    (huddleIo || ioInstance).to(room).emit('huddle_state_updated', payload);
   }
 }
 
@@ -174,7 +175,81 @@ export const huddleService = {
    */
   init(io) {
     ioInstance = io;
+    huddleIo = io.of('/huddle');
     console.log('[HuddleService] Real-time Socket.IO initialized');
+  },
+
+  async revokeUserHuddleAccess(userId) {
+    const affectedHuddles = [];
+    await withLock(async () => {
+      const huddles = await loadHuddles();
+      const now = new Date().toISOString();
+      let changed = false;
+
+      for (const huddle of huddles) {
+        if (huddle.status !== 'active') continue;
+        const isHost = huddle.hostId === userId;
+        const isParticipant = huddle.participants?.some((participant) => participant.id === userId);
+        if (!isHost && !isParticipant) continue;
+
+        if (isHost) {
+          huddle.status = 'ended';
+          huddle.endedAt = now;
+          huddle.recap = this._generateRecap(huddle);
+          huddle.upNext = [];
+          huddle.participants = [];
+          if (Array.isArray(huddle.invitations)) {
+            huddle.invitations.forEach((invitation) => {
+              if (invitation.status === 'pending') {
+                invitation.status = 'cancelled';
+                invitation.updatedAt = now;
+              }
+            });
+          }
+          logHuddleEvent(huddle, {
+            text: 'Huddle ended because the host no longer has access to this feature',
+            type: 'end',
+            userId
+          });
+        } else {
+          huddle.participants = huddle.participants.filter((participant) => participant.id !== userId);
+          huddle.upNext = (huddle.upNext || []).filter((item) => item.addedBy?.id !== userId);
+          huddle.recommendations = (huddle.recommendations || []).filter((recommendation) =>
+            recommendation.userId !== userId && recommendation.createdBy?.id !== userId
+          );
+          (huddle.polls || []).forEach((poll) => {
+            if (poll.votes) delete poll.votes[userId];
+          });
+          if (Array.isArray(huddle.invitations)) {
+            huddle.invitations.forEach((invitation) => {
+              if (invitation.recipientId === userId && invitation.status === 'pending') {
+                invitation.status = 'cancelled';
+                invitation.updatedAt = now;
+              }
+            });
+          }
+          logHuddleEvent(huddle, {
+            text: 'A participant left because they no longer have access to this feature',
+            type: 'leave',
+            userId
+          });
+        }
+
+        changed = true;
+        affectedHuddles.push({ id: huddle.id, status: huddle.status, huddle: sanitizeHuddle(huddle, userId) });
+      }
+
+      if (changed) await saveHuddles(huddles);
+    });
+
+    affectedHuddles.forEach(({ id, status, huddle }) => {
+      broadcast(id, status === 'ended' ? 'huddle_ended' : 'participants_updated', huddle);
+    });
+
+    if (huddleIo) {
+      huddleIo.to(`user:${userId}`).emit('huddle_access_revoked', { feature: 'huddle' });
+      huddleIo.in(`user:${userId}`).disconnectSockets(true);
+    }
   },
 
   /**
@@ -205,7 +280,7 @@ export const huddleService = {
         const state = db.collection('resonaData').doc('huddles');
         const stateSnapshot = await state.get();
         const persisted = stateSnapshot.exists ? stateSnapshot.data().value || [] : [];
-        const duplicate = persisted.find((entry) => entry.status === 'active' && (entry.hostId === user.id || entry.participants?.some((participant) => participant.id === user.id)));
+        const duplicate = persisted.find((entry) => entry.status === 'active' && (entry.hostId === currentUserId || entry.participants?.some((participant) => participant.id === currentUserId)));
         if (duplicate) throw new Error("You're already in an active Huddle.");
       }
 

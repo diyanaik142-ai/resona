@@ -21,6 +21,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../firebase';
 import { api } from '../../services/api';
 import Avatar from '../Avatar';
+import FeatureUnavailable from '../FeatureUnavailable';
 
 /**
  * MobileCreatorHubView - Dedicated mobile workspace for creators
@@ -262,11 +263,12 @@ export default function MobileCreatorHubView({ }) {
             <button
               type="button"
               onClick={() => setMusicSubTab('Upload')}
+              disabled={user?.features?.creator_upload !== true}
               className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
                 musicSubTab === 'Upload'
                   ? 'bg-cyan-500 text-black border-cyan-500 font-bold'
                   : 'bg-white/[0.02] border-white/5 text-white/50'
-              }`}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               + Upload Track
             </button>
@@ -304,7 +306,10 @@ export default function MobileCreatorHubView({ }) {
             </div>
           )}
 
-          {musicSubTab === 'Upload' && (
+          {musicSubTab === 'Upload' && user?.features?.creator_upload !== true && (
+            <FeatureUnavailable title="Creator Upload" />
+          )}
+          {musicSubTab === 'Upload' && user?.features?.creator_upload === true && (
             <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-4">
               {/* Step indicator */}
               <div className="flex items-center justify-between px-2 text-xs font-bold">
@@ -485,6 +490,7 @@ export default function MobileCreatorHubView({ }) {
 
       {/* ANALYTICS TAB */}
       {activeTab === 'Analytics' && (
+        user?.features?.creator_analytics !== true ? <FeatureUnavailable title="Creator Analytics" /> :
         <div className="space-y-4 animate-fade-in">
           <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
             <div className="flex items-center justify-between">

@@ -5,8 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import PlanBadge from './PlanBadge';
 import BeatCodeQR from './BeatCodeQR';
 import StartHuddleModal from './StartHuddleModal';
+import FeatureUnavailable from './FeatureUnavailable';
 import Avatar from './Avatar';
 import { resolveMediaUrl,  api } from '../services/api';
+import { subscribeHuddleEvent } from '../services/huddleSocket';
 import { Users, QrCode, Share2, Radio, MessageCircle, Heart, X, Copy, Send, Check, ChevronRight, Layers, Image as ImageIcon, Camera, MoreHorizontal, Download, Plus, Bell, LogOut, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
 
 export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle, setShowHuddleRoom, fusionsList = [], setFusionsList }) {
@@ -32,11 +34,14 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
   const onClearQueue = () => setQueue([]);
 
   const { user, shelf , catalog} = useAuth();
+  const hasHuddle = user?.features?.huddle === true;
+  const hasFusion = user?.features?.fusion === true;
   const [activeSubTab, setActiveSubTab] = useState('Friends & Profile');
   const [showStartHuddleModal, setShowStartHuddleModal] = useState(false);
   const [showCreateHuddleModal, setShowCreateHuddleModal] = useState(false);
   const [showInviteFriendsModal, setShowInviteFriendsModal] = useState(false);
   const [friendsList, setFriendsList] = useState([]);
+  const [friendsError, setFriendsError] = useState('');
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [isFetchingFriends, setIsFetchingFriends] = useState(false);
   const [huddleName, setHuddleName] = useState(`${user?.name || 'Listener'}'s Huddle`);
@@ -78,6 +83,33 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
     loadFusions();
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadFriends = async () => {
+      try {
+        setIsFetchingFriends(true);
+        const res = await api.social.getFriends();
+        if (isMounted) {
+          setFriendsList(Array.isArray(res.friends) ? res.friends : []);
+          setFriendsError('');
+        }
+      } catch (err) {
+        if (isMounted) setFriendsError(err.message || 'Could not load your connections.');
+        console.warn('[Social] Failed to fetch friends:', err.message);
+      } finally {
+        if (isMounted) setIsFetchingFriends(false);
+      }
+    };
+    loadFriends();
+    const unsubscribeActivity = subscribeHuddleEvent('listening_activity_updated', loadFriends);
+    const refreshInterval = window.setInterval(loadFriends, 30_000);
+    return () => {
+      isMounted = false;
+      unsubscribeActivity();
+      window.clearInterval(refreshInterval);
+    };
+  }, [user?.id]);
+
   const handleCopyLink = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -111,6 +143,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
 
   const handleInitiateHuddle = (e) => {
     if (e) e.preventDefault();
+    if (!hasHuddle) return;
     setShowStartHuddleModal(true);
   };
 
@@ -294,8 +327,45 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
             </div>
           </div>
 
+          <div className="space-y-3">
+            <h3 className="font-bold text-lg text-white">Friends & Following</h3>
+            {isFetchingFriends && friendsList.length === 0 ? (
+              <div className="p-8 rounded-2xl glass-card text-center text-xs text-slate-400">Loading your connections...</div>
+            ) : friendsError ? (
+              <div className="p-8 rounded-2xl glass-card border border-white/5 text-center text-xs text-slate-400">
+                {friendsError}
+              </div>
+            ) : friendsList.length === 0 ? (
+              <div className="p-8 rounded-2xl glass-card border border-white/5 text-center space-y-2">
+                <Users className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="font-bold text-white text-xs">No friends yet</p>
+                <p className="text-[11px] text-slate-400">Follow people to see their activity here.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {friendsList.map((friend) => (
+                  <div key={friend.id} className="p-3 rounded-2xl glass-card border border-white/5 flex items-center gap-3">
+                    <Avatar user={{ avatar: friend.avatar, name: friend.name }} className="w-10 h-10 rounded-xl shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-white text-sm truncate">{friend.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {friend.listeningActivity
+                          ? `Listening to ${friend.listeningActivity.title}${friend.listeningActivity.artist ? ` · ${friend.listeningActivity.artist}` : ''}`
+                          : friend.statusText || 'Offline'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-3">
-            {activeHuddle ? (
+            {!hasHuddle ? (
+              <div className="flex-1">
+                <FeatureUnavailable title="Huddle" />
+              </div>
+            ) : activeHuddle ? (
               <button
                 onClick={() => setShowHuddleRoom(true)}
                 className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-teal-500 to-indigo-600 font-bold text-xs text-white flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 hover:brightness-110 transition animate-pulse"
@@ -321,36 +391,49 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
       )}
 
       {/* SUB TAB 2: FRIEND ACTIVITY FEED */}
-      {(activeSubTab === 'Friends & Profile' || activeSubTab === 'Friend Activity') && (
+      {activeSubTab === 'Friend Activity' && (
         <div className="space-y-3">
           <h3 className="font-bold text-lg text-white">Friend Activity</h3>
-          <div className="p-8 rounded-2xl glass-card border border-white/5 text-center space-y-2">
-            <Users className="w-8 h-8 text-slate-600 mx-auto" />
-            <p className="font-bold text-white text-xs">No active friends listening right now</p>
-            <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-              Share your Beat Code or invite friends to a Huddle room to listen together with zero audio latency.
-            </p>
-            <button
-              onClick={() => setShowBeatCodeModal(true)}
-              className="mt-2 py-2 px-4 rounded-xl glass-button-primary text-xs font-bold inline-flex items-center gap-1.5"
-            >
-              <QrCode className="w-3.5 h-3.5" /> Share Beat Code
-            </button>
-          </div>
+          {isFetchingFriends && friendsList.length === 0 ? (
+            <div className="p-8 rounded-2xl glass-card border border-white/5 text-center text-xs text-slate-400">
+              Loading friend activity...
+            </div>
+          ) : friendsError ? (
+            <div className="p-8 rounded-2xl glass-card border border-white/5 text-center text-xs text-slate-400">
+              {friendsError}
+            </div>
+          ) : friendsList.filter((friend) => friend.listeningActivity).length === 0 ? (
+            <div className="p-8 rounded-2xl glass-card border border-white/5 text-center space-y-2">
+              <Users className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="font-bold text-white text-xs">No friends are listening right now.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {friendsList.filter((friend) => friend.listeningActivity).map((friend) => (
+                <div key={friend.id} className="p-3 rounded-2xl glass-card border border-white/5 flex items-center gap-3">
+                  <Avatar user={{ avatar: friend.avatar, name: friend.name }} className="w-10 h-10 rounded-xl shrink-0" />
+                  <p className="text-xs text-white">
+                    <span className="font-bold text-teal-300">{friend.name}</span>
+                    {' is listening to '}
+                    <span>{friend.listeningActivity.title}</span>
+                    {friend.listeningActivity.artist ? ` by ${friend.listeningActivity.artist}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
 
       {/* SUB TAB 3: FUSION (SHARED MIX) */}
       {activeSubTab === 'Fusion (Shared Mix)' && (
+        !hasFusion ? <FeatureUnavailable title="Fusion" /> :
         <div className="space-y-4">
           <div className="p-6 rounded-3xl glass-panel border border-teal-500/30 text-center space-y-4">
             <div className="flex justify-center -space-x-4">
               <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center text-slate-950 font-bold border-2 border-slate-900 shadow-xl">
                 {user?.name?.charAt(0) || 'U'}
-              </div>
-              <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold border-2 border-slate-900 shadow-xl">
-                ?
               </div>
             </div>
 
@@ -378,7 +461,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
               <div key={fusion.id} className="p-3.5 rounded-2xl glass-card flex items-center justify-between cursor-pointer hover:bg-white/10">
                 <div>
                   <span className="text-xs font-bold text-white block">
-                    Fusion: {fusion.participantsData?.filter(p => p.id !== user?.id).map(p => p.name).join(', ') || 'Unknown'}
+                    {fusion.participantsData?.filter(p => p.id !== user?.id).map(p => p.name).join(', ') || 'Shared Fusion'}
                   </span>
                   <span className="text-[10px] text-slate-400">Shared Mix</span>
                 </div>
@@ -393,6 +476,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
 
       {/* SUB TAB 4: HUDDLE & SHARING QUICK BUTTONS */}
       {activeSubTab === 'Huddle & Sharing' && (
+        !hasHuddle ? <FeatureUnavailable title="Huddle" /> :
         <div className="space-y-4">
           {activeHuddle && activeHuddle.status === 'active' ? (
             <div className="p-6 rounded-3xl glass-panel border border-teal-500/30 bg-slate-900/60 space-y-5">
@@ -409,7 +493,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
                       </span>
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Host: <span className="text-slate-200 font-medium">{activeHuddle.hostName}</span> • {activeHuddle.participants?.length || 1} listening now
+                      Host: <span className="text-slate-200 font-medium">{activeHuddle.hostName}</span> • {activeHuddle.participants?.length || 1} participants
                     </p>
                   </div>
                 </div>
@@ -526,7 +610,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
                     <Avatar user={{ name: friend.name, avatar: friend.avatar }} className="w-10 h-10 rounded-xl shrink-0 object-cover" />
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-white text-sm truncate">{friend.name}</div>
-                      <div className="text-[10px] text-teal-400">Active now</div>
+                      <div className="text-[10px] text-slate-400">{friend.statusText || 'Offline'}</div>
                     </div>
                     <label className="flex items-center cursor-pointer">
                       <input 
@@ -1020,7 +1104,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
 
       {/* START HUDDLE MODAL (FRIEND SELECTION & REAL-TIME INVITATIONS) */}
       <StartHuddleModal
-        isOpen={showStartHuddleModal}
+        isOpen={hasHuddle && showStartHuddleModal}
         onClose={() => setShowStartHuddleModal(false)}
         mode="create"
         activeHuddle={activeHuddle}

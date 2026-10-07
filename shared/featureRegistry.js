@@ -5,7 +5,8 @@
  * React frontend (admin UI). Do NOT duplicate this list anywhere else.
  *
  * - Plan configuration (server/data/global/plans.json) decides default availability.
- * - User overrides (overrides.json) decide individual exceptions.
+ * - User overrides can disable an enabled plan feature, but cannot grant a
+ *   feature the user's plan does not include.
  * - The entitlement service (server/services/entitlements.js) computes effective access.
  *
  * Adding a feature here automatically makes it appear in every admin interface

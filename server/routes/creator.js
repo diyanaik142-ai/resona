@@ -96,7 +96,7 @@ router.post('/apply', async (req, res) => {
  * POST /api/creator/upload
  * Publish or draft a new track for this user
  */
-router.post('/upload', async (req, res) => {
+router.post('/upload', requireFeature('creator_upload'), async (req, res) => {
   try {
     const settings = await getPlatformSettings();
     if (settings.creator?.allowCreatorUploads === false) {

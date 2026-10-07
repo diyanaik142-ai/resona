@@ -25,6 +25,7 @@ import { JWT_SECRET } from './config.js';
 import { getPlatformSettings, getPublicPlatformConfig } from './services/platformSettings.js';
 import { huddleService } from './services/huddleService.js';
 import { userStatusTracker } from './services/userStatusTracker.js';
+import { hasFeature } from './services/entitlements.js';
 const app = express();
 
 const server = http.createServer(app);
@@ -94,28 +95,70 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('join_huddle', async ({ huddleId }) => {
-    if (huddleId) {
-      const huddle = await huddleService.getHuddleById(huddleId, socket.userId).catch(() => null);
-      if (!huddle) return;
-      socket.join(`huddle:${huddleId}`);
-      console.log(`[Socket] Client joined huddle:${huddleId}`);
-    }
-  });
-
-  socket.on('leave_huddle', ({ huddleId }) => {
-    if (huddleId) {
-      socket.leave(`huddle:${huddleId}`);
-      console.log(`[Socket] Client left huddle:${huddleId}`);
-    }
-  });
-
   socket.on('disconnect', () => {
     if (socket.userId) {
       userStatusTracker.setOffline(socket.userId, socket.id);
       console.log(`[Socket] User disconnected: ${socket.userId} (${socket.id})`);
       io.emit('user_presence_updated', { userId: socket.userId, status: userStatusTracker.getStatus(socket.userId) });
     }
+  });
+});
+
+const huddleIo = io.of('/huddle');
+huddleIo.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('Authentication required'));
+
+    let userId;
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        userId = jwt.verify(token, JWT_SECRET).id;
+      } catch {
+        // Firebase authentication is also supported in development.
+      }
+    }
+    if (!userId) {
+      const { getAuth } = await import('firebase-admin/auth');
+      userId = (await getAuth().verifyIdToken(token, true)).uid;
+    }
+
+    if (!(await hasFeature(userId, 'huddle'))) {
+      const error = new Error('FEATURE_NOT_ENABLED');
+      error.data = { error: 'FEATURE_NOT_ENABLED', feature: 'huddle' };
+      return next(error);
+    }
+
+    socket.userId = userId;
+    return next();
+  } catch (err) {
+    return next(new Error('Huddle authentication failed'));
+  }
+});
+
+huddleIo.on('connection', (socket) => {
+  socket.join(`user:${socket.userId}`);
+
+  socket.on('join_huddle', async ({ huddleId } = {}) => {
+    try {
+      if (!(await hasFeature(socket.userId, 'huddle'))) {
+        socket.emit('huddle_access_revoked', { feature: 'huddle' });
+        socket.disconnect(true);
+        return;
+      }
+      if (!huddleId) return;
+      const huddle = await huddleService.getHuddleById(huddleId, socket.userId);
+      const isParticipant = huddle?.hostId === socket.userId ||
+        huddle?.participants?.some((participant) => participant.id === socket.userId);
+      if (!isParticipant) return;
+      socket.join(`huddle:${huddleId}`);
+    } catch (err) {
+      console.error('[Socket] Failed to authorize Huddle room join:', err);
+    }
+  });
+
+  socket.on('leave_huddle', ({ huddleId } = {}) => {
+    if (huddleId) socket.leave(`huddle:${huddleId}`);
   });
 });
 
