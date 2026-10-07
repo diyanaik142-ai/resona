@@ -1,161 +1,99 @@
+﻿import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowDownToLine, Check, ChevronLeft, Clipboard, Disc3, Heart, ListPlus, MoreHorizontal, Pause, Play, RefreshCw, Share2, Shuffle, Sparkles, UserRound } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
-import React, { useState, useEffect } from 'react';
-import { Play, Pause, Shuffle, Heart, MoreVertical, ListPlus, ChevronLeft, Disc } from 'lucide-react';
-import { resolveMediaUrl,  api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { api, resolveMediaUrl } from '../services/api';
+import { formatTime } from '../utils/formatTime';
 
-export default function PlaylistView({ playlistId,  onPlayPlaylist,   onNavigate }) {
-  const {
-    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
-    queue: playQueue,
-    playTrack: onPlayTrack,
-    playTrack: handlePlayTrack,
-    togglePlay: onTogglePlay,
-    togglePlay: handleTogglePlay,
-    playNext: onNextTrack,
-    playPrevious: onPrevTrack,
-    seekTo: onSeek,
-    setVolume: onVolumeChange,
-    toggleMute: onToggleMute,
-    toggleShuffle: onToggleShuffle,
-    toggleLoop: onToggleLoop,
-    addToQueue: onAddToQueue,
-    removeFromQueue: onRemoveFromQueue,
-    setQueue: onReorderQueue,
-    setQueue
-  } = usePlayer();
-  const onClearQueue = () => setQueue([]);
+const fallbackCover = '/assets/default-cover.png';
+const IconButton = ({ label, children, onClick, active = false, className = '', disabled = false }) => (
+  <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled} className={`playlist-icon-button ${active ? 'is-active' : ''} ${className}`}>{children}</button>
+);
+function Artwork({ src, alt, className = '' }) {
+  const [imageSrc, setImageSrc] = useState(src || fallbackCover);
+  useEffect(() => setImageSrc(src || fallbackCover), [src]);
+  return <img src={imageSrc} alt={alt} className={className} onError={() => setImageSrc(fallbackCover)} />;
+}
+function PlaylistSkeleton() {
+  return <div className="playlist-page playlist-skeleton" aria-label="Loading playlist"><div className="playlist-skeleton-bar" /><div className="playlist-skeleton-hero"><div className="playlist-skeleton-cover" /><div className="playlist-skeleton-copy"><span /><span /><span /></div></div><div className="playlist-skeleton-list">{[1, 2, 3].map(item => <span key={item} />)}</div></div>;
+}
 
+export default function PlaylistView({ playlistId, onNavigate }) {
+  const { currentTrack, isPlaying, isLoading: playerLoading, playTrack, addToQueue, togglePlay } = usePlayer();
+  const { user, shelf, toggleLikeTrack } = useAuth();
   const [playlist, setPlaylist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
+  const loadPlaylist = () => {
     if (!playlistId) return;
-    setLoading(true);
-    api.tracks.getPlaylist(playlistId)
-      .then(data => {
-        setPlaylist(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [playlistId]);
+    setLoading(true); setError(null);
+    api.tracks.getPlaylist(playlistId).then(setPlaylist).catch(err => setError(err.message || 'Unable to load this playlist.')).finally(() => setLoading(false));
+  };
+  useEffect(() => { loadPlaylist(); }, [playlistId]);
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 96);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+  useEffect(() => {
+    const close = () => setOpenMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
 
-  if (loading) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
-        <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin"></div>
-        <p className="text-slate-400 font-bold">Loading playlist...</p>
+  const tracks = useMemo(() => (Array.isArray(playlist?.tracks) ? playlist.tracks : []), [playlist]);
+  const likedTrackIds = shelf?.likedTrackIds || [];
+  const isOwner = user?.role === 'admin' || Boolean(playlist && (playlist.ownerId === user?.id || playlist.createdBy === user?.id));
+  const ownerName = playlist?.owner?.name || playlist?.ownerName || playlist?.createdByName || (playlist?.isAdminCurated ? 'Resona' : '');
+  const currentIsInPlaylist = currentTrack && tracks.some(track => track.id === currentTrack.id);
+  const isCurrentPlaying = currentIsInPlaylist && isPlaying;
+
+  const playFrom = (track, shuffle = false) => {
+    if (!track || tracks.length === 0) return;
+    const ordered = shuffle ? [...tracks].sort(() => Math.random() - 0.5) : tracks;
+    playTrack(ordered.find(item => item.id === track.id) || ordered[0], ordered);
+  };
+  const link = () => `${window.location.origin}/playlist/${playlistId}`;
+  const handleCopyLink = async () => {
+    try { await navigator.clipboard.writeText(link()); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { /* embedded browsers can block clipboard */ }
+  };
+  const handleShare = async () => {
+    if (navigator.share) { try { await navigator.share({ title: playlist?.name || 'Resona playlist', url: link() }); } catch { /* user cancelled */ } } else await handleCopyLink();
+  };
+
+  if (loading) return <PlaylistSkeleton />;
+  if (error || !playlist) return <div className="playlist-state"><div className="playlist-state-icon"><Disc3 /></div><p className="playlist-eyebrow">Playlist unavailable</p><h1>We couldn’t load this playlist</h1><p>{error || 'The playlist may have been removed or is temporarily offline.'}</p><div className="playlist-state-actions"><button type="button" className="playlist-primary-button" onClick={loadPlaylist}><RefreshCw size={16} /> Retry</button><button type="button" className="playlist-secondary-button" onClick={() => onNavigate('BACK')}>Go back</button></div></div>;
+
+  return <main className={`playlist-page ${scrolled ? 'is-scrolled' : ''}`}>
+    <div className="playlist-ambient" style={{ backgroundImage: `linear-gradient(180deg, rgba(5, 8, 15, .2), #08090e 76%), url(${resolveMediaUrl(playlist.coverUrl)})` }} aria-hidden="true" />
+    <header className="playlist-topbar">
+      <IconButton label="Go back" onClick={() => onNavigate('BACK')}><ChevronLeft size={20} /></IconButton>
+      <div className="playlist-compact-title" aria-hidden={!scrolled}><span>Playlist</span><strong>{playlist.name}</strong></div>
+      <div className="playlist-menu-wrap"><IconButton label="More playlist actions" onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === 'playlist' ? null : 'playlist'); }}><MoreHorizontal size={20} /></IconButton>
+        {openMenu === 'playlist' && <div className="playlist-menu playlist-menu-right" onClick={event => event.stopPropagation()}>
+          <button type="button" onClick={handleShare}><Share2 size={16} /> Share playlist</button><button type="button" onClick={handleCopyLink}>{copied ? <Check size={16} /> : <Clipboard size={16} />} {copied ? 'Link copied' : 'Copy link'}</button><button type="button" disabled><Sparkles size={16} /> Beat Code</button>
+          {isOwner && <><div className="playlist-menu-divider" /><button type="button" onClick={() => onNavigate('admin')}><Sparkles size={16} /> Edit playlist</button><button type="button" className="is-danger" onClick={() => setOpenMenu(null)}>Delete playlist</button></>}
+        </div>}
       </div>
-    );
-  }
+    </header>
 
-  if (error || !playlist) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
-        <Disc className="w-16 h-16 text-slate-600 mb-2" />
-        <h2 className="text-xl font-bold text-white">Playlist not found</h2>
-        <p className="text-slate-400">{error}</p>
-        <button onClick={() => onNavigate('pulse')} className="px-6 py-2 rounded-full bg-white/10 text-white font-bold hover:bg-white/20">Go Home</button>
-      </div>
-    );
-  }
+    <section className="playlist-hero" aria-labelledby="playlist-title"><div className="playlist-cover-frame"><Artwork src={resolveMediaUrl(playlist.coverUrl)} alt={`${playlist.name} cover`} className="playlist-cover" /></div><div className="playlist-hero-copy"><p className="playlist-eyebrow">Playlist</p><h1 id="playlist-title">{playlist.name}</h1>{playlist.description && <p className="playlist-description">{playlist.description}</p>}<p className="playlist-meta">{ownerName && <><span>{ownerName}</span><i>•</i></>}<span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span></p></div></section>
 
-  const tracks = Array.isArray(playlist.tracks) ? playlist.tracks : [];
+    <section className="playlist-actions" aria-label="Playlist controls"><div className="playlist-actions-secondary"><IconButton label="Save playlist" disabled><Heart size={21} /></IconButton><IconButton label="Download playlist" disabled><ArrowDownToLine size={20} /></IconButton><IconButton label="Shuffle playlist" onClick={() => playFrom(tracks[0], true)} disabled={!tracks.length}><Shuffle size={20} /></IconButton></div><button type="button" className="playlist-play-button" onClick={() => (isCurrentPlaying ? togglePlay() : playFrom(tracks[0]))} disabled={!tracks.length || playerLoading} aria-label={isCurrentPlaying ? 'Pause playlist' : 'Play playlist'}>{isCurrentPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={21} fill="currentColor" />}<span>{isCurrentPlaying ? 'Pause' : 'Play'}</span></button></section>
 
-  return (
-    <div className="w-full max-w-5xl mx-auto space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <button onClick={() => onNavigate('BACK')} className="flex items-center gap-2 text-slate-400 hover:text-white transition w-fit group">
-        <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-        <span className="font-bold text-sm">Back</span>
-      </button>
-
-      <div className="flex flex-col md:flex-row gap-8 items-center md:items-end">
-        <div className="w-48 h-48 md:w-64 md:h-64 shrink-0 rounded-2xl shadow-2xl overflow-hidden bg-slate-800">
-          {playlist.coverUrl ? (
-            <img src={resolveMediaUrl(playlist.coverUrl)} alt={playlist.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-teal-500/10">
-              <Disc className="w-16 h-16 text-teal-500/50" />
-            </div>
-          )}
-        </div>
-        <div className="flex-1 text-center md:text-left space-y-4">
-          <p className="text-xs font-black tracking-widest text-teal-400 uppercase">Playlist</p>
-          <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight">{playlist.name}</h1>
-          <p className="text-slate-300 text-sm md:text-base max-w-2xl leading-relaxed">{playlist.description}</p>
-          <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-400 font-medium">
-            <span>Resona Admin</span>
-            <span>•</span>
-            <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-        <button 
-          onClick={() => onPlayPlaylist(tracks, false)}
-          disabled={tracks.length === 0}
-          className="w-14 h-14 rounded-full bg-teal-500 hover:bg-teal-400 text-slate-950 flex items-center justify-center shadow-lg hover:shadow-teal-500/50 transition-all hover:scale-105 disabled:opacity-50"
-        >
-          <Play className="w-6 h-6 fill-current" />
-        </button>
-        <button 
-          onClick={() => onPlayPlaylist(tracks, true)}
-          disabled={tracks.length === 0}
-          className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all hover:scale-105 disabled:opacity-50"
-          title="Shuffle Play"
-        >
-          <Shuffle className="w-6 h-6" />
-        </button>
-        <button className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all hover:scale-105">
-          <Heart className="w-6 h-6" />
-        </button>
-      </div>
-
-      <div className="space-y-2 mt-8">
-        <div className="hidden md:grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-white/5 mb-4">
-          <div className="w-8 text-center">#</div>
-          <div>Title</div>
-          <div className="w-12 text-center">Time</div>
-        </div>
-
-        {tracks.length === 0 ? (
-          <div className="text-center py-12 text-slate-500 font-medium">This playlist is empty.</div>
-        ) : (
-          tracks.map((track, idx) => {
-            const isPlayingThis = currentTrack?.id === track.id && isPlaying;
-            return (
-              <div 
-                key={track.playlistItemId}
-                onClick={() => onPlayTrack(track)}
-                className="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition"
-              >
-                <div className="w-8 text-center text-sm font-bold text-slate-500 group-hover:text-white transition">
-                  {isPlayingThis ? <Play className="w-4 h-4 text-teal-400 inline fill-current" /> : (idx + 1)}
-                </div>
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <img src={resolveMediaUrl(track.cover)} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
-                  <div className="min-w-0 flex-1">
-                    <p className={`font-bold text-sm truncate ${isPlayingThis ? 'text-teal-400' : 'text-white'}`}>{track.title}</p>
-                    <p className="text-xs text-slate-400 truncate">{track.artist}</p>
-                  </div>
-                </div>
-                <div className="w-12 text-center text-xs font-mono text-slate-500">
-                  {/* format seconds if duration exists */}
-                  --:--
-                </div>
-                <button className="p-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
+    <section className="playlist-track-section" aria-labelledby="track-list-heading"><div className="playlist-track-heading"><span id="track-list-heading">Tracks</span><span>{tracks.length}</span></div>
+      {tracks.length === 0 ? <div className="playlist-empty"><div className="playlist-state-icon playlist-empty-icon"><Disc3 /></div><h2>No tracks yet</h2><p>This playlist is ready for its first listen.</p></div> : <div className="playlist-track-list">{tracks.map((track, index) => {
+        const isTrackCurrent = currentTrack?.id === track.id; const liked = likedTrackIds.includes(track.id);
+        return <article key={track.playlistItemId || track.id} className={`playlist-track-row ${isTrackCurrent ? 'is-current' : ''}`} onClick={() => playFrom(track)}>
+          <div className="playlist-track-number">{isTrackCurrent && isPlaying ? <span className="playlist-playing-bars"><i /><i /><i /></span> : String(index + 1).padStart(2, '0')}</div><Artwork src={resolveMediaUrl(track.coverUrl || track.cover)} alt="" className="playlist-track-art" /><div className="playlist-track-copy"><h3>{track.title}</h3><p>{track.artist || 'Unknown artist'}</p></div><div className="playlist-track-duration">{formatTime(Number(track.duration) || 0)}</div>
+          <IconButton label={liked ? `Remove ${track.title} from Heartbeats` : `Add ${track.title} to Heartbeats`} active={liked} onClick={event => { event.stopPropagation(); toggleLikeTrack(track.id); }}><Heart size={17} fill={liked ? 'currentColor' : 'none'} /></IconButton>
+          <div className="playlist-menu-wrap"><IconButton label={`More actions for ${track.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === track.id ? null : track.id); }}><MoreHorizontal size={19} /></IconButton>{openMenu === track.id && <div className="playlist-menu playlist-menu-track" onClick={event => event.stopPropagation()}><button type="button" onClick={() => { addToQueue(track); setOpenMenu(null); }}><ListPlus size={16} /> Add to queue</button><button type="button" onClick={() => { toggleLikeTrack(track.id); setOpenMenu(null); }}><Heart size={16} /> {liked ? 'Remove from Heartbeats' : 'Add to Heartbeats'}</button><button type="button" onClick={() => { handleShare(); setOpenMenu(null); }}><Share2 size={16} /> Share</button><button type="button" onClick={() => setOpenMenu(null)}><UserRound size={16} /> View artist</button></div>}</div>
+        </article>;
+      })}</div>}
+    </section><div className="playlist-bottom-space" />
+  </main>;
 }
