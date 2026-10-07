@@ -16,6 +16,7 @@ import SocialView from './components/SocialView';
 import CreatorHubView from './components/CreatorHubView';
 import SettingsView from './components/SettingsView';
 import AuthModal from './components/AuthModal';
+import AccountSwitcherModal from './components/AccountSwitcherModal';
 import LoginTransition from './components/LoginTransition';
 import AdminDashboard from './components/AdminDashboard';
 import MaintenanceScreen from './components/MaintenanceScreen';
@@ -1519,7 +1520,11 @@ export default function App() {
       )}
 
       {/* Switch Account Modal (Common) */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      {isAuthenticated ? (
+        <AccountSwitcherModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      ) : (
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      )}
     </div>
   );
 }

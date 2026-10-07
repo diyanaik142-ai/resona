@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile as updateFirebaseProfile, signOut } from 'firebase/auth';
-import { auth as firebaseAuth } from '../firebase';
+import { auth as firebaseAuth, getAccountAuth } from '../firebase';
 import { api, setToken } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [activeAccountEmail, setActiveAccountEmail] = useState(() => localStorage.getItem('resona_active_account_email') || null);
 
   // Load account data on boot or token change
   const refreshAccountData = async () => {
@@ -71,7 +72,8 @@ export function AuthProvider({ children }) {
     }
 
     if (import.meta.env?.PROD) {
-      const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+      const activeAuth = activeAccountEmail ? getAccountAuth(activeAccountEmail) : firebaseAuth;
+      const unsubscribe = onAuthStateChanged(activeAuth, async (firebaseUser) => {
         if (!firebaseUser) {
           setUser(null);
           setLoading(false);
@@ -111,7 +113,36 @@ export function AuthProvider({ children }) {
       setPreferences(null);
       setLoading(false);
     }
-  }, []);
+  }, [activeAccountEmail]);
+
+  // Switch Account handler
+  const switchAccount = async (email) => {
+    try {
+      setLoading(true);
+      const saved = JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]');
+      const account = saved.find(a => a.email === email);
+      if (!account) throw new Error("Account not found");
+
+      localStorage.setItem('resona_active_account_email', email);
+      setActiveAccountEmail(email);
+      setToken(account.token);
+      localStorage.setItem('resona_session_id', account.sessionId);
+
+      setUser(null);
+      setPreferences(null);
+      setShelf({ likedTrackIds: [], playlists: [], recentlyPlayed: [] });
+      setCreatorData(null);
+      setSocialData(null);
+      
+      if (!import.meta.env?.PROD) {
+         await refreshAccountData();
+      }
+    } catch (err) {
+      console.error("Switch account error", err);
+    } finally {
+      if (!import.meta.env?.PROD) setLoading(false);
+    }
+  };
 
   // Login handler
   const login = async (email, password) => {
@@ -122,7 +153,8 @@ export function AuthProvider({ children }) {
       let activeUser = null;
       
       if (import.meta.env?.PROD && email !== 'admin') {
-        const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        const accountAuth = getAccountAuth(email);
+        const credential = await signInWithEmailAndPassword(accountAuth, email, password);
         activeToken = await credential.user.getIdToken();
         setToken(activeToken);
         const sessionRes = await api.auth.createSession(navigator.userAgent);
@@ -167,6 +199,8 @@ export function AuthProvider({ children }) {
           sessionId: activeSessionId
         });
         localStorage.setItem('resona_saved_accounts', JSON.stringify(updated));
+        localStorage.setItem('resona_active_account_email', email);
+        setActiveAccountEmail(email);
       } catch (e) {}
       
       return { user: activeUser };
@@ -186,7 +220,8 @@ export function AuthProvider({ children }) {
       let email = formData.email;
       
       if (import.meta.env?.PROD) {
-        const credential = await createUserWithEmailAndPassword(firebaseAuth, formData.email, formData.password);
+        const accountAuth = getAccountAuth(formData.email);
+        const credential = await createUserWithEmailAndPassword(accountAuth, formData.email, formData.password);
         await updateFirebaseProfile(credential.user, { displayName: formData.name || '' });
         activeToken = await credential.user.getIdToken();
         setToken(activeToken);
@@ -225,6 +260,8 @@ export function AuthProvider({ children }) {
           sessionId: activeSessionId
         });
         localStorage.setItem('resona_saved_accounts', JSON.stringify(updated));
+        localStorage.setItem('resona_active_account_email', email);
+        setActiveAccountEmail(email);
       } catch (e) {}
       
       return { user: activeUser };
@@ -240,7 +277,8 @@ export function AuthProvider({ children }) {
       if (user?.role === 'admin') {
         localStorage.removeItem('adminToken');
       } else if (import.meta.env?.PROD) {
-        await signOut(firebaseAuth);
+        const activeAuth = activeAccountEmail ? getAccountAuth(activeAccountEmail) : firebaseAuth;
+        await signOut(activeAuth);
       } else {
         await api.auth.logout().catch(() => {});
       }
@@ -250,6 +288,15 @@ export function AuthProvider({ children }) {
           const saved = JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]');
           const updated = saved.filter(a => a.email !== user.email);
           localStorage.setItem('resona_saved_accounts', JSON.stringify(updated));
+          
+          if (updated.length > 0) {
+             const nextAcc = updated[0];
+             switchAccount(nextAcc.email);
+             return;
+          } else {
+             localStorage.removeItem('resona_active_account_email');
+             setActiveAccountEmail(null);
+          }
         } catch (e) {}
       }
       setToken(null);
@@ -344,6 +391,7 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
+    switchAccount,
     changePassword,
     updateProfile,
     updatePreferences,

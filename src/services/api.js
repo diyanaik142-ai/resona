@@ -11,7 +11,7 @@ export function setToken(token) {
   }
 }
 
-import { auth } from '../firebase';
+import { auth, getAccountAuth } from '../firebase';
 
 export const getAuthHeaders = async () => {
   // If an admin session is active, NEVER send normal user tokens or admin tokens
@@ -29,9 +29,12 @@ export const getAuthHeaders = async () => {
     headers['X-Session-Id'] = sessionId;
   }
 
+  const activeEmail = localStorage.getItem('resona_active_account_email');
+  const accountAuth = activeEmail ? getAccountAuth(activeEmail) : auth;
+
   // Obtain fresh Firebase ID token if user is logged in
-  if (auth?.currentUser) {
-    const token = await auth.currentUser.getIdToken(true);
+  if (accountAuth?.currentUser) {
+    const token = await accountAuth.currentUser.getIdToken(true);
     headers['Authorization'] = `Bearer ${token}`;
     return headers;
   }

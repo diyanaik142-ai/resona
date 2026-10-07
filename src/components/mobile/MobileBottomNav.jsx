@@ -19,15 +19,20 @@ const SUB_NAV = {
   social: [
     { id: 'friends', label: 'Friends', icon: UserPlus },
     { id: 'activity', label: 'Activity', icon: Activity },
-    { id: 'shared', label: 'Shared', icon: Share2 },
-    { id: 'fusion', label: 'Fusion', icon: Network }
+    { id: 'fusion', label: 'Fusion', icon: Network },
+    { id: 'huddle', label: 'Huddle', icon: Radio }
   ]
 };
 
 export default function MobileBottomNav({ activeTab, activeSubTab, onNavigate }) {
+  const [forceMainMode, setForceMainMode] = React.useState(false);
+
+  React.useEffect(() => {
+    setForceMainMode(false);
+  }, [activeTab]);
   
   const getRenderItems = () => {
-    if (activeTab === 'social') {
+    if (activeTab === 'social' && activeSubTab && !forceMainMode) {
       return [
         { ...SUB_NAV.social[0], isSub: true, parent: 'social' },
         { ...SUB_NAV.social[1], isSub: true, parent: 'social' },
@@ -36,7 +41,7 @@ export default function MobileBottomNav({ activeTab, activeSubTab, onNavigate })
         { ...SUB_NAV.social[3], isSub: true, parent: 'social' }
       ];
     }
-    if (activeTab === 'shelf') {
+    if (activeTab === 'shelf' && activeSubTab && !forceMainMode) {
       return [
         { ...SUB_NAV.shelf[0], isSub: true, parent: 'shelf' },
         { ...SUB_NAV.shelf[1], isSub: true, parent: 'shelf' },
@@ -53,13 +58,20 @@ export default function MobileBottomNav({ activeTab, activeSubTab, onNavigate })
   const handleNavClick = (item) => {
     if (item.isEmpty) return;
     if (item.isParent) {
-      // Return to default nav if clicking the active parent
-      onNavigate('BACK');
+      // Toggle to main mode without changing route
+      setForceMainMode(true);
       return;
     }
     if (item.isSub) {
       onNavigate(`${item.parent}/${item.id}`);
     } else {
+      if (item.id === activeTab && forceMainMode) {
+        // Toggle back to contextual mode
+        setForceMainMode(false);
+        return;
+      }
+      
+      setForceMainMode(false);
       if (item.id === 'shelf' || item.id === 'social') {
         // When clicking a parent that has subtabs, default to its first subtab
         const firstSub = SUB_NAV[item.id][0].id;
@@ -97,28 +109,37 @@ export default function MobileBottomNav({ activeTab, activeSubTab, onNavigate })
                   >
                     {(() => {
                       const Icon = item.icon;
-                      let isActive = false;
+                      let isParentActive = false;
+                      let isSubActive = false;
+                      let isMainActive = false;
                       
                       if (item.isParent) {
-                        isActive = true; // Parent is always highlighted in contextual mode
+                        isParentActive = true; // Parent is always strongly highlighted
                       } else if (item.isSub) {
-                        isActive = activeSubTab === item.id;
+                        isSubActive = activeSubTab === item.id;
                       } else {
-                        isActive = activeTab === item.id;
+                        isMainActive = activeTab === item.id;
                       }
+
+                      const isStrongActive = isParentActive || isMainActive;
+                      const isSubtleActive = isSubActive;
 
                       return (
                         <>
                           <div className={`p-1.5 rounded-xl transition-all duration-300 ${
-                            isActive 
+                            isStrongActive 
                               ? 'bg-teal-500 text-slate-950 shadow-[0_0_15px_rgba(20,184,166,0.5)] scale-110' 
+                              : isSubtleActive
+                              ? 'text-teal-400 bg-teal-500/10 scale-105'
                               : 'text-slate-400 hover:text-white hover:bg-white/5'
                           }`}>
-                            <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+                            <Icon className={`w-5 h-5 ${isStrongActive ? 'stroke-[2.5]' : isSubtleActive ? 'stroke-[2]' : 'stroke-[1.8]'}`} />
                           </div>
                           <span className={`text-[9px] tracking-tight mt-1 truncate max-w-full px-1 transition-all duration-300 ${
-                            isActive 
+                            isStrongActive 
                               ? 'text-teal-400 font-black tracking-wide' 
+                              : isSubtleActive
+                              ? 'text-teal-300 font-bold'
                               : 'text-slate-500 font-medium'
                           }`}>
                             {item.isParent ? item.label.toUpperCase() : item.label}

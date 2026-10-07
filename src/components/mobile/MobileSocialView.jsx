@@ -313,31 +313,7 @@ export default function MobileSocialView({
         </div>
       )}
 
-      {/* TAB 3: SHARED WITH */}
-      {activeSubTab === 'shared' && (
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Shared Library Overview</p>
-          <div className="p-4 rounded-3xl glass-card border border-teal-500/20 space-y-3">
-            <h4 className="font-bold text-white text-sm">Your Connections</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Friends & Following</p>
-                <p className="text-base font-black text-white mt-0.5">{friends.length}</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Shared Fusions</p>
-                <p className="text-base font-black text-teal-300 mt-0.5">{fusionsList.length}</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/5 border border-white/5">
-                <p className="text-slate-400 text-[10px]">Catalog Tracks</p>
-                <p className="text-base font-black text-white mt-0.5">{catalog.length}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: FUSION */}
+      {/* TAB 3: FUSION */}
       {activeSubTab === 'fusion' && (
         !hasFusion ? <FeatureUnavailable title="Fusion" /> :
         <div className="space-y-3">
@@ -441,7 +417,7 @@ export default function MobileSocialView({
       )}
 
 
-      {/* TAB 5: HUDDLE */}
+      {/* TAB 4: HUDDLE */}
       {activeSubTab === 'huddle' && (
         !hasHuddle ? <FeatureUnavailable title="Huddle" /> :
         <div className="space-y-3">
