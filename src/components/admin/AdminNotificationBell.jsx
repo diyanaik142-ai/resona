@@ -172,7 +172,7 @@ export default function AdminNotificationBell() {
       <button
         id="admin-bell-btn"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 transition-colors border border-white/5"
+        className="relative p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 transition-colors border border-white/5"
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -183,122 +183,115 @@ export default function AdminNotificationBell() {
       </button>
 
       {isOpen && (
-        <div 
-          ref={drawerRef}
-          className="absolute right-0 mt-3 w-[380px] sm:w-[420px] bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col z-50 overflow-hidden max-h-[85vh]"
-        >
-          <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900">
-            <div>
-              <h3 className="font-bold text-white text-lg">Admin Notifications</h3>
-              <p className="text-xs text-slate-400">System and user activity alerts</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllRead}
-                  className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition group"
-                  title="Mark all as read"
-                >
-                  <CheckCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                </button>
-              )}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+        <>
+          {/* Mobile Overlay Scrim (hidden on md) */}
+          <div 
+            className="md:hidden fixed inset-0 bg-[#06070B]/80 z-40" 
+            onClick={() => setIsOpen(false)} 
+          />
 
-          <div className="flex gap-2 px-4 py-2 border-b border-white/10 overflow-x-auto no-scrollbar">
-            {['All', 'Unread', 'Accounts', 'Plans', 'Creators', 'Music', 'Reports', 'System'].map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                  filter === f
-                    ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
-                    : 'bg-slate-800/50 text-slate-400 hover:text-white border border-white/5'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="p-8 text-center text-slate-400">
-                <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm">Loading notifications...</p>
+          <div 
+            ref={drawerRef}
+            className="fixed md:absolute inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] md:bottom-auto top-auto md:top-full md:inset-x-auto md:right-0 md:mt-3 w-full md:w-[380px] lg:w-[420px] bg-[#0A0D14] md:bg-slate-900 border-t md:border border-white/10 md:rounded-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] flex flex-col z-40 md:z-50 overflow-hidden max-h-[70vh] md:max-h-[85vh] rounded-t-2xl md:rounded-b-2xl"
+          >
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50 md:bg-transparent">
+              <div>
+                <h3 className="font-bold text-white text-base">Notifications</h3>
+                <p className="text-xs text-slate-400">System events and activity alerts</p>
               </div>
-            ) : filteredNotifications.length === 0 ? (
-              <div className="p-12 text-center text-slate-500">
-                <Bell className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                <p className="text-sm font-medium text-slate-400">No notifications yet</p>
-                <p className="text-xs mt-1">System events will appear here</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {filteredNotifications.map(notif => (
-                  <div
-                    key={notif.id}
-                    onClick={() => handleNotificationClick(notif)}
-                    className={`p-4 hover:bg-white/5 transition cursor-pointer flex gap-3 ${!notif.isRead ? 'bg-teal-500/5' : ''}`}
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition group"
+                    title="Mark all as read"
                   >
-                    <div className="shrink-0 mt-1">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${!notif.isRead ? 'bg-teal-500/20' : 'bg-slate-800'}`}>
-                        {getIcon(notif.type)}
+                    <CheckCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 px-4 py-2 border-b border-white/10 overflow-x-auto no-scrollbar shrink-0 bg-slate-900/30 md:bg-transparent">
+              {['All', 'Unread', 'Accounts', 'Plans', 'Creators', 'Content', 'System'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
+                    filter === f
+                      ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                      : 'bg-slate-800/50 text-slate-400 hover:text-white border border-white/5'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-[#0A0D14] md:bg-slate-900 overscroll-contain">
+              {loading ? (
+                <div className="p-8 text-center text-slate-400">
+                  <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-xs">Loading notifications...</p>
+                </div>
+              ) : filteredNotifications.length === 0 ? (
+                <div className="p-10 text-center text-slate-500 flex flex-col items-center">
+                  <Bell className="w-8 h-8 mb-3 opacity-20" />
+                  <p className="text-sm font-medium text-slate-300">No notifications yet</p>
+                  <p className="text-xs mt-1">System events and activity alerts<br/>will appear here.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {filteredNotifications.map(notif => (
+                    <div
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className={`p-3.5 hover:bg-white/5 transition cursor-pointer flex gap-3 ${!notif.isRead ? 'bg-teal-500/[0.03]' : ''}`}
+                    >
+                      <div className="shrink-0 mt-0.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${!notif.isRead ? 'bg-teal-500/20' : 'bg-slate-800 border border-white/5'}`}>
+                          {getIcon(notif.type)}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className={`text-sm truncate ${!notif.isRead ? 'font-bold text-white' : 'font-medium text-slate-300'}`}>
-                          {notif.title}
-                        </h4>
-                        <div className="flex items-center gap-1.5 shrink-0 text-slate-500">
-                          <Clock className="w-3 h-3" />
-                          <span className="text-[10px] whitespace-nowrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className={`text-[13px] truncate ${!notif.isRead ? 'font-bold text-white' : 'font-medium text-slate-300'}`}>
+                            {notif.title}
+                          </h4>
+                          <span className="text-[10px] text-slate-500 whitespace-nowrap shrink-0 mt-0.5">
                             {formatDistanceToNow(new Date(notif.createdAt))}
                           </span>
                         </div>
+                        <p className={`text-[12px] leading-snug mt-0.5 line-clamp-2 ${!notif.isRead ? 'text-slate-300' : 'text-slate-500'}`}>
+                          {notif.message}
+                        </p>
                       </div>
-                      <p className={`text-xs mt-1 line-clamp-2 ${!notif.isRead ? 'text-slate-300' : 'text-slate-500'}`}>
-                        {notif.message}
-                      </p>
-                      
                       {!notif.isRead && (
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            onClick={(e) => handleMarkAsRead(notif.id, e)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 text-xs font-medium transition"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            Mark Read
-                          </button>
-                        </div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0 mt-1.5 shadow-[0_0_8px_rgba(20,184,166,0.8)]" />
                       )}
                     </div>
-                    {!notif.isRead && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0 mt-2" />
-                    )}
-                  </div>
-                ))}
+                  ))}
 
-                {hasMore && (
-                  <button
-                    onClick={() => fetchNotifications(true)}
-                    disabled={loadingMore}
-                    className="w-full p-4 text-xs font-bold text-teal-400 hover:text-teal-300 hover:bg-white/5 transition flex items-center justify-center disabled:opacity-50"
-                  >
-                    {loadingMore ? 'Loading...' : 'Load Older Notifications'}
-                  </button>
-                )}
-              </div>
-            )}
+                  {hasMore && (
+                    <button
+                      onClick={() => fetchNotifications(true)}
+                      disabled={loadingMore}
+                      className="w-full p-3 text-[11px] font-bold text-teal-400 hover:text-teal-300 hover:bg-white/5 transition flex items-center justify-center disabled:opacity-50"
+                    >
+                      {loadingMore ? 'Loading...' : 'Load Older Notifications'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

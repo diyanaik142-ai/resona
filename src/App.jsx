@@ -1208,7 +1208,7 @@ export default function App() {
 
           {/* DESKTOP MASTER AUDIO PLAYER DOCK (Fixed bottom) */}
           {deviceSeen && isAuthenticated && (
-            <footer className="hidden md:flex fixed bottom-0 md:left-64 right-0 h-24 glass-panel border-t border-l border-white/10 px-6 items-center justify-between z-40 bg-slate-950/95 backdrop-blur-2xl">
+            <footer className="hidden md:flex fixed bottom-0 md:left-64 right-0 h-24 bg-[#06070B] border-t border-l border-white/10 px-6 items-center justify-between z-50">
               <div className="flex items-center gap-4 min-w-[220px] max-w-xs">
                 <div className="relative group cursor-pointer" onClick={() => currentTrack && setActiveTab('onair')}>
                   {currentTrack ? (

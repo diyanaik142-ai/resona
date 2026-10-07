@@ -6,7 +6,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile()],
-  base: './',
+  base: '/',
   server: {
     port: 5173,
     // Backend writes JSON data at runtime (audit logs, plans, overrides, uploads).

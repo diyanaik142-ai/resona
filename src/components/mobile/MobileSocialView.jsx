@@ -17,7 +17,7 @@ export default function MobileSocialView({
   activeHuddle,
   setActiveHuddle,
   setShowHuddleRoom,
-  
+  activeSubTab,
   onInitiateHuddle,
   onOpenHuddleRoom,
   fusionsList = [],
@@ -338,7 +338,7 @@ export default function MobileSocialView({
       )}
 
       {/* TAB 4: FUSION */}
-      {activeSubTab === 'fusions' && (
+      {activeSubTab === 'fusion' && (
         !hasFusion ? <FeatureUnavailable title="Fusion" /> :
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -441,6 +441,32 @@ export default function MobileSocialView({
       )}
 
 
+      {/* TAB 5: HUDDLE */}
+      {activeSubTab === 'huddle' && (
+        !hasHuddle ? <FeatureUnavailable title="Huddle" /> :
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Huddle & Sharing</h3>
+          </div>
+          <div className="p-5 rounded-2xl glass-card border border-white/5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                <Radio className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">Start a Huddle</h4>
+                <p className="text-xs text-slate-400">Listen together in real-time</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowStartHuddleModal(true)}
+              className="w-full py-3 rounded-xl glass-button-primary font-bold text-xs shadow-lg"
+            >
+              Launch Huddle
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* FRIEND PROFILE BOTTOM SHEET */}
       {showProfileSheet && selectedFriend && (

@@ -67,19 +67,20 @@ export default function AdminBottomNav({ tabs, activeTab, onNavigate }) {
   };
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 h-[68px] pb-safe z-50 glass-panel border-t border-white/10 overflow-hidden">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 h-[68px] pb-safe z-50 bg-[#06070B] border-t border-white/10 overflow-hidden">
       <div className="grid grid-cols-5 h-full px-2 max-w-[430px] mx-auto items-center">
-        <AnimatePresence initial={false} custom={direction} mode="popLayout">
-          <motion.div
-            key={currentPage}
-            custom={direction}
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="col-span-4 grid grid-cols-4 h-full"
-          >
+        <div className="col-span-4 relative h-full">
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.div
+              key={currentPage}
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
+              className="absolute inset-0 grid grid-cols-4 h-full"
+            >
             {currentItems.map((item) => {
               const isActive = activeTab === item.id;
               const Icon = item.icon;
@@ -106,11 +107,12 @@ export default function AdminBottomNav({ tabs, activeTab, onNavigate }) {
                 </button>
               );
             })}
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
         {/* Arrow (5th Slot) */}
-        <div className="col-start-5 h-full flex flex-col items-center justify-center">
+        <div className="col-start-5 h-full flex flex-col items-center justify-center relative z-10">
           <button
             onClick={showLeftArrow ? handlePrev : handleNext}
             className="flex flex-col items-center justify-center h-full gap-1 p-1 w-full text-slate-400 hover:text-white"

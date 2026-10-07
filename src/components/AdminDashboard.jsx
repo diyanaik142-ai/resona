@@ -110,15 +110,15 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="p-2 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition border border-rose-500/20 shrink-0 ml-2"
-            title="Sign Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-          <div className="ml-2 flex items-center">
+          <div className="ml-2 flex items-center gap-2">
             <AdminNotificationBell />
+            <button
+              onClick={logout}
+              className="p-2 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition border border-rose-500/20 shrink-0"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
         <div className="pb-1" />

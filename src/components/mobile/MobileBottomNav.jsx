@@ -20,7 +20,7 @@ const SUB_NAV = {
     { id: 'friends', label: 'Friends', icon: UserPlus },
     { id: 'activity', label: 'Activity', icon: Activity },
     { id: 'shared', label: 'Shared', icon: Share2 },
-    { id: 'fusions', label: 'Fusions', icon: Network }
+    { id: 'fusion', label: 'Fusion', icon: Network }
   ]
 };
 
@@ -72,57 +72,66 @@ export default function MobileBottomNav({ activeTab, activeSubTab, onNavigate })
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-white/10 px-2 pt-1 pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] bg-slate-950/95 backdrop-blur-2xl select-none overflow-hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-[#06070B] border-t border-white/10 px-2 pt-1 pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] select-none overflow-hidden"
       role="navigation"
       aria-label="Mobile Navigation"
     >
       <div className="grid grid-cols-5 max-w-md mx-auto relative h-[56px] items-center">
-        <AnimatePresence>
-          {items.map((item, index) => {
-            if (item.isEmpty) {
-              return <div key="empty" className="h-full" />;
-            }
-            const Icon = item.icon;
-            let isActive = false;
-            
-            if (item.isParent) {
-              isActive = true; // Parent is always highlighted in contextual mode
-            } else if (item.isSub) {
-              isActive = activeSubTab === item.id;
-            } else {
-              isActive = activeTab === item.id;
-            }
+        {[0, 1, 2, 3, 4].map(colIndex => {
+          const item = items[colIndex];
+          return (
+            <div key={`cell-${colIndex}`} className="relative h-full w-full flex items-center justify-center">
+              <AnimatePresence>
+                {item && !item.isEmpty && (
+                  <motion.button
+                    key={item.id}
+                    layoutId={`nav-item-${item.id}`}
+                    onClick={() => handleNavClick(item)}
+                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 25, mass: 0.8 }}
+                    className="absolute inset-0 flex flex-col items-center justify-center w-full h-full transition-colors duration-200 active:scale-95"
+                    aria-label={item.label}
+                    aria-current={(item.isParent || (item.isSub && activeSubTab === item.id) || (!item.isParent && !item.isSub && activeTab === item.id)) ? 'page' : undefined}
+                  >
+                    {(() => {
+                      const Icon = item.icon;
+                      let isActive = false;
+                      
+                      if (item.isParent) {
+                        isActive = true; // Parent is always highlighted in contextual mode
+                      } else if (item.isSub) {
+                        isActive = activeSubTab === item.id;
+                      } else {
+                        isActive = activeTab === item.id;
+                      }
 
-            return (
-              <motion.button
-                key={item.id}
-                layoutId={`nav-item-${item.id}`}
-                onClick={() => handleNavClick(item)}
-                initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                transition={{ type: "spring", stiffness: 350, damping: 25, mass: 0.8 }}
-                className={`flex flex-col items-center justify-center h-full w-full py-1 px-1 rounded-xl transition-colors duration-200 active:scale-95 ${
-                  isActive
-                    ? 'text-teal-400 font-extrabold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                aria-label={item.label}
-                aria-current={isActive ? 'page' : undefined}
-                style={{
-                  gridColumn: index + 1
-                }}
-              >
-                <div className={`p-1 rounded-xl transition ${isActive ? (item.isParent ? 'bg-teal-500/25' : 'bg-teal-500/15') : ''}`}>
-                  <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
-                </div>
-                <span className={`text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1 ${isActive ? 'text-teal-300 font-bold' : 'text-slate-400 font-medium'}`}>
-                  {item.label}
-                </span>
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
+                      return (
+                        <>
+                          <div className={`p-1.5 rounded-xl transition-all duration-300 ${
+                            isActive 
+                              ? 'bg-teal-500 text-slate-950 shadow-[0_0_15px_rgba(20,184,166,0.5)] scale-110' 
+                              : 'text-slate-400 hover:text-white hover:bg-white/5'
+                          }`}>
+                            <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+                          </div>
+                          <span className={`text-[9px] tracking-tight mt-1 truncate max-w-full px-1 transition-all duration-300 ${
+                            isActive 
+                              ? 'text-teal-400 font-black tracking-wide' 
+                              : 'text-slate-500 font-medium'
+                          }`}>
+                            {item.isParent ? item.label.toUpperCase() : item.label}
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
     </nav>
   );
