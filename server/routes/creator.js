@@ -86,6 +86,20 @@ router.post('/apply', async (req, res) => {
 
     await saveAccountData(req.user.id, 'creator.json', creator);
 
+    try {
+      const { createAdminNotification } = await import('../services/notificationService.js');
+      await createAdminNotification({
+        type: 'CREATOR_APPLICATION',
+        title: 'New Creator Application',
+        message: `${req.user.name} applied to be a Creator.`,
+        actorUserId: req.user.id,
+        actorName: req.user.name,
+        targetUrl: `/admin/creators`,
+        priority: 'HIGH'
+      });
+      req.app.get('io')?.emit('admin_notification_received');
+    } catch (e) {}
+
     return res.status(200).json(creator);
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -142,6 +156,22 @@ router.post('/upload', requireFeature('creator_upload'), async (req, res) => {
     creator.uploads.unshift(newTrack);
     creator.stats.uploads = (creator.stats.uploads || 0) + 1;
     await saveAccountData(req.user.id, 'creator.json', creator);
+
+    try {
+      const { createAdminNotification } = await import('../services/notificationService.js');
+      await createAdminNotification({
+        type: status === 'Pending' ? 'TRACK_SUBMITTED' : 'TRACK_PUBLISHED',
+        title: status === 'Pending' ? 'Track Awaiting Review' : 'Track Published',
+        message: `Creator: ${creator.artistName || req.user.name} ${status === 'Pending' ? 'submitted' : 'published'} "${newTrack.title}".`,
+        actorUserId: req.user.id,
+        actorName: creator.artistName || req.user.name,
+        targetType: 'track',
+        targetId: newTrack.id,
+        targetUrl: `/admin/catalog`,
+        priority: status === 'Pending' ? 'HIGH' : 'NORMAL'
+      });
+      req.app.get('io')?.emit('admin_notification_received');
+    } catch (e) {}
 
     return res.status(201).json({ message: 'Track published successfully to your account', track: newTrack, creator });
   } catch (err) {

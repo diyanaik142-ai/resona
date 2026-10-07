@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { isNotificationUnread } from '../../utils/notifications';
+import Avatar from '../Avatar';
 import { 
   Bell, 
   X, 
@@ -52,7 +53,6 @@ export default function MobileNotificationsSheet({
   setNotifications,
   unreadCount,
   onMarkAsRead,
-  onMarkAllAsRead,
   activeHuddle = null,
   setActiveHuddle,
   setShowHuddleRoom,
@@ -60,7 +60,6 @@ export default function MobileNotificationsSheet({
 }) {
   const { refreshAccountData } = useAuth();
   const [processingId, setProcessingId] = useState(null);
-  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [conflictModal, setConflictModal] = useState(null);
   const [followStatuses, setFollowStatuses] = useState({});
@@ -168,43 +167,6 @@ export default function MobileNotificationsSheet({
   const todayNotifs = notifications.filter(n => isToday(n.createdAt || n.timestamp));
   const earlierNotifs = notifications.filter(n => !isToday(n.createdAt || n.timestamp));
 
-  const handleMarkAsRead = async (notificationId) => {
-    try {
-      if (onMarkAsRead) {
-        await onMarkAsRead([notificationId]);
-      } else {
-        await api.notifications.markAsRead([notificationId]);
-        const readAt = new Date().toISOString();
-        setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true, readAt } : n));
-      }
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to mark notification as read');
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    const unreadIds = notifications.filter(isNotificationUnread).map((notif) => notif.id);
-    if (unreadIds.length === 0 && !onMarkAllAsRead) return;
-
-    setIsMarkingAllRead(true);
-    setErrorMessage('');
-    try {
-      if (onMarkAllAsRead) {
-        await onMarkAllAsRead();
-      } else if (onMarkAsRead) {
-        await onMarkAsRead(unreadIds);
-      } else {
-        await api.notifications.markAsRead(unreadIds);
-        const readAt = new Date().toISOString();
-        setNotifications(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true, readAt } : n));
-      }
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to mark notifications as read');
-    } finally {
-      setIsMarkingAllRead(false);
-    }
-  };
-
   const renderNotifItem = (notif) => {
     const isHuddleInvite = notif.type === 'huddle_invite';
     const isPending = notif.status === 'pending';
@@ -224,13 +186,7 @@ export default function MobileNotificationsSheet({
         >
           <div className="flex items-start gap-3">
             <div className="relative shrink-0 mt-0.5">
-              <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-300 text-xs overflow-hidden">
-                {notif.senderAvatar ? (
-                  <img src={notif.senderAvatar} alt={notif.senderName} className="w-full h-full object-cover" />
-                ) : (
-                  notif.senderName?.charAt(0) || 'H'
-                )}
-              </div>
+              <Avatar user={{ name: notif.senderName, avatar: notif.senderAvatar }} className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 overflow-hidden text-cyan-300 text-xs" />
               <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#121216] border border-white/20 flex items-center justify-center text-cyan-400">
                 <Radio className="w-2.5 h-2.5 animate-pulse" />
               </div>
@@ -309,15 +265,7 @@ export default function MobileNotificationsSheet({
             onClose();
           }}
         >
-          <div className="w-10 h-10 rounded-full bg-slate-800 shrink-0 mt-0.5 overflow-hidden">
-            {notif.actorAvatar ? (
-              <img src={notif.actorAvatar} alt={notif.actorName} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center font-semibold text-white/50 text-xs">
-                {notif.actorName?.charAt(0) || 'F'}
-              </div>
-            )}
-          </div>
+          <Avatar user={{ name: notif.actorName, avatar: notif.actorAvatar }} className="w-10 h-10 rounded-full bg-slate-800 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <h5 className="text-xs font-semibold text-white truncate">{notif.title || 'New follower'}</h5>
@@ -376,16 +324,6 @@ export default function MobileNotificationsSheet({
           </div>
           <p className="text-[11px] text-white/60 mt-0.5 leading-snug">{notif.message}</p>
         </div>
-        {isNotificationUnread(notif) && (
-          <button
-            type="button"
-            onClick={() => handleMarkAsRead(notif.id)}
-            aria-label="Mark notification as read"
-            className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-semibold text-cyan-300 hover:bg-white/5"
-          >
-            Read
-          </button>
-        )}
       </div>
     );
   };
@@ -413,16 +351,6 @@ export default function MobileNotificationsSheet({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {(unreadCount > 0 || notifications.some(isNotificationUnread)) && (
-              <button
-                type="button"
-                onClick={handleMarkAllAsRead}
-                disabled={isMarkingAllRead}
-                className="text-[10px] font-semibold text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
-              >
-                {isMarkingAllRead ? 'Marking…' : 'Mark all read'}
-              </button>
-            )}
             <button
               onClick={onClose}
               aria-label="Close notifications"

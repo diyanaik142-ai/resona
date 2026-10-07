@@ -166,6 +166,69 @@ router.get('/system/status', requireAdmin, (req, res) => {
   });
 });
 
+// ---- Admin Notifications ----
+
+router.get('/notifications', requireAdmin, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit || '50', 10);
+    const notificationsRef = getAdminFirestore().collection('admin_notifications');
+    const snap = await notificationsRef.orderBy('createdAt', 'desc').limit(limit).get();
+    const notifications = snap.docs.map(doc => doc.data());
+    res.json({ notifications });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/notifications/unread-count', requireAdmin, async (req, res) => {
+  try {
+    const notificationsRef = getAdminFirestore().collection('admin_notifications');
+    const unreadSnap = await notificationsRef.where('read', '==', false).count().get();
+    res.json({ count: unreadSnap.data().count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/notifications/read', requireAdmin, async (req, res) => {
+  try {
+    const { notificationIds } = req.body;
+    if (!Array.isArray(notificationIds)) {
+      return res.status(400).json({ error: 'notificationIds must be an array' });
+    }
+    const batch = getAdminFirestore().batch();
+    const now = new Date().toISOString();
+    
+    for (const id of notificationIds) {
+      const ref = getAdminFirestore().collection('admin_notifications').doc(id);
+      batch.update(ref, { read: true, readAt: now });
+    }
+    await batch.commit();
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/notifications/read-all', requireAdmin, async (req, res) => {
+  try {
+    const notificationsRef = getAdminFirestore().collection('admin_notifications');
+    const snap = await notificationsRef.where('read', '==', false).get();
+    const now = new Date().toISOString();
+    
+    for (let offset = 0; offset < snap.docs.length; offset += 500) {
+      const batch = getAdminFirestore().batch();
+      snap.docs.slice(offset, offset + 500).forEach(doc => {
+        batch.update(doc.ref, { read: true, readAt: now });
+      });
+      await batch.commit();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ---- Real-data dashboard endpoints (all admin-only) ----
 
 router.get('/overview', requireAdmin, async (req, res) => {

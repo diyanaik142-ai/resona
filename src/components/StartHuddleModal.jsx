@@ -1,6 +1,7 @@
 import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import Avatar from './Avatar';
 import { 
   Users, 
   UserPlus, 
@@ -498,13 +499,7 @@ export default function StartHuddleModal({
                       className="p-2 rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-between"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-xs font-semibold text-cyan-300 overflow-hidden">
-                          {u.avatar ? (
-                            <img src={u.avatar} alt={u.name} className="w-full h-full object-cover" />
-                          ) : (
-                            u.name?.charAt(0) || 'U'
-                          )}
-                        </div>
+                        <Avatar user={u} className="w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-xs text-cyan-300 overflow-hidden" />
                         <div>
                           <div className="text-xs font-medium text-white">{u.name}</div>
                           <div className="text-[10px] text-white/40">
@@ -578,13 +573,7 @@ export default function StartHuddleModal({
                     <div className="flex items-center gap-3">
                       {/* Avatar with live status dot */}
                       <div className="relative">
-                        <div className="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center font-semibold text-cyan-300 text-xs overflow-hidden">
-                          {friend.avatar ? (
-                            <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
-                          ) : (
-                            friend.name?.charAt(0) || 'F'
-                          )}
-                        </div>
+                        <Avatar user={friend} className="w-9 h-9 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-xs text-cyan-300 overflow-hidden" />
                         {/* Live Status indicator */}
                         <span 
                           className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#121216] ${

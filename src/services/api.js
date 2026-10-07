@@ -1,66 +1,5 @@
-﻿export function getApiBaseUrl() {
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
-  }
-  if (typeof window !== 'undefined' && window.location) {
-    const isCapacitor = window.location.protocol === 'capacitor:' || 
-                        window.location.origin === 'null' || 
-                        window.location.origin === 'http://localhost' || 
-                        window.location.origin === 'https://localhost' || 
-                        window.location.origin.includes('capacitor');
-                        
-    if (isCapacitor) {
-      if (import.meta.env?.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
-      return 'https://resona.anchorlyhms.com';
-    }
-    
-    // For local web development (e.g. Vite on localhost:5173)
-    if (window.location.hostname === 'localhost' && window.location.port !== '') {
-      return 'http://localhost:8080';
-    }
-    
-    return window.location.origin.replace(/\/+$/, '');
-  }
-  return 'https://resona.anchorlyhms.com';
-}
-
-export function resolveMediaUrl(url) {
-  if (!url || typeof url !== 'string') return '/assets/default-cover.png';
-  
-  if (url.startsWith('blob:') || url.startsWith('data:')) {
-    return url;
-  }
-
-  let pathname = url;
-  try {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      const parsed = new URL(url);
-      pathname = parsed.pathname;
-    }
-  } catch (e) {
-    // Ignore
-  }
-
-  // Fix legacy stored paths
-  if (pathname.startsWith('/media/cover-') || pathname.startsWith('/media/audio-')) {
-    pathname = pathname.replace('/media/', '/media/catalog/');
-  }
-
-  if (pathname.startsWith('media/')) {
-    pathname = '/' + pathname;
-  }
-
-  if (pathname.startsWith('/media/')) {
-    const baseUrl = getApiBaseUrl();
-    return `${baseUrl}${pathname}`;
-  }
-
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-
-  return url;
-}
+import { getApiBaseUrl, resolveMediaUrl } from '../utils/media.js';
+export { getApiBaseUrl, resolveMediaUrl } from '../utils/media.js';
 
 export function setToken(token) {
   if (token) {
@@ -1187,6 +1126,31 @@ export const api = {
       const ms = performance.now() - start;
       if (!res.ok) throw new Error(`Health endpoint returned ${res.status}`);
       return Math.round(ms);
+    },
+    getAdminNotifications: async ({ limit = 20, offset = 0 } = {}) => {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/notifications?limit=${limit}&offset=${offset}`);
+      if (!res.ok) throw new Error(`Failed to fetch admin notifications (${res.status})`);
+      return res.json();
+    },
+    getAdminNotificationsUnreadCount: async () => {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/notifications/unread-count`);
+      if (!res.ok) throw new Error(`Failed to fetch admin unread count (${res.status})`);
+      return res.json();
+    },
+    markAdminNotificationRead: async (id) => {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/notifications/read`, {
+        method: 'POST',
+        body: JSON.stringify({ notificationIds: [id] })
+      });
+      if (!res.ok) throw new Error(`Failed to mark notification read (${res.status})`);
+      return res.json();
+    },
+    markAllAdminNotificationsRead: async () => {
+      const res = await api.admin.fetch(`${getApiBaseUrl()}/api/admin/notifications/read-all`, {
+        method: 'POST'
+      });
+      if (!res.ok) throw new Error(`Failed to mark all notifications read (${res.status})`);
+      return res.json();
     }
   },
 

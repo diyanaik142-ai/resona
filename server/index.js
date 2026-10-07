@@ -276,7 +276,7 @@ app.use('/media/catalog', express.static(catalogPath));
 const profilesPath = process.env.NODE_ENV === 'production'
   ? '/opt/resona/media/profiles'
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'data', 'media', 'profiles');
-app.use('/media/profiles', express.static(profilesPath));
+app.use('/media/profiles', express.static(profilesPath, { fallthrough: false }));
 
 const playlistsPath = process.env.NODE_ENV === 'production'
   ? '/opt/resona/media/playlists'
@@ -306,7 +306,25 @@ app.use((req, res, next) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('[Server Error]', err);
-  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+
+  if (!err.status || err.status >= 500) {
+    import('./services/notificationService.js').then(({ createAdminNotification }) => {
+      createAdminNotification({
+        type: 'SYSTEM_ERROR',
+        title: 'System Error Encountered',
+        message: err.message || 'An unexpected server error occurred.',
+        priority: 'HIGH'
+      }).then(() => {
+        req.app.get('io')?.emit('admin_notification_received');
+      }).catch(e => console.error('Failed to send SYSTEM_ERROR admin notification', e));
+    }).catch(() => {});
+  }
+
+  const status = err.status || err.statusCode || 500;
+  const response = status === 404
+    ? { error: 'Media not found' }
+    : { error: 'Internal Server Error', details: err.message };
+  res.status(status).json(response);
 });
 
 // Initialize storage and launch server

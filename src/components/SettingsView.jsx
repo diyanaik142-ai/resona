@@ -247,7 +247,7 @@ export default function SettingsView({ onNavigate }) {
                       }
                     }}>
                       <div className="flex items-center gap-3">
-                        <img src={resolveMediaUrl(acc.avatar)} alt={acc.name} className="w-10 h-10 rounded-full border border-white/20 object-cover" />
+                        <Avatar user={acc} className="w-10 h-10 rounded-full border border-white/20" />
                         <div>
                           <div className="flex items-center gap-2">
                             <h5 className="font-bold text-white text-xs">{acc.name}</h5>

@@ -512,7 +512,7 @@ export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle,
                 <div className="flex items-center gap-3">
                   {activeHuddle.nowPlaying ? (
                     <img
-                      src={resolveMediaUrl(activeHuddle.nowPlaying.artwork || '/cover-default.jpg')}
+                      src={resolveMediaUrl(activeHuddle.nowPlaying.artwork)}
                       alt={activeHuddle.nowPlaying.title}
                       className="w-12 h-12 rounded-xl object-cover"
                     />

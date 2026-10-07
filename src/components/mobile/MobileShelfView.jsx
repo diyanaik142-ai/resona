@@ -7,7 +7,7 @@ import { resolveMediaUrl } from '../../services/api';
 export default function MobileShelfView({
   shelf,
   catalog = [],
-  
+  activeSubTab = 'playlists',
   onOpenTrackActions,
   onNavigate
 }) {
@@ -32,7 +32,6 @@ export default function MobileShelfView({
   } = usePlayer();
   const onClearQueue = () => setQueue([]);
 
-  const [activeSegment, setActiveSegment] = useState('Playlists'); // Playlists | Liked | Artists
   const [playlistSearch, setPlaylistSearch] = useState('');
 
   const playlists = shelf?.playlists || [];
@@ -53,25 +52,8 @@ export default function MobileShelfView({
 
   return (
     <div className="space-y-4 pb-6 pt-2 px-4 w-full max-w-full overflow-hidden">
-      {/* Segmented Navigation Chips */}
-      <div className="w-full max-w-full flex gap-2 overflow-x-auto pb-1 no-scrollbar overscroll-x-contain">
-        {['Playlists', 'Liked Songs', 'Artists'].map((seg) => (
-          <button
-            key={seg}
-            onClick={() => setActiveSegment(seg)}
-            className={`shrink-0 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition active:scale-95 ${
-              activeSegment === seg
-                ? 'bg-teal-400 text-slate-950 shadow-md shadow-teal-500/20'
-                : 'glass-card text-slate-300 hover:bg-white/10 border border-white/5'
-            }`}
-          >
-            {seg} {seg === 'Playlists' ? `(${playlists.length})` : seg === 'Liked Songs' ? `(${likedTracks.length})` : `(${uniqueArtists.length})`}
-          </button>
-        ))}
-      </div>
-
       {/* SEGMENT 1: PLAYLISTS */}
-      {activeSegment === 'Playlists' && (
+      {(!activeSubTab || activeSubTab === 'playlists') && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -115,7 +97,7 @@ export default function MobileShelfView({
       )}
 
       {/* SEGMENT 2: LIKED SONGS */}
-      {activeSegment === 'Liked Songs' && (
+      {activeSubTab === 'heartbeats' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -169,7 +151,7 @@ export default function MobileShelfView({
       )}
 
       {/* SEGMENT 3: ARTISTS */}
-      {activeSegment === 'Artists' && (
+      {activeSubTab === 'artists' && (
         <div className="space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
             Artists in Catalog ({uniqueArtists.length})

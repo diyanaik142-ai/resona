@@ -70,6 +70,12 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [inAppUnreadCount, setInAppUnreadCount] = useState(0);
   const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+  const notificationsRef = useRef(notifications);
+  const notificationPanelSyncRef = useRef({ userId: null, promise: null });
+  const notificationReadInFlightRef = useRef(new Set());
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
   const notificationUserIdRef = useRef(user?.id);
   useEffect(() => {
     notificationUserIdRef.current = user?.id;
@@ -99,22 +105,38 @@ export default function App() {
       setInAppUnreadCount(Math.max(0, Number(inAppResult.value?.unreadCount) || 0));
     }
 
-    setNotifications((current) => mergeNotifications(
+    const currentNotifications = notificationsRef.current;
+    const mergedNotifications = mergeNotifications(
       inAppResult.status === 'fulfilled'
         ? (Array.isArray(inAppResult.value?.notifications) ? inAppResult.value.notifications : [])
           .map((notification) => ({ ...notification, notificationSource: 'inApp' }))
-        : current.filter((notification) => notification.notificationSource === 'inApp'),
+        : currentNotifications.filter((notification) => notification.notificationSource === 'inApp'),
       socialResult.status === 'fulfilled'
         ? (Array.isArray(socialResult.value?.notifications) ? socialResult.value.notifications : [])
           .map((notification) => ({ ...notification, notificationSource: 'social' }))
-        : current.filter((notification) => notification.notificationSource === 'social')
-    ));
+        : currentNotifications.filter((notification) => notification.notificationSource === 'social')
+    );
+    notificationsRef.current = mergedNotifications;
+    setNotifications(mergedNotifications);
+    return {
+      notifications: mergedNotifications,
+      inAppUnreadCount: inAppResult.status === 'fulfilled'
+        ? Math.max(0, Number(inAppResult.value?.unreadCount) || 0)
+        : null
+    };
   }, [user?.id]);
 
-  const markNotificationsAsRead = useCallback(async (notificationIds) => {
+  const markNotificationsAsRead = useCallback(async (
+    notificationIds,
+    candidates = notificationsRef.current,
+    { markAllInApp = false } = {}
+  ) => {
     const ids = new Set(notificationIds);
-    const unreadNotifications = notifications.filter(
-      (notification) => ids.has(notification.id) && isNotificationUnread(notification)
+    const pendingIds = notificationReadInFlightRef.current;
+    const unreadNotifications = candidates.filter(
+      (notification) => ids.has(notification.id) &&
+        !pendingIds.has(notification.id) &&
+        isNotificationUnread(notification)
     );
     const inAppIds = unreadNotifications
       .filter((notification) => notification.notificationSource !== 'social')
@@ -122,57 +144,71 @@ export default function App() {
     const socialIds = unreadNotifications
       .filter((notification) => notification.notificationSource === 'social')
       .map((notification) => notification.id);
+    const requestIds = [
+      ...new Set([
+        ...inAppIds,
+        ...socialIds,
+        ...(markAllInApp
+          ? candidates
+            .filter((notification) => (
+              notification.notificationSource !== 'social' && isNotificationUnread(notification)
+            ))
+            .map((notification) => notification.id)
+          : [])
+      ])
+    ];
+    requestIds.forEach((id) => pendingIds.add(id));
 
-    if (inAppIds.length > 0) {
-      await api.notifications.markAsRead(inAppIds);
-      const readAt = new Date().toISOString();
-      setNotifications((current) => current.map((notification) => (
-        inAppIds.includes(notification.id)
-          ? { ...notification, read: true, readAt }
-          : notification
-      )));
-      setInAppUnreadCount((count) => Math.max(0, count - inAppIds.length));
+    try {
+      if (markAllInApp) {
+        await api.notifications.markAllAsRead();
+        const readAt = new Date().toISOString();
+        notificationsRef.current = notificationsRef.current.map((notification) => (
+          notification.notificationSource !== 'social'
+            ? { ...notification, read: true, readAt }
+            : notification
+        ));
+        setNotifications((current) => current.map((notification) => (
+          notification.notificationSource !== 'social'
+            ? { ...notification, read: true, readAt }
+            : notification
+        )));
+        setInAppUnreadCount(0);
+      } else if (inAppIds.length > 0) {
+        await api.notifications.markAsRead(inAppIds);
+        const readAt = new Date().toISOString();
+        notificationsRef.current = notificationsRef.current.map((notification) => (
+          inAppIds.includes(notification.id)
+            ? { ...notification, read: true, readAt }
+            : notification
+        ));
+        setNotifications((current) => current.map((notification) => (
+          inAppIds.includes(notification.id)
+            ? { ...notification, read: true, readAt }
+            : notification
+        )));
+        setInAppUnreadCount((count) => Math.max(0, count - inAppIds.length));
+      }
+
+      if (socialIds.length > 0) {
+        await api.social.markNotificationsAsRead(socialIds);
+        const readAt = new Date().toISOString();
+        notificationsRef.current = notificationsRef.current.map((notification) => (
+          socialIds.includes(notification.id)
+            ? { ...notification, read: true, readAt }
+            : notification
+        ));
+        setNotifications((current) => current.map((notification) => (
+          socialIds.includes(notification.id)
+            ? { ...notification, read: true, readAt }
+            : notification
+        )));
+      }
+    } finally {
+      requestIds.forEach((id) => pendingIds.delete(id));
     }
-
-    if (socialIds.length > 0) {
-      await api.social.markNotificationsAsRead(socialIds);
-      const readAt = new Date().toISOString();
-      setNotifications((current) => current.map((notification) => (
-        socialIds.includes(notification.id)
-          ? { ...notification, read: true, readAt }
-          : notification
-      )));
-    }
-  }, [notifications]);
-
-  const markAllNotificationsAsRead = useCallback(async () => {
-    const [inAppResult, socialResult] = await Promise.allSettled([
-      api.notifications.markAllAsRead(),
-      api.social.markAllNotificationsAsRead()
-    ]);
-    const readAt = new Date().toISOString();
-
-    if (inAppResult.status === 'fulfilled') {
-      setInAppUnreadCount(0);
-      setNotifications((current) => current.map((notification) => (
-        notification.notificationSource !== 'social'
-          ? { ...notification, read: true, readAt }
-          : notification
-      )));
-    }
-    if (socialResult.status === 'fulfilled') {
-      setNotifications((current) => current.map((notification) => (
-        notification.notificationSource === 'social'
-          ? { ...notification, read: true, readAt }
-          : notification
-      )));
-    }
-
-    const failures = [inAppResult, socialResult]
-      .filter((result) => result.status === 'rejected')
-      .map((result) => result.reason?.message || 'Failed to mark notifications as read');
-    if (failures.length > 0) throw new Error(failures.join('; '));
   }, []);
+
   const [mobileTrackAction, setMobileTrackAction] = useState(null);
   const [showMobileQueue, setShowMobileQueue] = useState(false);
 
@@ -209,33 +245,57 @@ export default function App() {
     return validTabs.includes(path) ? path : 'pulse';
   };
 
+  const getInitialSubTab = () => {
+    if (typeof window === 'undefined' || !window.location) return null;
+    const rawPath = window.location.pathname.replace(/^\/+/, '');
+    const parts = rawPath.split('/');
+    if (parts.length > 1) {
+      return parts[1];
+    }
+    return null;
+  };
+
   const [activeTab, setActiveTabState] = useState(getInitialTab);
-  const tabHistoryRef = useRef([getInitialTab()]);
+  const [activeSubTab, setActiveSubTabState] = useState(getInitialSubTab);
+  const tabHistoryRef = useRef([{ tab: getInitialTab(), subTab: getInitialSubTab() }]);
 
   const setActiveTab = (tab, pushHistory = true) => {
     if (tab === 'BACK') {
       if (tabHistoryRef.current.length > 1) {
         tabHistoryRef.current.pop();
-        const prevTab = tabHistoryRef.current[tabHistoryRef.current.length - 1];
-        setActiveTabState(prevTab);
+        const prev = tabHistoryRef.current[tabHistoryRef.current.length - 1];
+        setActiveTabState(prev.tab);
+        setActiveSubTabState(prev.subTab);
         if (typeof window !== 'undefined' && window.history) {
-           window.history.back(); // let the browser popstate handle it visually if we want, or just let popstate be a fallback
+           window.history.back(); 
         }
       } else {
         setActiveTabState('pulse');
+        setActiveSubTabState(null);
       }
       return;
     }
 
-    if (tabHistoryRef.current[tabHistoryRef.current.length - 1] !== tab) {
-      tabHistoryRef.current.push(tab);
+    let mainTab = tab;
+    let subTab = null;
+    if (tab.includes('/')) {
+      const parts = tab.split('/');
+      mainTab = parts[0];
+      subTab = parts[1];
+    }
+
+    const current = tabHistoryRef.current[tabHistoryRef.current.length - 1];
+    if (current.tab !== mainTab || current.subTab !== subTab) {
+      tabHistoryRef.current.push({ tab: mainTab, subTab });
     }
     
-    setActiveTabState(tab);
+    setActiveTabState(mainTab);
+    setActiveSubTabState(subTab);
+
     if (pushHistory && typeof window !== 'undefined' && window.history) {
-      const newPath = tab === 'pulse' ? '/' : `/${tab}`;
+      const newPath = mainTab === 'pulse' && !subTab ? '/' : `/${mainTab}${subTab ? `/${subTab}` : ''}`;
       if (window.location.pathname !== newPath) {
-        window.history.pushState({ tab }, '', newPath);
+        window.history.pushState({ tab: mainTab, subTab }, '', newPath);
       }
     }
   };
@@ -243,7 +303,9 @@ export default function App() {
   useEffect(() => {
     const onPopState = (event) => {
       const tab = event.state?.tab || getInitialTab();
+      const subTab = event.state?.subTab || getInitialSubTab();
       setActiveTabState(tab);
+      setActiveSubTabState(subTab);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -426,9 +488,36 @@ export default function App() {
   }, [isAuthenticated, user?.id, user?.role, loadNotifications, refreshPlan]);
 
   useEffect(() => {
-    if (!showNotificationDrawer || !isAuthenticated || user?.role === 'admin') return;
-    loadNotifications().catch(err => console.warn('[App] Could not refresh notifications:', err.message));
-  }, [showNotificationDrawer, isAuthenticated, user?.role, loadNotifications]);
+    if (!showNotificationDrawer || !isAuthenticated || user?.role === 'admin' || !user?.id) return;
+    const activeSync = notificationPanelSyncRef.current;
+    if (activeSync.userId === user.id && activeSync.promise) return;
+
+    const syncPromise = loadNotifications()
+      .then(async (currentNotifications) => {
+        if (!currentNotifications) return;
+        const unreadIds = currentNotifications.notifications
+          .filter(isNotificationUnread)
+          .map((notification) => notification.id);
+        const listedInAppUnreadCount = currentNotifications.notifications
+          .filter((notification) => (
+            notification.notificationSource !== 'social' && isNotificationUnread(notification)
+          )).length;
+        const markAllInApp = currentNotifications.inAppUnreadCount !== null &&
+          currentNotifications.inAppUnreadCount > listedInAppUnreadCount;
+        if (unreadIds.length > 0 || markAllInApp) {
+          await markNotificationsAsRead(unreadIds, currentNotifications.notifications, { markAllInApp });
+        }
+      })
+      .catch((err) => {
+        console.warn('[App] Could not sync notifications on panel open:', err.message);
+      })
+      .finally(() => {
+        if (notificationPanelSyncRef.current.promise === syncPromise) {
+          notificationPanelSyncRef.current.promise = null;
+        }
+      });
+    notificationPanelSyncRef.current = { userId: user.id, promise: syncPromise };
+  }, [showNotificationDrawer, isAuthenticated, user?.id, user?.role, loadNotifications, markNotificationsAsRead]);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id || user?.role === 'admin') return;
@@ -674,7 +763,7 @@ export default function App() {
           />
         );
       case 'shelf':
-        return <ShelfView onNavigate={setActiveTab} />;
+        return <ShelfView activeSubTab={activeSubTab} onNavigate={setActiveTab} />;
       case 'onair':
         return (
           <OnAirView
@@ -692,6 +781,7 @@ export default function App() {
       case 'social':
         return (
           <SocialView
+            activeSubTab={activeSubTab}
             onNavigate={setActiveTab}
             activeHuddle={activeHuddle}
             setActiveHuddle={setActiveHuddle}
@@ -756,6 +846,7 @@ export default function App() {
       case 'shelf':
         return (
           <MobileShelfView
+            activeSubTab={activeSubTab}
             shelf={shelf}
             catalog={catalog}
             onOpenTrackActions={(track) => setMobileTrackAction(track)}
@@ -781,6 +872,7 @@ export default function App() {
       case 'social':
         return (
           <MobileSocialView
+            activeSubTab={activeSubTab}
             user={user}
             catalog={catalog}
             activeHuddle={activeHuddle}
@@ -789,6 +881,7 @@ export default function App() {
             onOpenHuddleRoom={() => setShowHuddleRoom(true)}
             fusionsList={fusionsList}
             setFusionsList={setFusionsList}
+            onNavigate={setActiveTab}
           />
         );
       case 'creator':
@@ -1313,9 +1406,7 @@ export default function App() {
           onClose={() => setShowNotificationDrawer(false)}
           notifications={notifications}
           setNotifications={setNotifications}
-          unreadCount={unreadNotificationsCount}
           onMarkAsRead={markNotificationsAsRead}
-          onMarkAllAsRead={markAllNotificationsAsRead}
           activeHuddle={activeHuddle}
           setActiveHuddle={setActiveHuddle}
           setShowHuddleRoom={setShowHuddleRoom}
@@ -1365,6 +1456,7 @@ export default function App() {
         {/* Mobile 5-Item Bottom Navigation */}
         <MobileBottomNav
           activeTab={activeTab}
+          activeSubTab={activeSubTab}
           onNavigate={setActiveTab}
         />
 
@@ -1376,7 +1468,6 @@ export default function App() {
           setNotifications={setNotifications}
           unreadCount={unreadNotificationsCount}
           onMarkAsRead={markNotificationsAsRead}
-          onMarkAllAsRead={markAllNotificationsAsRead}
           activeHuddle={activeHuddle}
           setActiveHuddle={setActiveHuddle}
           setShowHuddleRoom={setShowHuddleRoom}

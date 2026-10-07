@@ -294,7 +294,7 @@ export default function AdminPlaylists() {
                           </button>
                         </div>
                         <span className="text-sm text-slate-500 font-mono w-6 text-center">{index + 1}</span>
-                        <img src={resolveMediaUrl(track.cover || '/assets/default-cover.png')} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
+                        <img src={resolveMediaUrl(track.cover || '/branding/resona-icon.png')} alt={track.title} className="w-10 h-10 rounded-lg object-cover" />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm truncate">{track.title || 'Unknown Track'}</p>
                           <p className="text-xs text-slate-400 truncate">{track.artist || 'Unknown Artist'}</p>

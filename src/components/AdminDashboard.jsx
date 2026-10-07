@@ -11,6 +11,8 @@ import AdminCreators from './admin/AdminCreators';
 import AdminAudit from './admin/AdminAudit';
 import { ENV_STYLES } from './admin/adminUtils';
 import { api } from '../services/api';
+import AdminNotificationBell from './admin/AdminNotificationBell';
+import AdminBottomNav from './admin/AdminBottomNav';
 
 const TABS = [
   { id: 'overview', icon: LayoutDashboard, label: 'Overview' },
@@ -34,6 +36,15 @@ export default function AdminDashboard() {
     api.admin.getSystemStatus()
       .then(s => { setEnvironment(s.environment); setEnvError(false); })
       .catch(() => setEnvError(true));
+
+    const handleTabSwitch = (e) => {
+      const tab = e.detail;
+      if (TABS.find(t => t.id === tab)) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener('adminTabSwitch', handleTabSwitch);
+    return () => window.removeEventListener('adminTabSwitch', handleTabSwitch);
   }, []);
 
   const activeLabel = TABS.find(t => t.id === activeTab)?.label || activeTab;
@@ -106,22 +117,11 @@ export default function AdminDashboard() {
           >
             <LogOut className="w-4 h-4" />
           </button>
+          <div className="ml-2 flex items-center">
+            <AdminNotificationBell />
+          </div>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto px-3 pb-2.5 no-scrollbar touch-pan-x">
-          {TABS.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-semibold transition shrink-0 ${activeTab === item.id
-                  ? 'bg-teal-500/20 text-teal-300 font-bold border border-teal-500/30'
-                  : 'text-slate-400 hover:bg-white/5'
-                }`}
-            >
-              <item.icon className="w-3.5 h-3.5" />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
+        <div className="pb-1" />
       </div>
 
       {/* Main Content */}
@@ -146,6 +146,9 @@ export default function AdminDashboard() {
                 {envError ? 'Env unknown' : '…'}
               </div>
             )}
+            
+            <AdminNotificationBell />
+
             <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-white/10">
               <Shield className="w-5 h-5 text-slate-300" />
             </div>
@@ -159,7 +162,7 @@ export default function AdminDashboard() {
           </h1>
         </div>
 
-        <main className="flex-1 p-4 sm:p-6 md:p-10 z-10">
+        <main className="flex-1 p-4 pb-24 sm:p-6 md:p-10 z-10">
           {activeTab === 'overview' && <AdminOverview onNavigate={setActiveTab} />}
           {activeTab === 'users' && <AdminUsers />}
           {activeTab === 'catalog' && <AdminCatalog />}
@@ -171,6 +174,7 @@ export default function AdminDashboard() {
 
         </main>
       </div>
+      <AdminBottomNav tabs={TABS} activeTab={activeTab} onNavigate={setActiveTab} />
     </div>
   );
 }

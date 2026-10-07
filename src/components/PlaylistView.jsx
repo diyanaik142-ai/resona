@@ -5,14 +5,24 @@ import { useAuth } from '../context/AuthContext';
 import { api, resolveMediaUrl } from '../services/api';
 import { formatTime } from '../utils/formatTime';
 
-const fallbackCover = '/assets/default-cover.png';
+const fallbackCover = '/branding/resona-icon.png';
 const IconButton = ({ label, children, onClick, active = false, className = '', disabled = false }) => (
   <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled} className={`playlist-icon-button ${active ? 'is-active' : ''} ${className}`}>{children}</button>
 );
 function Artwork({ src, alt, className = '' }) {
-  const [imageSrc, setImageSrc] = useState(src || fallbackCover);
-  useEffect(() => setImageSrc(src || fallbackCover), [src]);
-  return <img src={imageSrc} alt={alt} className={className} onError={() => setImageSrc(fallbackCover)} />;
+  const resolvedSrc = resolveMediaUrl(src);
+  const [failedSrc, setFailedSrc] = useState(null);
+  const imageSrc = failedSrc === resolvedSrc ? fallbackCover : resolvedSrc;
+  return (
+    <img
+      src={imageSrc}
+      alt={alt}
+      className={className}
+      onError={() => {
+        if (imageSrc !== fallbackCover) setFailedSrc(resolvedSrc);
+      }}
+    />
+  );
 }
 function PlaylistSkeleton() {
   return <div className="playlist-page playlist-skeleton" aria-label="Loading playlist"><div className="playlist-skeleton-bar" /><div className="playlist-skeleton-hero"><div className="playlist-skeleton-cover" /><div className="playlist-skeleton-copy"><span /><span /><span /></div></div><div className="playlist-skeleton-list">{[1, 2, 3].map(item => <span key={item} />)}</div></div>;

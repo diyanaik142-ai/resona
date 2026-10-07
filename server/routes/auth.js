@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config.js';
@@ -75,6 +75,23 @@ router.post('/register', async (req, res) => {
     await ensureProfilePlan(newAccount.id, defaultPlan);
     const currentProfile = await getAccountData(newAccount.id, 'profile.json');
     const preferences = await getAccountData(newAccount.id, 'preferences.json');
+    
+    try {
+      const { createAdminNotification } = await import('../services/notificationService.js');
+      await createAdminNotification({
+        type: 'ACCOUNT_CREATED',
+        title: 'New Account Created',
+        message: `${currentProfile.name} created a Resona account.`,
+        actorUserId: newAccount.id,
+        actorName: currentProfile.name,
+        targetUrl: `/admin/users`,
+        priority: 'NORMAL'
+      });
+      const io = req.app.get('io');
+      if (io) io.emit('admin_notification_received');
+    } catch (e) {
+      console.error('Failed to send admin notification for ACCOUNT_CREATED', e);
+    }
 
     return res.status(201).json({
       message: 'Account successfully registered and encrypted.',

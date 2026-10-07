@@ -3,6 +3,7 @@ import { userStatusTracker } from './userStatusTracker.js';
 import { getAuth } from 'firebase-admin/auth';
 import '../firebaseAdmin.js';
 import { db } from '../firebaseAdmin.js';
+import { normalizeProfileAvatar } from './mediaUrls.js';
 
 export function formatUid(rawValue) {
   const value = normalizeUid(rawValue);
@@ -40,7 +41,7 @@ export async function getResonaProfile(userId) {
     name: profile.name || identity?.displayName || account?.email?.split('@')[0] || 'Listener',
     email: account?.email || identity?.email || profile.email || '',
     phone: profile.phone || '',
-    avatar: profile.avatar || null,
+    avatar: normalizeProfileAvatar(profile.avatar),
     role: profile.role || identity?.customClaims?.role || 'listener',
     planId,
     followers: Array.isArray(profile.followers) ? profile.followers : [],
@@ -88,7 +89,7 @@ export async function getAllRealUsers(excludeUserId = null) {
       handle: uidValue,
       name: displayName,
       email: profile.email || fallbackEmail || '',
-      avatar: profile.avatar || null,
+      avatar: normalizeProfileAvatar(profile.avatar),
       planId: normalizePlanId(profile.planId),
       isOnline: status.isOnline,
       statusText: status.statusText,

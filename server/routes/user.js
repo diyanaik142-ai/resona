@@ -1,6 +1,7 @@
 import express from 'express';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { formatUid, findUserByUid, getResonaProfile } from '../services/userService.js';
+import { normalizeProfileAvatar } from '../services/mediaUrls.js';
 import { getAccountData, saveAccountData, normalizeUid, findAccountById, addGlobalItem } from '../db/storage.js';
 import { getGlobalData, saveGlobalData, getAllProfiles } from '../db/storage.js';
 import { PLAN_CHANGE_REQUESTS_FILE, AUDIT_FILE, CATALOG_FILE } from '../config.js';
@@ -49,7 +50,7 @@ const serializeProfile = (profile = {}) => {
     name: profile.name || '',
     email: profile.email || '',
     phone: profile.phone || '',
-    avatar: profile.avatar || null,
+    avatar: normalizeProfileAvatar(profile.avatar),
     role: profile.role || 'listener',
     planId: normalizePlanId(profile.planId),
     ...(profile.tier ? { tier: profile.tier } : {}),
@@ -149,6 +150,21 @@ router.post('/plan-request', async (req, res) => {
     requests.push(request);
     await saveGlobalData(PLAN_CHANGE_REQUESTS_FILE, requests);
     await addGlobalItem(AUDIT_FILE, { id: randomUUID(), adminId: req.user.id, action: 'PLAN_CHANGE_REQUESTED', target: req.user.id, details: { currentPlan: profile.planId, requestedPlan }, result: 'success', timestamp: request.createdAt });
+    
+    try {
+      const { createAdminNotification } = await import('../services/notificationService.js');
+      await createAdminNotification({
+        type: 'PLAN_CHANGE_REQUEST',
+        title: 'Plan Change Request',
+        message: `${profile.name || req.user.id} requested a plan change to ${planName(requestedPlan)}.`,
+        actorUserId: req.user.id,
+        actorName: profile.name,
+        targetUrl: `/admin/users`,
+        priority: 'HIGH'
+      });
+      req.app.get('io')?.emit('admin_notification_received');
+    } catch (e) {}
+
     return res.status(201).json({ request });
   } catch (err) { return res.status(500).json({ error: err.message }); }
 });
@@ -308,7 +324,12 @@ router.post('/profile/picture', upload.single('picture'), async (req, res) => {
       : path.resolve(__dirname, '..', 'data', 'media', 'profiles');
     await fs.mkdir(profilesDir, { recursive: true });
     
-    const ext = path.extname(req.file.originalname) || '.jpg';
+    const extensionByMimeType = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp'
+    };
+    const ext = extensionByMimeType[req.file.mimetype] || '.jpg';
     const filename = `usr_${req.user.id}_${Date.now()}${ext}`;
     const filePath = path.join(profilesDir, filename);
     

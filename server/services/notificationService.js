@@ -136,15 +136,45 @@ export async function createNotification(recipientUserId, payload) {
 
 /**
  * Creates a notification for Admins
+ * @param {object} payload
+ * @param {string} payload.type
+ * @param {string} payload.title
+ * @param {string} payload.message
+ * @param {string} [payload.priority] - CRITICAL, HIGH, NORMAL, LOW
+ * @param {string} [payload.eventId] - Idempotency key
+ * @param {string} [payload.actorUserId]
+ * @param {string} [payload.actorName]
+ * @param {string} [payload.targetType]
+ * @param {string} [payload.targetId]
+ * @param {object} [payload.metadata]
+ * @param {string} [payload.targetUrl]
  */
 export async function createAdminNotification(payload) {
   try {
-    const notificationId = randomUUID();
+    const notificationId = payload.eventId || randomUUID();
+    
+    const notificationRef = db.collection('admin_notifications').doc(notificationId);
+    
+    // Check idempotency if eventId is provided
+    if (payload.eventId) {
+      const existing = await notificationRef.get();
+      if (existing.exists) {
+        return existing.data(); // Already processed
+      }
+    }
+
     const notification = {
       id: notificationId,
       type: payload.type,
+      priority: payload.priority || 'NORMAL',
       title: payload.title,
       message: payload.message,
+      actorUserId: payload.actorUserId || null,
+      actorName: payload.actorName || null,
+      targetType: payload.targetType || null,
+      targetId: payload.targetId || null,
+      metadata: payload.metadata || {},
+      audience: 'admin',
       createdAt: new Date().toISOString(),
       read: false,
       readAt: null,
@@ -152,7 +182,10 @@ export async function createAdminNotification(payload) {
     };
 
     // Save to an 'admin_notifications' root collection
-    await db.collection('admin_notifications').doc(notificationId).set(notification);
+    await notificationRef.set(notification);
+
+    // TODO: Send FCM Push for HIGH/CRITICAL if admins are identifiable via FCM
+    
     return notification;
   } catch (err) {
     console.error('Failed to create admin notification', err);

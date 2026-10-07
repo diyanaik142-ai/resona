@@ -543,7 +543,7 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
                     <div key={item.id} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-mono text-slate-500 w-4">{String(idx + 1).padStart(2, '0')}</span>
-                        <img src={resolveMediaUrl(item.artwork || '/cover-default.jpg')} alt={item.title} className="w-8 h-8 rounded-md object-cover" />
+                        <img src={resolveMediaUrl(item.artwork)} alt={item.title} className="w-8 h-8 rounded-md object-cover" />
                         <div className="min-w-0">
                           <p className="font-bold text-white text-xs truncate">{item.title}</p>
                           <p className="text-[10px] text-slate-400 truncate">

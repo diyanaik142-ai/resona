@@ -46,7 +46,6 @@ export default function MobileSocialView({
   const hasHuddle = user?.features?.huddle === true;
   const hasFusion = user?.features?.fusion === true;
 
-  const [activeTab, setActiveTab] = useState('Friends & Following'); // 'Friends & Following' | 'Activity' | 'Shared With' | 'Fusion' | 'Huddle'
   const [showStartHuddleModal, setShowStartHuddleModal] = useState(false);
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -177,37 +176,8 @@ export default function MobileSocialView({
 
   return (
     <div className="space-y-4 pb-6 pt-2 px-4 w-full max-w-full overflow-hidden">
-      {/* Horizontal Category Switcher */}
-      <div className="w-full max-w-full flex gap-4 overflow-x-auto pb-2 no-scrollbar overscroll-x-contain snap-x">
-        {['Friends & Following', 'Activity', 'Shared With', 'Fusion', 'Huddle'].map((tab) => (
-          <button
-            key={tab}
-            onClick={(e) => {
-              setActiveTab(tab);
-              // Ensure tab scrolls into view (centered)
-              e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            }}
-            className={`shrink-0 relative py-2 px-1 text-xs font-bold whitespace-nowrap transition-colors snap-center ${
-              activeTab === tab
-                ? 'text-teal-400'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {tab}
-            {activeTab === tab && (
-              <motion.div
-                layoutId="mobileSocialTabActive"
-                className="absolute -bottom-1 left-0 right-0 h-[3px] bg-teal-400 rounded-full shadow-[0_0_8px_rgba(45,212,191,0.6)]"
-                initial={false}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* TAB 1: FRIENDS */}
-      {activeTab === 'Friends & Following' && (
+      {(!activeSubTab || activeSubTab === 'friends') && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -305,7 +275,7 @@ export default function MobileSocialView({
       )}
 
       {/* TAB 2: ACTIVITY */}
-      {activeTab === 'Activity' && (
+      {activeSubTab === 'activity' && (
         <div className="space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recent Activity</p>
           {loadingFriends ? (
@@ -344,7 +314,7 @@ export default function MobileSocialView({
       )}
 
       {/* TAB 3: SHARED WITH */}
-      {activeTab === 'Shared With' && (
+      {activeSubTab === 'shared' && (
         <div className="space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Shared Library Overview</p>
           <div className="p-4 rounded-3xl glass-card border border-teal-500/20 space-y-3">
@@ -368,7 +338,7 @@ export default function MobileSocialView({
       )}
 
       {/* TAB 4: FUSION */}
-      {activeTab === 'Fusion' && (
+      {activeSubTab === 'fusions' && (
         !hasFusion ? <FeatureUnavailable title="Fusion" /> :
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -470,47 +440,7 @@ export default function MobileSocialView({
         </div>
       )}
 
-      {/* TAB 5: HUDDLE */}
-      {activeTab === 'Huddle' && (
-        !hasHuddle ? <FeatureUnavailable title="Huddle" /> :
-        <div className="space-y-3">
-          {activeHuddle ? (
-            <div className="p-4 rounded-3xl glass-card border border-teal-500/40 bg-teal-950/20 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400">
-                    <Radio className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-white text-sm">{activeHuddle.name}</h4>
-                    <p className="text-[11px] text-slate-400">Code: #{activeHuddle.code || activeHuddle.id}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={onOpenHuddleRoom}
-                  className="py-2 px-4 rounded-xl glass-button-primary text-xs font-bold shadow-lg"
-                >
-                  Open Room
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-6 rounded-3xl glass-card border border-purple-500/30 text-center space-y-3">
-              <Radio className="w-10 h-10 text-purple-400 mx-auto" />
-              <h4 className="font-black text-white text-base">Start a Listening Huddle</h4>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Listen to master tracks simultaneously with synchronized playback, live chat, and democratic voting.
-              </p>
-              <button
-                onClick={() => onInitiateHuddle ? onInitiateHuddle() : setShowStartHuddleModal(true)}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 font-bold text-xs text-white shadow-lg shadow-purple-600/20 active:scale-95 transition"
-              >
-                Start a Huddle
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* FRIEND PROFILE BOTTOM SHEET */}
       {showProfileSheet && selectedFriend && (
@@ -557,7 +487,7 @@ export default function MobileSocialView({
               <button
                 onClick={() => {
                   setShowProfileSheet(false);
-                  setActiveTab('Fusion');
+                  if (onNavigate) onNavigate('social/fusions');
                 }}
                 className="py-2.5 px-3 rounded-xl bg-teal-500/20 text-teal-300 font-bold text-xs flex flex-col items-center gap-1 border border-teal-500/30 active:scale-95"
               >

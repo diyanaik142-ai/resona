@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { isNotificationUnread } from '../utils/notifications';
+import Avatar from './Avatar';
 import { 
   Bell, 
   X, 
@@ -44,9 +45,7 @@ export default function NotificationDrawer({
   onClose,
   notifications = [],
   setNotifications,
-  unreadCount,
   onMarkAsRead,
-  onMarkAllAsRead,
   activeHuddle = null,
   setActiveHuddle,
   setShowHuddleRoom,
@@ -54,7 +53,6 @@ export default function NotificationDrawer({
 }) {
   const { refreshAccountData } = useAuth();
   const [processingId, setProcessingId] = useState(null);
-  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [followStatuses, setFollowStatuses] = useState({});
   
@@ -168,43 +166,6 @@ export default function NotificationDrawer({
     }
   };
 
-  // Dismiss generic notification
-  const handleDismiss = async (notifId) => {
-    try {
-      if (onMarkAsRead) {
-        await onMarkAsRead([notifId]);
-      } else if (api.notifications?.markAsRead) {
-        await api.notifications.markAsRead([notifId]);
-        setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true, readAt: new Date().toISOString() } : n));
-      }
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to mark notification as read');
-    }
-  };
-
-  const handleMarkAllAsRead = async () => {
-    const unreadIds = notifications.filter(isNotificationUnread).map((notif) => notif.id);
-    if (unreadIds.length === 0 && !onMarkAllAsRead) return;
-
-    setIsMarkingAllRead(true);
-    setErrorMessage('');
-    try {
-      if (onMarkAllAsRead) {
-        await onMarkAllAsRead();
-      } else if (onMarkAsRead) {
-        await onMarkAsRead(unreadIds);
-      } else {
-        await api.notifications.markAsRead(unreadIds);
-        const readAt = new Date().toISOString();
-        setNotifications(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true, readAt } : n));
-      }
-    } catch (err) {
-      setErrorMessage(err.message || 'Failed to mark notifications as read');
-    } finally {
-      setIsMarkingAllRead(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div 
@@ -223,16 +184,6 @@ export default function NotificationDrawer({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {(unreadCount > 0 || notifications.some(isNotificationUnread)) && (
-              <button
-                type="button"
-                onClick={handleMarkAllAsRead}
-                disabled={isMarkingAllRead}
-                className="text-[11px] font-semibold text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
-              >
-                {isMarkingAllRead ? 'Marking…' : 'Mark all as read'}
-              </button>
-            )}
             <button
               onClick={onClose}
               aria-label="Close notifications"
@@ -320,13 +271,7 @@ export default function NotificationDrawer({
                     <div className="flex items-start gap-3">
                       {/* Sender Avatar */}
                       <div className="relative shrink-0 mt-0.5">
-                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center font-semibold text-cyan-300 text-xs overflow-hidden">
-                          {notif.senderAvatar ? (
-                            <img src={notif.senderAvatar} alt={notif.senderName} className="w-full h-full object-cover" />
-                          ) : (
-                            notif.senderName?.charAt(0) || 'F'
-                          )}
-                        </div>
+                        <Avatar user={{ name: notif.senderName, avatar: notif.senderAvatar }} className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 overflow-hidden text-cyan-300 text-xs" />
                         {/* Status Icon Badge */}
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#121216] border border-white/20 flex items-center justify-center text-cyan-400">
                           <Radio className="w-2.5 h-2.5" />
@@ -415,15 +360,7 @@ export default function NotificationDrawer({
                       onClose();
                     }}
                   >
-                    <div className="w-10 h-10 rounded-full bg-slate-800 shrink-0 mt-0.5 overflow-hidden">
-                      {notif.actorAvatar ? (
-                        <img src={notif.actorAvatar} alt={notif.actorName} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center font-semibold text-white/50 text-xs">
-                          {notif.actorName?.charAt(0) || 'F'}
-                        </div>
-                      )}
-                    </div>
+                    <Avatar user={{ name: notif.actorName, avatar: notif.actorAvatar }} className="w-10 h-10 rounded-full bg-slate-800 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <h5 className="text-xs font-semibold text-white truncate">{notif.title || 'New follower'}</h5>
@@ -483,17 +420,6 @@ export default function NotificationDrawer({
                       </span>
                     </div>
                   </div>
-                  {isNotificationUnread(notif) && (
-                    <button
-                      type="button"
-                      onClick={() => handleDismiss(notif.id)}
-                      aria-label="Mark notification as read"
-                      title="Mark as read"
-                      className="text-white/30 hover:text-cyan-300 p-1"
-                    >
-                      <Check className="w-3 h-3" />
-                    </button>
-                  )}
                 </div>
               );
             })

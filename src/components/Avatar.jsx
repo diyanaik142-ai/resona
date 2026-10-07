@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import { resolveMediaUrl } from '../services/api';
 
@@ -8,14 +8,17 @@ import { resolveMediaUrl } from '../services/api';
 export default function Avatar({ user, className, onClick }) {
   const name = user?.name || user?.displayHandle || user?.handle || user?.uid || '?';
   const avatarUrl = user?.avatar || user?.photoURL;
+  const resolvedAvatarUrl = avatarUrl ? resolveMediaUrl(avatarUrl) : null;
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState(null);
   
-  if (avatarUrl) {
+  if (resolvedAvatarUrl && failedAvatarUrl !== resolvedAvatarUrl) {
     return (
       <img
-        src={resolveMediaUrl(avatarUrl)}
+        src={resolvedAvatarUrl}
         alt={name}
         className={`object-cover ${className}`}
         onClick={onClick}
+        onError={() => setFailedAvatarUrl(resolvedAvatarUrl)}
       />
     );
   }
