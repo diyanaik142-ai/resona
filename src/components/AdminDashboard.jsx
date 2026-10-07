@@ -43,8 +43,18 @@ export default function AdminDashboard() {
         setActiveTab(tab);
       }
     };
+    
+    const handleAccountSwitched = () => {
+      setActiveTab('overview');
+    };
+
     window.addEventListener('adminTabSwitch', handleTabSwitch);
-    return () => window.removeEventListener('adminTabSwitch', handleTabSwitch);
+    window.addEventListener('resona:account-switched', handleAccountSwitched);
+    
+    return () => {
+      window.removeEventListener('adminTabSwitch', handleTabSwitch);
+      window.removeEventListener('resona:account-switched', handleAccountSwitched);
+    };
   }, []);
 
   const activeLabel = TABS.find(t => t.id === activeTab)?.label || activeTab;

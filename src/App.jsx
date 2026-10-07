@@ -237,28 +237,48 @@ export default function App() {
   });
 
   // Navigation State with Browser History synchronization
-  const getInitialTab = () => {
-    if (typeof window === 'undefined' || !window.location) return 'pulse';
-    const rawPath = window.location.pathname.replace(/^\/+/, '');
-    if (rawPath.startsWith('song/')) return 'onair';
-    const path = rawPath.split('/')[0].toLowerCase();
-    const validTabs = ['pulse', 'seek', 'onair', 'shelf', 'social', 'creator', 'settings', 'profile', 'tuned', 'curated', 'playlist'];
-    return validTabs.includes(path) ? path : 'pulse';
-  };
+  const [activeTab, setActiveTabState] = useState('pulse');
+  const [activeSubTab, setActiveSubTabState] = useState(null);
+  const tabHistoryRef = useRef([{ tab: 'pulse', subTab: null }]);
 
-  const getInitialSubTab = () => {
-    if (typeof window === 'undefined' || !window.location) return null;
-    const rawPath = window.location.pathname.replace(/^\/+/, '');
-    const parts = rawPath.split('/');
-    if (parts.length > 1) {
-      return parts[1];
+  // Global Navigation Rule: Enforce Pulse on Startup / Account Switch
+  const startupHandledRef = useRef(false);
+  
+  useEffect(() => {
+    // 1. App Startup Rule
+    if (!loading && isAuthenticated && !startupHandledRef.current) {
+      startupHandledRef.current = true;
+      if (user?.role === 'admin') {
+         if (typeof window !== 'undefined' && window.history) {
+           window.history.replaceState({ tab: 'admin', subTab: null }, '', '/admin');
+         }
+      } else {
+         if (typeof window !== 'undefined' && window.history) {
+           window.history.replaceState({ tab: 'pulse', subTab: null }, '', '/pulse');
+         }
+      }
     }
-    return null;
-  };
+  }, [loading, isAuthenticated, user]);
 
-  const [activeTab, setActiveTabState] = useState(getInitialTab);
-  const [activeSubTab, setActiveSubTabState] = useState(getInitialSubTab);
-  const tabHistoryRef = useRef([{ tab: getInitialTab(), subTab: getInitialSubTab() }]);
+  useEffect(() => {
+    // 2. Account Switch Rule
+    const handleAccountSwitched = () => {
+       if (user?.role === 'admin') {
+         if (typeof window !== 'undefined' && window.history) {
+           window.history.replaceState({ tab: 'admin', subTab: null }, '', '/admin');
+         }
+       } else {
+         setActiveTabState('pulse');
+         setActiveSubTabState(null);
+         tabHistoryRef.current = [{ tab: 'pulse', subTab: null }];
+         if (typeof window !== 'undefined' && window.history) {
+           window.history.replaceState({ tab: 'pulse', subTab: null }, '', '/pulse');
+         }
+       }
+    };
+    window.addEventListener('resona:account-switched', handleAccountSwitched);
+    return () => window.removeEventListener('resona:account-switched', handleAccountSwitched);
+  }, [user]);
 
   const setActiveTab = (tab, pushHistory = true) => {
     if (tab === 'BACK') {
@@ -303,8 +323,8 @@ export default function App() {
 
   useEffect(() => {
     const onPopState = (event) => {
-      const tab = event.state?.tab || getInitialTab();
-      const subTab = event.state?.subTab || getInitialSubTab();
+      const tab = event.state?.tab || 'pulse';
+      const subTab = event.state?.subTab || null;
       setActiveTabState(tab);
       setActiveSubTabState(subTab);
     };

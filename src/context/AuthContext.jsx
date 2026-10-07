@@ -136,6 +136,10 @@ export function AuthProvider({ children }) {
       
       if (!import.meta.env?.PROD) {
          await refreshAccountData();
+         window.dispatchEvent(new CustomEvent('resona:account-switched'));
+      } else {
+         // In PROD the useEffect for activeAccountEmail handles initialization
+         window.dispatchEvent(new CustomEvent('resona:account-switched'));
       }
     } catch (err) {
       console.error("Switch account error", err);
