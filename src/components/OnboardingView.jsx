@@ -115,6 +115,7 @@ export default function OnboardingView({ onComplete, onOpenLogin }) {
                 src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&auto=format&fit=crop&q=80"
                 alt="Welcome Artwork"
                 className="w-full h-full object-cover rounded-2xl"
+                onError={(event) => { event.currentTarget.hidden = true; }}
               />
             </div>
             <div className="absolute -bottom-3 -right-3 bg-teal-400 text-slate-950 p-2.5 rounded-xl shadow-lg font-bold">

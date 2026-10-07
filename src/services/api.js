@@ -472,23 +472,35 @@ export const api = {
 
   // Creator
   creator: {
-    getData: async () => {
+    getDashboard: async () => {
       const headers = await getAuthHeaders();
       const res = await fetch(`${getApiBaseUrl()}/api/creator`, { headers });
-      if (!res.ok) throw new Error('Failed to fetch creator data');
-      return res.json();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch creator dashboard');
+      return json;
     },
-    apply: async (data) => {
+    apply: async (artistName) => {
       const headers = await getAuthHeaders();
       const res = await fetch(`${getApiBaseUrl()}/api/creator/apply`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(data)
+        body: JSON.stringify({ artistName })
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Failed to submit application');
       return json;
-    }
+    },
+    uploadTrack: async (trackData) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/creator/upload`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(trackData)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to upload creator track');
+      return json;
+    },
   },
 
   // Social
@@ -1263,26 +1275,6 @@ export const api = {
            audioUrl: resolveMediaUrl(t.audioUrl),
            cover: resolveMediaUrl(t.cover)
       }));
-    }
-  },
-
-  // Creator
-  creator: {
-    getDashboard: async () => {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${getApiBaseUrl()}/api/creator`, { headers });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Failed to fetch creator dashboard');
-      return json;
-    },
-    apply: async (artistName) => {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${getApiBaseUrl()}/api/creator/apply`, {
-        method: 'POST', headers, body: JSON.stringify({ artistName })
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Failed to apply');
-      return json;
     }
   },
 

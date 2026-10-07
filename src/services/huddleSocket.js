@@ -41,7 +41,7 @@ function createSocket(url) {
   const instance = io(url, {
     auth: { token },
     transports: ['websocket', 'polling'],
-    autoConnect: true,
+    autoConnect: Boolean(token),
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000
@@ -93,6 +93,11 @@ function getHuddleNamespace() {
 
 function refreshSocketAuthentication() {
   const token = localStorage.getItem('authToken') || localStorage.getItem('resona_token') || '';
+  if (!token) {
+    currentToken = null;
+    [socket, huddleSocket].forEach((instance) => instance?.disconnect());
+    return;
+  }
   if (token === currentToken) return;
   currentToken = token;
   [socket, huddleSocket].forEach((instance) => {
@@ -107,6 +112,7 @@ function refreshSocketAuthentication() {
  * Register user ID for presence and targeted notifications
  */
 export function registerSocketUser(userId) {
+  if (!userId) return;
   currentUserId = userId;
   const s = getHuddleSocket();
   refreshSocketAuthentication();

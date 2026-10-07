@@ -93,7 +93,7 @@ export default function CreatorHubView({ }) {
                   onClick={async () => {
                     setIsApplying(true);
                     try {
-                      await api.creator.apply({ artistName: applyName });
+                      await api.creator.apply(applyName);
                       window.location.reload(); // Refresh state to show pending
                     } catch (e) {
                       alert(e.message);

@@ -1,7 +1,7 @@
 import { usePlayer } from '../context/PlayerContext';
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { resolveMediaUrl,  api } from '../services/api';
+import { getApiBaseUrl, resolveMediaUrl, api } from '../services/api';
 import { Search, Play, Sparkles, X, ShieldCheck, Database, Music, Heart, Radio } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { isNotificationUnread } from '../utils/notifications';
@@ -54,7 +54,7 @@ export default function PulseView({  onNavigate, onOpenNotifications, unreadCoun
   const handleNotificationAction = async (n, action) => {
     setIsProcessingAction(true);
     try {
-      await fetch(`${import.meta.env?.VITE_API_URL || window.location.origin}/api/social/notifications/${n.id}/action`, {
+      await fetch(`${getApiBaseUrl()}/api/social/notifications/${n.id}/action`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

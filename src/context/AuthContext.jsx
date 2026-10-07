@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
       const [meRes, shelfRes, creatorRes, socialRes, tracksRes, entitlementsRes] = await Promise.allSettled([
         api.auth.getMe(),
         api.shelf.getShelf(),
-        api.creator.getData(),
+        api.creator.getDashboard(),
         api.social.getSocial(),
         api.tracks.getAll(),
         api.user.getEntitlements()
@@ -39,6 +39,9 @@ export function AuthProvider({ children }) {
       }
       if (creatorRes.status === 'fulfilled') {
         setCreatorData(creatorRes.value);
+      } else {
+        setCreatorData(null);
+        console.warn('[AuthContext] Could not load creator data:', creatorRes.reason?.message);
       }
       if (socialRes.status === 'fulfilled') {
         setSocialData(socialRes.value);
