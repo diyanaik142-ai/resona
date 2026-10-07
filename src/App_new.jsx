@@ -54,6 +54,9 @@ import {
 export default function App() {
   const { user, shelf, creatorData, isAuthenticated, loading, logout, toggleLikeTrack, catalog, refreshPlan } = useAuth();
 
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+
   // Platform Global Config (Maintenance, Registration policy, Branding)
   const [platformConfig, setPlatformConfig] = useState(null);
 
@@ -151,7 +154,7 @@ export default function App() {
 
     // Fetch initial notifications
     api.notifications.getNotifications().then(res => {
-      setNotifications(res.notifications || []);
+      setNotifications(Array.isArray(res?.notifications) ? res.notifications : []);
     }).catch(err => console.warn('[App] Could not load notifications:', err.message));
 
     // Listen to real-time events

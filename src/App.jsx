@@ -52,9 +52,21 @@ import {
 
 
 export default function App() {
-  const { currentTrack, playTrack, setQueue } = usePlayer();
+  const {
+    currentTrack, queue: playQueue, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    playTrack, setQueue, togglePlay, playNext, playPrevious, seekTo, setVolume,
+    toggleMute, toggleShuffle, toggleLoop
+  } = usePlayer();
 
   const { user, shelf, creatorData, isAuthenticated, loading, logout, toggleLikeTrack, catalog } = useAuth();
+
+  const [activeHuddle, setActiveHuddle] = useState(null);
+  const [showHuddleRoom, setShowHuddleRoom] = useState(false);
+  const [fusionsList, setFusionsList] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+  const [mobileTrackAction, setMobileTrackAction] = useState(null);
+  const [showMobileQueue, setShowMobileQueue] = useState(false);
 
   // Platform Global Config (Maintenance, Registration policy, Branding)
   const [platformConfig, setPlatformConfig] = useState(null);
@@ -152,6 +164,12 @@ export default function App() {
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const recordActivity = (event) => {
+    api.user.recordActivity(event).catch(err => {
+      console.warn('[Activity] Could not record listening activity:', err.message);
+    });
+  };
+
   const deepLinkResolvedRef = useRef(false);
 
   useEffect(() => {
@@ -178,7 +196,7 @@ export default function App() {
     
     try {
       const queuedTrack = { ...track, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` };
-      setPlayQueue(prev => [...prev, queuedTrack]);
+      setQueue(prev => [...prev, queuedTrack]);
       showToast(`Added to queue — ${track.title}`);
     } catch (err) {
       showToast("Couldn't add to queue");
@@ -197,7 +215,7 @@ export default function App() {
   };
 
   const handleRemoveFromQueue = (identifier) => {
-    setPlayQueue(prev => {
+    setQueue(prev => {
       const next = prev.filter(t => (t.queueItemId || t.id) !== identifier);
       if (next.length !== prev.length) {
         showToast("Removed from queue");
@@ -207,12 +225,12 @@ export default function App() {
   };
 
   const handleClearQueue = () => {
-    setPlayQueue([]);
+    setQueue([]);
     showToast("Queue cleared");
   };
 
   const handleReorderQueue = (newQueue) => {
-    setPlayQueue(newQueue);
+    setQueue(newQueue);
   };
 
   // Synchronize Real-time Notifications & Presence
@@ -230,7 +248,7 @@ export default function App() {
 
     // Fetch initial notifications
     api.notifications.getNotifications().then(res => {
-      setNotifications(res.notifications || []);
+      setNotifications(Array.isArray(res?.notifications) ? res.notifications : []);
     }).catch(err => console.warn('[App] Could not load notifications:', err.message));
 
     // Listen to real-time events
@@ -290,8 +308,7 @@ export default function App() {
           setActiveHuddle(res.huddle);
           // If Huddle has a nowPlaying track and current player is empty, sync it
           if (res.huddle.nowPlaying && (!currentTrack || currentTrack.id !== res.huddle.nowPlaying.trackId)) {
-            setCurrentTrack(res.huddle.nowPlaying);
-            setIsPlaying(true);
+              playTrack(res.huddle.nowPlaying);
           }
         } else {
           setActiveHuddle(null);
@@ -317,11 +334,9 @@ export default function App() {
     const unsubTrack = subscribeHuddleEvent('track_changed', (updated) => {
       setActiveHuddle(updated);
       if (updated.nowPlaying) {
-        setCurrentTrack(updated.nowPlaying);
-        setIsPlaying(true);
-      } else {
-        setCurrentTrack(null);
-        setIsPlaying(false);
+        playTrack(updated.nowPlaying);
+      } else if (isPlaying) {
+        togglePlay();
       }
     });
 
@@ -338,36 +353,15 @@ export default function App() {
   }, [activeHuddle?.id]);
 
   // Handle Track Play
-  const handlePlayTrack = (track) => {
+  const handlePlayTrack = (track, queue = null) => {
     if (!track) return;
-    if (currentTrack?.id === track.id && playbackSessionRef.current.trackId === track.id) {
-      recordActivity({ trackId: track.id, type: 'REPLAY', position: currentTime, duration });
-    }
-    playbackSessionRef.current = { trackId: track.id, startedAt: Date.now(), completed: false };
     recordActivity({ trackId: track.id, type: 'PLAY_STARTED' });
-    setCurrentTrack(track);
-    setIsPlaying(true);
+    playTrack(track, queue);
   };
-
-  // Synchronize Audio Element Playback State
-  useEffect(() => {
-    if (audioRef.current && currentTrack && isPlaying) {
-      audioRef.current.play().catch(err => {
-        console.warn('Playback prevented or failed:', err);
-      });
-    }
-  }, [currentTrack]);
 
   // Toggle Play / Pause
   const handleTogglePlay = () => {
-    if (!audioRef.current || !currentTrack) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().catch(() => { });
-      setIsPlaying(true);
-    }
+    if (currentTrack) togglePlay();
   };
 
   // Next Track
@@ -376,108 +370,34 @@ export default function App() {
       const completedRatio = duration ? Math.min(1, currentTime / duration) : 0;
       recordActivity({ trackId: currentTrack.id, type: 'SKIP', position: currentTime, duration, completedRatio });
     }
-    if (playQueue.length > 0) {
-      const nextTrack = playQueue[0];
-      setPlayQueue(prev => prev.slice(1));
-      handlePlayTrack(nextTrack);
-    } else {
-      if (catalog.length === 0) return;
-      const idx = catalog.findIndex((t) => t.id === currentTrack?.id);
-      let nextIdx;
-      if (isShuffle || idx === -1) {
-        nextIdx = Math.floor(Math.random() * catalog.length);
-      } else {
-        nextIdx = (idx + 1) % catalog.length;
-      }
-      handlePlayTrack(catalog[nextIdx]);
-    }
+    playNext();
   };
 
   // Previous Track
   const handlePrevTrack = () => {
-    if (currentTime > 3) {
-      if (audioRef.current) audioRef.current.currentTime = 0;
-      setCurrentTime(0);
-      return;
-    }
-    if (currentTrack?.id && isPlaying) {
+    if (currentTime <= 3 && currentTrack?.id && isPlaying) {
       const completedRatio = duration ? Math.min(1, currentTime / duration) : 0;
       recordActivity({ trackId: currentTrack.id, type: 'SKIP', position: currentTime, duration, completedRatio });
     }
-    if (catalog.length === 0) return;
-    const idx = catalog.findIndex((t) => t.id === currentTrack?.id);
-    if (idx === -1) return;
-    const prevIdx = (idx - 1 + catalog.length) % catalog.length;
-    handlePlayTrack(catalog[prevIdx]);
+    playPrevious();
   };
-
-  // Audio Time Update Event
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  // Audio Loaded Metadata Event
-  const handleLoadedMetadata = () => {
-    if (audioRef.current && audioRef.current.duration) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  // Audio Track Ended Event
-  const handleTrackEnded = () => {
-    if (currentTrack?.id && !playbackSessionRef.current.completed) {
-      playbackSessionRef.current.completed = true;
-      recordActivity({ trackId: currentTrack.id, type: 'PLAY_COMPLETED', position: duration, duration, completedRatio: 1 });
-    }
-    if (activeHuddle && activeHuddle.status === 'active') {
-      api.huddle.advancePlayback(activeHuddle.id, 'track_ended').catch(err => {
-        console.warn('[Huddle] Failed to advance track on ended:', err.message);
-      });
-      return;
-    }
-
-    if (isLoop) {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => { });
-      }
-    } else {
-      handleNextTrack('ended');
-    }
-  };
-
 
   // Seek Slider Event
   const handleSeek = (valueOrEvent) => {
     const newTime = typeof valueOrEvent === 'number' ? valueOrEvent : parseFloat(valueOrEvent.target.value);
-    setCurrentTime(newTime);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-    }
+    seekTo(newTime);
   };
 
   // Volume Change Event
   const handleVolumeChange = (e) => {
     const val = parseFloat(e.target.value);
     setVolume(val);
-    if (audioRef.current) {
-      audioRef.current.volume = val;
-    }
-    if (val === 0) setIsMuted(true);
-    else setIsMuted(false);
+    if ((val === 0) !== isMuted) toggleMute();
   };
 
   // Toggle Mute
   const handleToggleMute = () => {
-    if (isMuted) {
-      setIsMuted(false);
-      if (audioRef.current) audioRef.current.volume = volume || 0.8;
-    } else {
-      setIsMuted(true);
-      if (audioRef.current) audioRef.current.volume = 0;
-    }
+    toggleMute();
   };
 
   // Format seconds to mm:ss
@@ -606,8 +526,7 @@ export default function App() {
                 if (!tracks || tracks.length === 0) return;
                 let toPlay = [...tracks];
                 if (shuffle) toPlay = toPlay.sort(() => 0.5 - Math.random());
-                handlePlayTrack(toPlay[0]);
-                setPlayQueue(toPlay.map(t => ({ ...t, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` })));
+                handlePlayTrack(toPlay[0], toPlay);
               }}
               onNavigate={setActiveTab}
             />
@@ -655,8 +574,8 @@ export default function App() {
             onNavigate={setActiveTab}
             isCurrentLiked={isCurrentLiked}
             onToggleLike={() => currentTrack && toggleLikeTrack(currentTrack.id)}
-            onToggleShuffle={() => setIsShuffle(!isShuffle)}
-            onToggleLoop={() => setIsLoop(!isLoop)}
+            onToggleShuffle={toggleShuffle}
+            onToggleLoop={toggleLoop}
             onOpenQueue={() => setShowMobileQueue(true)}
             activeHuddle={activeHuddle}
             onOpenHuddle={() => setShowHuddleRoom(true)}
@@ -710,8 +629,7 @@ export default function App() {
                 if (!tracks || tracks.length === 0) return;
                 let toPlay = [...tracks];
                 if (shuffle) toPlay = toPlay.sort(() => 0.5 - Math.random());
-                handlePlayTrack(toPlay[0]);
-                setPlayQueue(toPlay.map(t => ({ ...t, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` })));
+                handlePlayTrack(toPlay[0], toPlay);
               }}
               onNavigate={setActiveTab}
             />
@@ -1053,7 +971,7 @@ export default function App() {
               <div className="flex flex-col items-center gap-1.5 flex-1 max-w-xl px-4">
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setIsShuffle(!isShuffle)}
+                    onClick={toggleShuffle}
                     className={`p-1.5 transition ${!currentTrack ? 'text-slate-700 cursor-not-allowed' : isShuffle ? 'text-teal-400' : 'text-slate-500 hover:text-white'}`}
                     title="Shuffle"
                     disabled={!currentTrack}
@@ -1094,7 +1012,7 @@ export default function App() {
                   </button>
 
                   <button
-                    onClick={() => setIsLoop(!isLoop)}
+                    onClick={toggleLoop}
                     className={`p-1.5 transition ${!currentTrack ? 'text-slate-700 cursor-not-allowed' : isLoop ? 'text-teal-400' : 'text-slate-500 hover:text-white'}`}
                     title="Repeat"
                     disabled={!currentTrack}

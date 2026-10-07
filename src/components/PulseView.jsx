@@ -36,7 +36,7 @@ export default function PulseView({  onNavigate, onOpenNotifications, unreadCoun
   React.useEffect(() => {
     if (!onOpenNotifications) {
       api.social.getSocial().then(res => {
-        setNotifications(res.notifications || []);
+        setNotifications(Array.isArray(res?.notifications) ? res.notifications : []);
       }).catch(err => console.error(err));
     }
   }, [onOpenNotifications]);
