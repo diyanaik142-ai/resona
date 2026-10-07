@@ -28,21 +28,36 @@ import { userStatusTracker } from './services/userStatusTracker.js';
 const app = express();
 
 const server = http.createServer(app);
-const baseIoOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost,https://resona.anchorlyhms.com').split(',').map((value) => value.trim());
-const ioOrigins = [...new Set([...baseIoOrigins, 'capacitor://localhost', 'https://localhost'])];
+const allowedOrigins = new Set([
+  ...(process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost,https://resona.anchorlyhms.com')
+    .split(',')
+    .map((value) => value.trim()),
+  'capacitor://localhost',
+  'https://localhost'
+]);
+const allowedHeaders = ['Authorization', 'Content-Type', 'X-Session-Id', 'X-Requested-With'];
+const allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
+const isAllowedOrigin = (origin) => {
+  if (allowedOrigins.has(origin)) return true;
+  try {
+    const parsedOrigin = new URL(origin);
+    return parsedOrigin.hostname === 'localhost' && ['http:', 'https:'].includes(parsedOrigin.protocol);
+  } catch {
+    return false;
+  }
+};
+const corsOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (isAllowedOrigin(origin)) return callback(null, true);
+  return callback(new Error('Not allowed by CORS'));
+};
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (ioOrigins.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('https://localhost') || origin.startsWith('capacitor://localhost')) {
-        return callback(null, true);
-      }
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: corsOrigin,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: allowedMethods,
+    allowedHeaders
   }
 });
 
@@ -104,20 +119,11 @@ io.on('connection', (socket) => {
   });
 });
 
-const baseAppOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost,https://resona.anchorlyhms.com').split(',').map((value) => value.trim());
-const allowedOrigins = [...new Set([...baseAppOrigins, 'capacitor://localhost', 'https://localhost'])];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost') || origin.startsWith('https://localhost') || origin.startsWith('capacitor://localhost')) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: corsOrigin,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: allowedMethods,
+  allowedHeaders
 }));
 app.use(express.json());
 
