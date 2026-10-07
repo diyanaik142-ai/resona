@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -26,7 +27,28 @@ import Avatar from '../Avatar';
  * Navigation: Overview | Music | Analytics | Profile
  * Includes mobile upload wizard and responsive telemetry cards.
  */
-export default function MobileCreatorHubView({ onPlayTrack }) {
+export default function MobileCreatorHubView({ }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { user, creatorData, catalog } = useAuth();
   const [activeTab, setActiveTab] = useState('Overview'); // Overview | Music | Analytics | Profile
   const [musicSubTab, setMusicSubTab] = useState('Releases'); // Releases | Upload

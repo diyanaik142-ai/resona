@@ -1,3 +1,4 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { Play, UserPlus, Check, ChevronLeft, MapPin } from 'lucide-react';
 import { resolveMediaUrl,  getAuthHeaders, getApiBaseUrl } from '../services/api';
@@ -6,7 +7,28 @@ import { useAuth } from '../context/AuthContext';
 
 import { FollowersModal, FollowingModal } from './mobile/FollowersFollowingModals';
 
-export default function PublicProfileView({ username, onPlayTrack, onNavigate }) {
+export default function PublicProfileView({ username,  onNavigate }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { refreshAccountData } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);

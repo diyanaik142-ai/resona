@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Radio, Users, X, Send, Copy, Check, Sparkles, AlertCircle,
@@ -15,9 +16,30 @@ export default function MobileHuddleView({
   user,
   catalog = [],
   onClose,
-  onPlayTrack,
+  
   onRefreshHuddle
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const huddle = propHuddle || currentHuddle;
   const [activePanel, setActivePanel] = useState('chat'); // 'chat' | 'queue' | 'player' | 'people'
   const [copiedCode, setCopiedCode] = useState(false);

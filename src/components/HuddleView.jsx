@@ -1,3 +1,4 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect, useRef } from 'react';
 import { resolveMediaUrl,  api } from '../services/api';
 import { joinHuddleRoom, leaveHuddleRoom, subscribeHuddleEvent } from '../services/huddleSocket';
@@ -14,10 +15,31 @@ export default function HuddleView({
   huddleId,
   currentHuddle: initialHuddle,
   onClose,
-  onPlayTrack,
+  
   catalog = [],
   user
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [huddle, setHuddle] = useState(initialHuddle || null);
   const [loading, setLoading] = useState(!initialHuddle);
   const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'recommendations' | 'polls' | 'history'
@@ -558,6 +580,9 @@ export default function HuddleView({
                     <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMe ? 'bg-teal-500/20 text-teal-100 rounded-br-sm' : 'bg-white/5 text-slate-200 border border-white/5 rounded-bl-sm'}`}>
                       {hist.text}
                     </div>
+                    <span className="text-[9px] text-slate-500 px-1">
+                      {hist.timeStr}
+                    </span>
                   </div>
                 );
               }

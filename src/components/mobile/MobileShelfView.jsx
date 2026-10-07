@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React, { useState } from 'react';
 import { Library, Plus, Heart, Music, Disc, Folder, Search, Play } from 'lucide-react';
 import Avatar from '../Avatar';
@@ -6,10 +7,31 @@ import { resolveMediaUrl } from '../../services/api';
 export default function MobileShelfView({
   shelf,
   catalog = [],
-  onPlayTrack,
+  
   onOpenTrackActions,
   onNavigate
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [activeSegment, setActiveSegment] = useState('Playlists'); // Playlists | Liked | Artists
   const [playlistSearch, setPlaylistSearch] = useState('');
 

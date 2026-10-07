@@ -1,9 +1,31 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Heart, Radio, Download, Clock, UploadCloud, ChevronRight, Plus, Music, Trash2, X, FolderLock, Play } from 'lucide-react';
 
 import { resolveMediaUrl } from '../services/api';
-export default function ShelfView({ onPlayTrack, onNavigate }) {
+export default function ShelfView({  onNavigate }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { shelf, creatorData, createPlaylist, deletePlaylist, user , catalog} = useAuth();
   const [activeTab, setActiveTab] = useState('Playlists');
   const [showNewPlaylistModal, setShowNewPlaylistModal] = useState(false);

@@ -86,6 +86,7 @@ export default function SettingsView({ onNavigate }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showChangePassModal, setShowChangePassModal] = useState(false);
   const [sessionsList, setSessionsList] = useState([]);
+  const [securityEvents, setSecurityEvents] = useState([]);
 
   // Toast Notification state
   const [toastMsg, setToastMsg] = useState('');
@@ -133,12 +134,17 @@ export default function SettingsView({ onNavigate }) {
 
   // Load sessions from backend when entering active-sessions
   useEffect(() => {
-    if (activeSubSubpage === 'active-sessions') {
+    if (activeSubpage === 'security' || activeSubSubpage === 'active-sessions') {
       api.user.getSessions()
         .then((data) => setSessionsList(Array.isArray(data) ? data : []))
         .catch(() => {});
     }
-  }, [activeSubSubpage]);
+    if (activeSubpage === 'security') {
+      api.user.getSecurityEvents()
+        .then((data) => setSecurityEvents(Array.isArray(data) ? data : []))
+        .catch(() => {});
+    }
+  }, [activeSubpage, activeSubSubpage]);
 
   const handlePrefToggle = (key, value) => {
     updatePreferences({ [key]: value }).catch(() => {});
@@ -152,6 +158,7 @@ export default function SettingsView({ onNavigate }) {
     { id: 'audio-quality', title: 'Audio Quality', desc: 'Configure sound and data usage', icon: Sliders },
     { id: 'notifications', title: 'Notifications', desc: 'Choose updates Resona sends', icon: Bell },
     { id: 'privacy', title: 'Privacy', desc: 'Control what other users can see', icon: Eye },
+    { id: 'security', title: 'Security', desc: 'Account security and device management', icon: Shield },
     { id: 'social', title: 'Social', desc: 'Manage social and shared listening behavior', icon: Users },
     { id: 'cast-devices', title: 'Cast & Devices', desc: 'Manage playback across devices', icon: Cast },
     { id: 'language-appearance', title: 'Language & Appearance', desc: 'Personalize app interface and theme', icon: Globe },
@@ -203,8 +210,7 @@ export default function SettingsView({ onNavigate }) {
           {/* SUBPAGE CONTENT PANELS */}
           {/* 1. Account */}
           {activeSubpage === 'account' && (
-            activeSubSubpage === 'active-sessions' ? (
-              /* SUB-SUBPAGE: LOGGED IN DEVICES & ACTIVE SESSIONS */
+            activeSubSubpage === 'switch-account' ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <button
@@ -213,46 +219,52 @@ export default function SettingsView({ onNavigate }) {
                   >
                     <ChevronLeft className="w-4 h-4" /> Back to Account
                   </button>
-                  <span className="text-[10px] text-slate-400 font-semibold">
-                    {sessionsList.length || 1} Active Session{sessionsList.length !== 1 ? 's' : ''}
-                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold">Saved Accounts</span>
                 </div>
 
                 <div className="space-y-2.5">
-                  <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Logged In Devices</h4>
-                  {(sessionsList.length > 0 ? sessionsList : [
-                    { id: 'dev1', deviceName: 'Current Browser Session', location: 'Active Now', isCurrent: true }
-                  ]).map((dev) => (
-                    <div key={dev.id} className="p-3.5 rounded-2xl glass-card border border-white/10 flex items-center justify-between">
+                  <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Your Accounts</h4>
+                  {(JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]')).map((acc) => (
+                    <div key={acc.email} className="p-3.5 rounded-2xl glass-card border border-white/10 flex items-center justify-between cursor-pointer hover:bg-white/5 transition" onClick={() => {
+                      if (acc.email !== user?.email) {
+                        localStorage.setItem('authToken', acc.token);
+                        localStorage.setItem('resona_token', acc.token);
+                        if (acc.sessionId) localStorage.setItem('resona_session_id', acc.sessionId);
+                        window.location.reload();
+                      }
+                    }}>
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-white/5 text-teal-400">
-                          <Smartphone className="w-5 h-5" />
-                        </div>
+                        <img src={resolveMediaUrl(acc.avatar)} alt={acc.name} className="w-10 h-10 rounded-full border border-white/20 object-cover" />
                         <div>
                           <div className="flex items-center gap-2">
-                            <h5 className="font-bold text-white text-xs">{dev.deviceName}</h5>
-                            {dev.isCurrent && (
-                              <span className="text-[9px] font-bold uppercase text-slate-950 bg-teal-400 px-2 py-0.5 rounded-full">
-                                Current
-                              </span>
+                            <h5 className="font-bold text-white text-xs">{acc.name}</h5>
+                            {acc.email === user?.email && (
+                              <span className="text-[9px] font-bold uppercase text-slate-950 bg-teal-400 px-2 py-0.5 rounded-full">Active</span>
                             )}
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{dev.location}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{acc.email}</p>
                         </div>
                       </div>
+                      {acc.email !== user?.email && (
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          const saved = JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]');
+                          localStorage.setItem('resona_saved_accounts', JSON.stringify(saved.filter(a => a.email !== acc.email)));
+                          triggerToast('Account removed from device');
+                          setActiveSubSubpage(null); setTimeout(()=>setActiveSubSubpage('switch-account'), 10);
+                        }} className="p-2 text-slate-500 hover:text-rose-400 rounded-full hover:bg-white/10">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 <button
-                  onClick={async () => {
-                    await api.user.signOutOthers();
-                    setSessionsList(sessionsList.filter((s) => s.isCurrent));
-                    triggerToast('Signed out of all other sessions');
-                  }}
-                  className="w-full py-3 rounded-2xl glass-card border border-rose-500/30 text-rose-400 font-bold text-xs hover:bg-rose-500/10 transition"
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full py-3 rounded-2xl glass-card border border-teal-500/30 text-teal-400 font-bold text-xs hover:bg-teal-500/10 transition"
                 >
-                  Sign Out of All Other Devices
+                  + Add Existing Account
                 </button>
               </div>
             ) : (
@@ -357,38 +369,10 @@ export default function SettingsView({ onNavigate }) {
                   </div>
                 </div>
 
-                {/* Submenu item: Active Sessions & Logged in Devices */}
-                <button
-                  onClick={() => setActiveSubSubpage('active-sessions')}
-                  className="w-full p-3.5 rounded-2xl glass-card text-left text-xs font-bold text-white hover:bg-white/10 flex justify-between items-center transition group border border-teal-500/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400">
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-white group-hover:text-teal-300">Active Sessions</p>
-                      <p className="text-[10px] font-normal text-slate-400">View logged-in devices & sessions</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition" />
-                </button>
-
-                {/* Change Password (with bcrypt hashing) */}
-                <button
-                  onClick={() => setShowChangePassModal(true)}
-                  className="w-full p-3 rounded-2xl glass-card text-left text-xs font-bold text-white hover:bg-white/10 flex justify-between items-center"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Lock className="w-4 h-4 text-teal-400" />
-                    <span>Change Password (Bcrypt Encrypted)</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500" />
-                </button>
 
                 {/* Switch Account */}
                 <button
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={() => setActiveSubSubpage('switch-account')}
                   className="w-full p-3 rounded-2xl glass-card text-left text-xs font-bold text-teal-300 hover:bg-white/10 flex justify-between items-center border border-teal-500/30"
                 >
                   <div className="flex items-center gap-2.5">
@@ -605,7 +589,115 @@ export default function SettingsView({ onNavigate }) {
             </div>
           )}
 
-          {/* 6. Social */}
+          {/* 6. Security */}
+          {activeSubpage === 'security' && (
+            <div className="space-y-4">
+              <p className="text-xs text-slate-400 font-semibold mb-1">Account security and device management.</p>
+              
+              {/* Account Security */}
+              <div className="p-3.5 rounded-2xl glass-card space-y-3 border border-teal-500/20">
+                <h4 className="font-bold text-xs text-teal-400 uppercase tracking-wider">Account Security</h4>
+                <div className="flex justify-between items-center py-1 border-b border-white/5">
+                  <div>
+                    <p className="font-bold text-white text-xs">Email Verification</p>
+                    <p className="text-[10px] text-slate-400">{user?.email}</p>
+                  </div>
+                  {user?.verified ? (
+                    <span className="text-xs font-bold text-teal-400 flex items-center gap-1"><Check className="w-4 h-4"/> Verified</span>
+                  ) : (
+                    <span className="text-xs font-bold text-amber-400">Unverified</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowChangePassModal(true)}
+                  className="w-full pt-1 text-left text-xs font-bold text-white hover:text-teal-400 flex justify-between items-center transition"
+                >
+                  <div>
+                    <p className="font-bold text-white group-hover:text-teal-300">Change Password</p>
+                    <p className="text-[10px] font-normal text-slate-400">Bcrypt Encrypted</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Active Devices */}
+              <div className="space-y-2.5 pt-2">
+                <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Active Devices</h4>
+                {(sessionsList.length > 0 ? sessionsList : [
+                  { id: 'dev1', deviceName: 'Current Browser Session', location: 'Active Now', isCurrent: true }
+                ]).map((dev) => (
+                  <div key={dev.id} className="p-3.5 rounded-2xl glass-card border border-white/10 flex items-center justify-between group hover:bg-white/5 transition">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-white/5 text-teal-400">
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h5 className="font-bold text-white text-xs">{dev.deviceName}</h5>
+                          {dev.isCurrent && (
+                            <span className="text-[9px] font-bold uppercase text-slate-950 bg-teal-400 px-2 py-0.5 rounded-full">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{dev.location || (dev.createdAt ? new Date(dev.createdAt).toLocaleString() : '')}</p>
+                      </div>
+                    </div>
+                    {!dev.isCurrent && (
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm('Are you sure you want to revoke this session?')) return;
+                          try {
+                            await api.user.revokeSession(dev.id);
+                            setSessionsList(sessionsList.filter(s => s.id !== dev.id));
+                            triggerToast('Session revoked');
+                          } catch (e) {
+                            triggerToast('Failed to revoke session');
+                          }
+                        }}
+                        className="p-2 text-slate-500 hover:text-rose-400 rounded-full hover:bg-white/10 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {sessionsList.length > 1 && (
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Are you sure you want to log out of all other devices?')) return;
+                      await api.user.signOutOtherSessions();
+                      setSessionsList(sessionsList.filter((s) => s.isCurrent));
+                      triggerToast('Signed out of all other sessions');
+                    }}
+                    className="w-full py-3 mt-2 rounded-2xl glass-card border border-rose-500/30 text-rose-400 font-bold text-xs hover:bg-rose-500/10 transition"
+                  >
+                    Sign Out of All Other Devices
+                  </button>
+                )}
+              </div>
+
+              {/* Security Activity */}
+              <div className="space-y-2.5 pt-2">
+                <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Login Activity</h4>
+                <div className="p-3.5 rounded-2xl glass-card border border-white/10 space-y-3">
+                  {securityEvents.length > 0 ? securityEvents.map(ev => (
+                    <div key={ev.id} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0 last:pb-0">
+                      <div>
+                        <p className="font-bold text-white text-xs">{ev.type.replace(/_/g, ' ').toUpperCase()}</p>
+                        <p className="text-[10px] text-slate-400">{ev.device || 'Unknown Device'} • {ev.ip || 'Unknown IP'}</p>
+                      </div>
+                      <p className="text-[10px] text-slate-500">{new Date(ev.timestamp).toLocaleDateString()}</p>
+                    </div>
+                  )) : (
+                    <p className="text-xs text-slate-400">No recent security activity.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 7. Social */}
           {activeSubpage === 'social' && (
             <div className="space-y-3">
               <p className="text-xs text-slate-400 font-semibold mb-1">Manage social and shared listening behavior.</p>

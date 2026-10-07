@@ -109,28 +109,59 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     setAuthError(null);
     try {
+      let activeToken = null;
+      let activeSessionId = null;
+      let activeUser = null;
+      
       if (import.meta.env?.PROD && email !== 'admin') {
         const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-        setToken(await credential.user.getIdToken());
+        activeToken = await credential.user.getIdToken();
+        setToken(activeToken);
+        const sessionRes = await api.auth.createSession(navigator.userAgent);
+        if (sessionRes.sessionId) {
+          activeSessionId = sessionRes.sessionId;
+          localStorage.setItem('resona_session_id', activeSessionId);
+        }
         await refreshAccountData();
-        return { user: credential.user };
-      }
-      const res = await api.auth.login(email, password);
-      
-      if (email === 'admin' || res.user?.role === 'admin') {
-        // For admin, api.auth.login already sets 'adminToken' in localStorage.
-        // We skip setToken() so we don't overwrite the normal user 'authToken'.
-        // We also skip refreshAccountData() so we don't trigger normal user endpoints.
-        setUser(res.user);
-        setPreferences(res.preferences || {});
+        activeUser = credential.user;
       } else {
-        setToken(res.token);
-        setUser(res.user);
-        setPreferences(res.preferences);
-        await refreshAccountData();
+        const res = await api.auth.login(email, password);
+        
+        if (email === 'admin' || res.user?.role === 'admin') {
+          setUser(res.user);
+          setPreferences(res.preferences || {});
+          return res;
+        } else {
+          activeToken = res.token;
+          setToken(activeToken);
+          const sessionRes = await api.auth.createSession(navigator.userAgent);
+          if (sessionRes.sessionId) {
+            activeSessionId = sessionRes.sessionId;
+            localStorage.setItem('resona_session_id', activeSessionId);
+          }
+          setUser(res.user);
+          setPreferences(res.preferences);
+          await refreshAccountData();
+          activeUser = res.user;
+        }
       }
       
-      return res;
+      // Save account to local storage
+      try {
+        const saved = JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]');
+        const updated = saved.filter(a => a.email !== email);
+        updated.push({
+          id: activeUser.id || activeUser.uid,
+          email,
+          name: activeUser.name || activeUser.displayName || email.split('@')[0],
+          avatar: activeUser.avatar || activeUser.photoURL || null,
+          token: activeToken,
+          sessionId: activeSessionId
+        });
+        localStorage.setItem('resona_saved_accounts', JSON.stringify(updated));
+      } catch (e) {}
+      
+      return { user: activeUser };
     } catch (err) {
       setAuthError(err.message);
       throw err;
@@ -141,19 +172,54 @@ export function AuthProvider({ children }) {
   const register = async (formData) => {
     setAuthError(null);
     try {
+      let activeToken = null;
+      let activeSessionId = null;
+      let activeUser = null;
+      let email = formData.email;
+      
       if (import.meta.env?.PROD) {
         const credential = await createUserWithEmailAndPassword(firebaseAuth, formData.email, formData.password);
         await updateFirebaseProfile(credential.user, { displayName: formData.name || '' });
-        setToken(await credential.user.getIdToken());
+        activeToken = await credential.user.getIdToken();
+        setToken(activeToken);
+        const sessionRes = await api.auth.createSession(navigator.userAgent);
+        if (sessionRes.sessionId) {
+          activeSessionId = sessionRes.sessionId;
+          localStorage.setItem('resona_session_id', activeSessionId);
+        }
         await refreshAccountData();
-        return { user: credential.user };
+        activeUser = credential.user;
+      } else {
+        const res = await api.auth.register(formData);
+        activeToken = res.token;
+        setToken(activeToken);
+        const sessionRes = await api.auth.createSession(navigator.userAgent);
+        if (sessionRes.sessionId) {
+          activeSessionId = sessionRes.sessionId;
+          localStorage.setItem('resona_session_id', activeSessionId);
+        }
+        setUser(res.user);
+        setPreferences(res.preferences);
+        await refreshAccountData();
+        activeUser = res.user;
       }
-      const res = await api.auth.register(formData);
-      setToken(res.token);
-      setUser(res.user);
-      setPreferences(res.preferences);
-      await refreshAccountData();
-      return res;
+      
+      // Save account to local storage
+      try {
+        const saved = JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]');
+        const updated = saved.filter(a => a.email !== email);
+        updated.push({
+          id: activeUser.id || activeUser.uid,
+          email,
+          name: activeUser.name || activeUser.displayName || email.split('@')[0],
+          avatar: activeUser.avatar || activeUser.photoURL || null,
+          token: activeToken,
+          sessionId: activeSessionId
+        });
+        localStorage.setItem('resona_saved_accounts', JSON.stringify(updated));
+      } catch (e) {}
+      
+      return { user: activeUser };
     } catch (err) {
       setAuthError(err.message);
       throw err;
@@ -171,6 +237,13 @@ export function AuthProvider({ children }) {
         await api.auth.logout().catch(() => {});
       }
     } finally {
+      if (user?.email) {
+        try {
+          const saved = JSON.parse(localStorage.getItem('resona_saved_accounts') || '[]');
+          const updated = saved.filter(a => a.email !== user.email);
+          localStorage.setItem('resona_saved_accounts', JSON.stringify(updated));
+        } catch (e) {}
+      }
       setToken(null);
       setUser(null);
       setPreferences(null);

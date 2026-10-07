@@ -3,9 +3,11 @@ import { requireAuth } from '../middleware/auth.js';
 import { getAccountData, saveAccountData } from '../db/storage.js';
 
 import { getPlatformSettings } from '../services/platformSettings.js';
+import { requireFeature } from '../middleware/entitlements.js';
 
 const router = express.Router();
 router.use(requireAuth);
+router.use(requireFeature('creator_studio'));
 
 /**
  * GET /api/creator

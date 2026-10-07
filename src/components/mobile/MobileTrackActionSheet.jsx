@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React from 'react';
 import { Play, ListPlus, Radio, Heart, Share2, Plus, QrCode, X, Music } from 'lucide-react';
 
@@ -6,15 +7,36 @@ export default function MobileTrackActionSheet({
   track,
   isOpen,
   onClose,
-  onPlayTrack,
+  
   onPlayNext,
-  onAddToQueue,
+  
   activeHuddle,
   onAddToHuddleQueue,
   isLiked,
   onToggleLike,
   onShareBeatCode
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   if (!isOpen || !track) return null;
 
   return (

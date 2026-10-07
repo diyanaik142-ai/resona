@@ -1,3 +1,4 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UploadCloud, BarChart3, Music2, Users, CheckCircle, Clock, Plus, ArrowRight, X, Play, Radio } from 'lucide-react';
@@ -6,7 +7,28 @@ import { storage } from '../firebase';
 import { api } from '../services/api';
 import Avatar from './Avatar';
 
-export default function CreatorHubView({ onPlayTrack }) {
+export default function CreatorHubView({ }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { user, creatorData, uploadTrack , catalog} = useAuth();
   const [activeTab, setActiveTab] = useState('Overview');
   const [uploadStep, setUploadStep] = useState(1); // 1: Details, 2: Audio, 3: Review

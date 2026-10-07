@@ -1,3 +1,4 @@
+import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
 import BeatCodeQR from './BeatCodeQR';
@@ -39,7 +40,28 @@ function DraggableQueueItem({ t, idx, onPlayTrack, onRemoveFromQueue }) {
     </Reorder.Item>
   );
 }
-export default function OnAirView({ currentTrack, isPlaying, currentTime = 0, duration = 0, onTogglePlay, onNext, onPrev, onSeek, onNavigate, activeHuddle, setShowHuddleRoom, playQueue = [], onRemoveFromQueue, onClearQueue, onReorderQueue, onPlayTrack }) {
+export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle, setShowHuddleRoom,    }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { user, catalog } = useAuth();
   const track = currentTrack || (catalog.length > 0 ? catalog[0] : null);
   if (!track) return <div className="p-8 text-center text-slate-400 mt-20">No track playing</div>;

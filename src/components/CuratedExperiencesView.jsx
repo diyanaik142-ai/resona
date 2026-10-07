@@ -1,8 +1,30 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState } from 'react';
 import { resolveMediaUrl,  api } from '../services/api';
 import { Play, Disc, Sparkles, SkipForward } from 'lucide-react';
 
-export default function CuratedExperiencesView({ onPlayTrack }) {
+export default function CuratedExperiencesView({ }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [activeTab, setActiveTab] = useState('Daily Dose');
   const [state, setState] = React.useState({ loading: true, error: '', data: null });
 

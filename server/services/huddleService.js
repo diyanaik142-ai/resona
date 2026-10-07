@@ -306,9 +306,19 @@ export const huddleService = {
       };
 
       // 3. Create real invitations for selected friends (Requirements 4, 5, 11, 15)
+      const { hasFeature } = await import('./entitlements.js');
       const invitedFriendsList = [];
       for (const friendId of invitedFriendIds) {
         if (!friendId || friendId === user.id) continue;
+        
+        // Enforce Huddle Entitlement for Recipient
+        const recipientHasHuddle = await hasFeature(friendId, 'huddle');
+        if (!recipientHasHuddle) {
+          const err = new Error("One or more invited friends do not have Huddle enabled on their account.");
+          err.code = 'RECIPIENT_FEATURE_NOT_ENABLED';
+          throw err;
+        }
+
         const friendProfile = await getRealUserProfile(friendId) || { id: friendId, name: 'Friend' };
         invitedFriendsList.push(friendProfile);
 
@@ -406,8 +416,17 @@ export const huddleService = {
       const now = new Date();
       const newInvitations = [];
 
+      const { hasFeature } = await import('./entitlements.js');
       for (const friendId of friendIds) {
         if (!friendId || friendId === user.id) continue;
+
+        // Enforce Huddle Entitlement for Recipient
+        const recipientHasHuddle = await hasFeature(friendId, 'huddle');
+        if (!recipientHasHuddle) {
+          const err = new Error("One or more invited friends do not have Huddle enabled on their account.");
+          err.code = 'RECIPIENT_FEATURE_NOT_ENABLED';
+          throw err;
+        }
 
         // Requirement 14: Do not allow inviting users who are already participants
         if (huddle.participants.some(p => p.id === friendId)) {
@@ -508,6 +527,15 @@ export const huddleService = {
       // 3. User is already in participants -> return current state
       if (target.participants.some(p => p.id === user.id)) {
         return sanitizeHuddle(target, user.id);
+      }
+
+      // Re-check entitlement at join time
+      const { hasFeature } = await import('./entitlements.js');
+      const canJoinHuddle = await hasFeature(user.id, 'huddle');
+      if (!canJoinHuddle) {
+        const err = new Error("You do not have Huddle enabled on your account.");
+        err.code = 'RECIPIENT_FEATURE_NOT_ENABLED';
+        throw err;
       }
 
       // 4. One Active Huddle Rule (Requirement 10)

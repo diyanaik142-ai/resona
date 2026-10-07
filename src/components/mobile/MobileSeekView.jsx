@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { Search, X, MoreVertical, Play, Sparkles, Music, Disc } from 'lucide-react';
 import { resolveMediaUrl,  api } from '../../services/api';
@@ -5,12 +6,33 @@ import Avatar from '../Avatar';
 
 export default function MobileSeekView({
   catalog = [],
-  onPlayTrack,
+  
   onOpenTrackActions,
-  currentTrack,
-  isPlaying,
+  
+  
   onNavigate
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   

@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import {
   Users, Radio, Pin, PinOff, Sparkles, MessageCircle, MoreVertical,
@@ -14,13 +15,33 @@ export default function MobileSocialView({
   activeHuddle,
   setActiveHuddle,
   setShowHuddleRoom,
-  currentTrack,
+  
   onInitiateHuddle,
   onOpenHuddleRoom,
   fusionsList = [],
   setFusionsList,
-  onPlayTrack
-}) {
+  }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [activeTab, setActiveTab] = useState('Friends & Following'); // 'Friends & Following' | 'Activity' | 'Shared With' | 'Fusion' | 'Huddle'
   const [showStartHuddleModal, setShowStartHuddleModal] = useState(false);
   const [friends, setFriends] = useState([]);

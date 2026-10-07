@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React, { useState } from 'react';
 import {
   ChevronDown, MoreVertical, Play, Pause, SkipBack, SkipForward,
@@ -8,28 +9,45 @@ import BeatCodeQR from '../BeatCodeQR';
 
 import { resolveMediaUrl } from '../../services/api';
 export default function MobileOnAirView({
-  currentTrack,
-  isPlaying,
-  onTogglePlay,
+  
+  
+  
   onNext,
   onPrev,
   onClose,
-  currentTime = 0,
-  duration = 225,
-  onSeek,
+      
   isLiked,
   onToggleLike,
-  isShuffle,
-  onToggleShuffle,
-  isLoop,
-  onToggleLoop,
+  
+  
+  
+  
   onToast,
   onNavigate,
-  playQueue = [],
-  onRemoveFromQueue,
-  onClearQueue,
-  onReorderQueue
-}) {
+    
+  
+  }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [showQueue, setShowQueue] = useState(false);
   const [showBeatCode, setShowBeatCode] = useState(false);
   const [activeTab, setActiveTab] = useState('Player'); // 'Player' | 'Lyrics'

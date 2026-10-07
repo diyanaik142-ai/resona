@@ -51,6 +51,9 @@ function getTrackMeta(track) {
   return {
     artist: trackKey(track.artist),
     genre: trackKey(track.genre),
+    genres: Array.isArray(track.genres) ? track.genres.map(trackKey) : [],
+    subgenres: Array.isArray(track.subgenres) ? track.subgenres.map(trackKey) : [],
+    album: trackKey(track.album),
     title: trackKey(track.title)
   };
 }
@@ -106,7 +109,9 @@ function buildTasteProfile(shelf, catalog) {
     const weighted = weight * recent;
     addScore(tracks, event.trackId, weighted);
     addScore(artists, meta.artist, weighted);
-    addScore(genres, meta.genre, weighted);
+    if (meta.genre) addScore(genres, meta.genre, weighted);
+    for (const g of meta.genres) addScore(genres, g, weighted * 0.8);
+    for (const sg of meta.subgenres) addScore(genres, sg, weighted * 0.6);
     if (event.type === 'SKIP') addScore(skippedTracks, event.trackId, Math.abs(weighted));
   }
 
@@ -116,7 +121,9 @@ function buildTasteProfile(shelf, catalog) {
     const meta = getTrackMeta(track);
     addScore(tracks, likedId, 6);
     addScore(artists, meta.artist, 4);
-    addScore(genres, meta.genre, 4);
+    if (meta.genre) addScore(genres, meta.genre, 4);
+    for (const g of meta.genres) addScore(genres, g, 3.5);
+    for (const sg of meta.subgenres) addScore(genres, sg, 3);
   }
 
   for (const playlist of shelf.playlists || []) {
@@ -126,7 +133,9 @@ function buildTasteProfile(shelf, catalog) {
       const meta = getTrackMeta(track);
       addScore(tracks, trackId, 2.5);
       addScore(artists, meta.artist, 1.7);
-      addScore(genres, meta.genre, 1.7);
+      if (meta.genre) addScore(genres, meta.genre, 1.7);
+      for (const g of meta.genres) addScore(genres, g, 1.5);
+      for (const sg of meta.subgenres) addScore(genres, sg, 1.2);
     }
   }
 
@@ -149,7 +158,14 @@ function scoreCatalog(catalog, shelf, taste) {
     const liked = (shelf.likedTrackIds || []).includes(track.id);
     const baseTrack = taste.tracks[track.id] || 0;
     const artistScore = taste.artists[meta.artist] || 0;
-    const genreScore = taste.genres[meta.genre] || 0;
+    
+    let genreScore = taste.genres[meta.genre] || 0;
+    for (const g of meta.genres) {
+      genreScore += (taste.genres[g] || 0) * 0.8;
+    }
+    for (const sg of meta.subgenres) {
+      genreScore += (taste.genres[sg] || 0) * 0.6;
+    }
     const skipPenalty = taste.skippedTracks[track.id] || 0;
     const freshness = Math.max(0, 1 - ((Date.now() - new Date(track.createdAt || 0).getTime()) / (1000 * 60 * 60 * 24 * 90)));
     const familiarCap = recentSet.has(track.id) ? 0.55 : 1;
@@ -178,10 +194,12 @@ function makeMixes(scoredTracks, taste) {
   return seeds.map((seed, idx) => {
     const tracks = scoredTracks.filter((track) => {
       const meta = getTrackMeta(track);
-      return seed.type === 'artist' ? meta.artist === seed.key : meta.genre === seed.key;
+      if (seed.type === 'artist') return meta.artist === seed.key;
+      return meta.genre === seed.key || meta.genres.includes(seed.key) || meta.subgenres.includes(seed.key);
     }).concat(scoredTracks.filter((track) => {
       const meta = getTrackMeta(track);
-      return seed.type === 'artist' ? meta.artist !== seed.key && track.signals.genre > 0 : meta.genre !== seed.key && track.signals.artist > 0;
+      if (seed.type === 'artist') return meta.artist !== seed.key && track.signals.genre > 0;
+      return meta.genre !== seed.key && !meta.genres.includes(seed.key) && !meta.subgenres.includes(seed.key) && track.signals.artist > 0;
     })).filter((track, pos, arr) => arr.findIndex((entry) => entry.id === track.id) === pos).slice(0, 12);
 
     if (tracks.length < 2 && scoredTracks.length > 1) return null;
@@ -190,9 +208,22 @@ function makeMixes(scoredTracks, taste) {
       tracks.push(tracks.shift());
     }
     if (tracks[0]) usedTopTracks.add(tracks[0].id);
-    const label = seed.type === 'artist'
-      ? tracks.find((track) => getTrackMeta(track).artist === seed.key)?.artist || 'Artist'
-      : tracks.find((track) => getTrackMeta(track).genre === seed.key)?.genre || 'Genre';
+    
+    let label = 'Genre';
+    if (seed.type === 'artist') {
+      label = tracks.find((track) => getTrackMeta(track).artist === seed.key)?.artist || 'Artist';
+    } else {
+      const t = tracks.find((track) => {
+        const m = getTrackMeta(track);
+        return m.genre === seed.key || m.genres.includes(seed.key) || m.subgenres.includes(seed.key);
+      });
+      label = t?.genre || seed.key; // Fallback to seed.key which is the genre name (lowercased though, ideally we format it)
+      if (t) {
+        if (getTrackMeta(t).genres.includes(seed.key)) label = (t.genres || []).find(g => String(g).toLowerCase() === seed.key) || seed.key;
+        else if (getTrackMeta(t).subgenres.includes(seed.key)) label = (t.subgenres || []).find(sg => String(sg).toLowerCase() === seed.key) || seed.key;
+      }
+      label = label.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
 
     return {
       id: `daily_dose_${idx + 1}_${seed.type}_${seed.key.replace(/[^a-z0-9_]/g, '_')}`,

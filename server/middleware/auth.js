@@ -18,7 +18,18 @@ export async function requireAuth(req, res, next) {
 
     // 1. Try Firebase ID Token verification
     try {
-      const decodedFirebase = await getAuth().verifyIdToken(token);
+      const decodedFirebase = await getAuth().verifyIdToken(token, true); // true checks if revoked
+
+      // Session Validation
+      const sessionId = req.headers['x-session-id'];
+      if (sessionId) {
+        let sessions = (await getAccountData(decodedFirebase.uid, 'sessions.json')) || [];
+        const activeSession = sessions.find(s => s.id === sessionId);
+        if (!activeSession || activeSession.revokedAt) {
+          return res.status(401).json({ error: 'SESSION_REVOKED' });
+        }
+      }
+
       let profile = await getAccountData(decodedFirebase.uid, 'profile.json');
       const { db } = await import('../firebaseAdmin.js');
       
@@ -67,6 +78,16 @@ export async function requireAuth(req, res, next) {
           }
 
           const account = await findAccountById(decoded.id);
+          
+          const sessionId = req.headers['x-session-id'];
+          if (sessionId && account) {
+            let sessions = (await getAccountData(account.id, 'sessions.json')) || [];
+            const activeSession = sessions.find(s => s.id === sessionId);
+            if (!activeSession || activeSession.revokedAt) {
+              return res.status(401).json({ error: 'SESSION_REVOKED' });
+            }
+          }
+
           if (account) {
             const accProfile = (await getAccountData(account.id, 'profile.json')) || {};
             req.user = {

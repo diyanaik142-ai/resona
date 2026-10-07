@@ -92,3 +92,30 @@ export function computeEntitlements(plan, userOverrides = {}, globalFeatureMap =
   }
   return { planFeatures, features, overrides };
 }
+
+// Ensure dynamic imports to avoid circular dependencies for DB storage
+export async function getUserFeatureEntitlements(userId) {
+  const { getAccountData, getGlobalData } = await import('../db/storage.js');
+  const { getPlatformSettings, getGlobalFeatureMap } = await import('./platformSettings.js');
+  
+  const profile = (await getAccountData(userId, 'profile.json')) || {};
+  const planId = profile.planId || 'resona';
+
+  const platform = await getPlatformSettings();
+  const globalFeatures = getGlobalFeatureMap(platform);
+
+  const plansData = (await getGlobalData('plans.json')) || {};
+  const normalizedPlans = normalizePlans(plansData);
+  const planConfig = normalizedPlans[planId] || {};
+
+  const overridesData = (await getGlobalData('entitlement_overrides.json')) || {};
+  const userOverrides = overridesData[userId] || {};
+
+  return computeEntitlements(planConfig, userOverrides, globalFeatures);
+}
+
+export async function hasFeature(userId, featureId) {
+  const result = await getUserFeatureEntitlements(userId);
+  if (!result) return false;
+  return result.features[featureId] === true;
+}

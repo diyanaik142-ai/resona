@@ -1,9 +1,31 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { resolveMediaUrl,  api } from '../services/api';
 import { Search, Bell, Play, Sparkles, X, ShieldCheck, Database, Music, Heart, Radio } from 'lucide-react';
 
-export default function PulseView({ onPlayTrack, onNavigate, onOpenNotifications, unreadCount = 0 }) {
+export default function PulseView({  onNavigate, onOpenNotifications, unreadCount = 0 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { user, shelf , catalog} = useAuth();
   const [activeChip, setActiveChip] = useState('All');
   const [showNotifications, setShowNotifications] = useState(false);

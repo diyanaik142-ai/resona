@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import { createNotification } from '../services/notificationService.js';
+import { logSecurityEvent } from '../services/securityService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -396,7 +397,40 @@ router.put('/preferences', async (req, res) => {
 router.get('/sessions', async (req, res) => {
   try {
     const sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
-    return res.json(sessions);
+    const currentSessionId = req.headers['x-session-id'];
+    
+    const activeSessions = sessions
+      .filter(s => !s.revokedAt)
+      .map(s => ({
+        ...s,
+        isCurrent: s.id === currentSessionId
+      }));
+      
+    return res.json(activeSessions);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/user/sessions/:id
+ * Revoke a specific session
+ */
+router.delete('/sessions/:id', async (req, res) => {
+  try {
+    const sessionIdToRevoke = req.params.id;
+    let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
+    
+    sessions = sessions.map(s => {
+      if (s.id === sessionIdToRevoke && !s.revokedAt) {
+        return { ...s, revokedAt: new Date().toISOString() };
+      }
+      return s;
+    });
+    
+    await saveAccountData(req.user.id, 'sessions.json', sessions);
+    await logSecurityEvent(req.user.id, 'session_revoked', { device: req.headers['user-agent'] });
+    return res.json({ message: 'Session revoked successfully' });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -408,21 +442,23 @@ router.get('/sessions', async (req, res) => {
  */
 router.delete('/sessions/others', async (req, res) => {
   try {
-    let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
-    // Keep only the current session
-    sessions = sessions.filter((s) => s.isCurrent);
-    if (sessions.length === 0) {
-      sessions = [
-        {
-          id: `sess_${Date.now()}`,
-          deviceName: 'Current Browser Session',
-          location: 'Active Now',
-          isCurrent: true,
-          lastActive: new Date().toISOString()
-        }
-      ];
+    const currentSessionId = req.headers['x-session-id'];
+    if (!currentSessionId) {
+      return res.status(400).json({ error: 'Missing current session ID.' });
     }
+    
+    let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
+    const now = new Date().toISOString();
+    
+    sessions = sessions.map(s => {
+      if (s.id !== currentSessionId && !s.revokedAt) {
+        return { ...s, revokedAt: now };
+      }
+      return s;
+    });
+    
     await saveAccountData(req.user.id, 'sessions.json', sessions);
+    await logSecurityEvent(req.user.id, 'all_sessions_revoked', { device: req.headers['user-agent'] });
     return res.json({ message: 'Signed out of all other devices', sessions });
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -612,5 +648,18 @@ router.delete('/followers/:handle', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
+
+  /**
+   * GET /api/user/security/events
+   * Retrieve security events
+   */
+  router.get('/security/events', async (req, res) => {
+    try {
+      const events = (await getAccountData(req.user.id, 'security_events.json')) || [];
+      return res.json(events);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
 
 export default router;

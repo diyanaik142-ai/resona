@@ -1,27 +1,12 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { requireFeature } from '../middleware/entitlements.js';
 import { huddleService } from '../services/huddleService.js';
 import { getPlatformSettings } from '../services/platformSettings.js';
 
 const router = express.Router();
 router.use(requireAuth);
-
-/**
- * Middleware to check if social huddles are enabled in platform settings
- */
-async function checkHuddleEnabled(req, res, next) {
-  try {
-    const settings = await getPlatformSettings();
-    if (settings.social?.enableHuddle === false) {
-      return res.status(403).json({ error: 'Social Huddles are currently disabled by platform administrator.' });
-    }
-    next();
-  } catch (err) {
-    next();
-  }
-}
-
-router.use(checkHuddleEnabled);
+router.use(requireFeature('huddle'));
 
 /**
  * GET /api/social/huddle/active
@@ -63,7 +48,9 @@ router.post('/create', async (req, res) => {
     const huddle = await huddleService.createHuddle(req.user, { name, mode, initialTrackId, invitedFriendIds });
     return res.status(201).json({ success: true, huddle });
   } catch (err) {
-    const status = err.code === 'ALREADY_IN_HUDDLE' ? 409 : 400;
+    let status = 400;
+    if (err.code === 'ALREADY_IN_HUDDLE') status = 409;
+    if (err.code === 'RECIPIENT_FEATURE_NOT_ENABLED') status = 403;
     return res.status(status).json({
       error: err.message,
       code: err.code,
@@ -82,7 +69,8 @@ router.post('/invite', async (req, res) => {
     const huddle = await huddleService.inviteFriends(req.user, huddleId, friendIds);
     return res.json({ success: true, huddle });
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    const status = err.code === 'RECIPIENT_FEATURE_NOT_ENABLED' ? 403 : 400;
+    return res.status(status).json({ error: err.message, code: err.code });
   }
 });
 

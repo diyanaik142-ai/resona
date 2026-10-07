@@ -1,16 +1,38 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React from 'react';
 import { Play, Pause, MoreVertical, Music, Sparkles, Clock, Compass, Disc } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/api';
 export default function MobilePulseView({
   catalog = [],
-  currentTrack,
-  isPlaying,
-  onPlayTrack,
+  
+  
+  
   onOpenTrackActions,
   onNavigate,
   user
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const hasTracks = Array.isArray(catalog) && catalog.length > 0;
   
   // Categorize real catalog into curated mobile rails

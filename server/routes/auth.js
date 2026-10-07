@@ -11,9 +11,11 @@ import {
   saveAccountData
 } from '../db/storage.js';
 import { requireAuth } from '../middleware/auth.js';
+import { logSecurityEvent } from '../services/securityService.js';
 
 import { getPlatformSettings } from '../services/platformSettings.js';
 import { ensureProfilePlan } from '../services/userService.js';
+import { getUserFeatureEntitlements } from '../services/entitlements.js';
 
 const router = express.Router();
 
@@ -155,7 +157,12 @@ router.get('/me', requireAuth, async (req, res) => {
   try {
     const profile = await getAccountData(req.user.id, 'profile.json');
     const preferences = await getAccountData(req.user.id, 'preferences.json');
-    return res.json({ user: profile, preferences });
+    const entitlements = await getUserFeatureEntitlements(req.user.id);
+    
+    // Ensure the profile's planId accurately reflects what's in use
+    const updatedProfile = { ...profile, entitlements };
+    
+    return res.json({ user: updatedProfile, preferences });
   } catch (err) {
     console.error('[Auth Me Error]', err);
     return res.status(500).json({ error: 'Failed to retrieve user data.' });
@@ -195,7 +202,22 @@ router.post('/change-password', requireAuth, async (req, res) => {
     // Update with new encrypted password
     await updateAccountPassword(req.user.id, newPassword);
 
-    return res.json({ message: 'Password has been securely updated and re-encrypted.' });
+    // Revoke all other sessions
+    const sessionId = req.headers['x-session-id'];
+    let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
+    const now = new Date().toISOString();
+    
+    sessions = sessions.map(s => {
+      if (s.id !== sessionId && !s.revokedAt) {
+        return { ...s, revokedAt: now };
+      }
+      return s;
+    });
+    
+    await saveAccountData(req.user.id, 'sessions.json', sessions);
+    await logSecurityEvent(req.user.id, 'password_changed', { device: req.headers['user-agent'] });
+
+    return res.json({ message: 'Password has been securely updated and re-encrypted. Other devices were signed out.' });
   } catch (err) {
     console.error('[Change Password Error]', err);
     return res.status(500).json({ error: 'Failed to change password.' });
@@ -208,12 +230,79 @@ router.post('/change-password', requireAuth, async (req, res) => {
  */
 router.post('/logout', requireAuth, async (req, res) => {
   try {
+    const sessionId = req.headers['x-session-id'];
     let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
-    sessions = sessions.map((s) => ({ ...s, isCurrent: false }));
+    
+    if (sessionId) {
+      sessions = sessions.map(s => s.id === sessionId ? { ...s, revokedAt: new Date().toISOString() } : s);
+    } else {
+      sessions = sessions.map((s) => ({ ...s, isCurrent: false }));
+    }
+    
     await saveAccountData(req.user.id, 'sessions.json', sessions);
+    if (sessionId) {
+      await logSecurityEvent(req.user.id, 'session_revoked', { isLogout: true, device: req.headers['user-agent'] });
+    }
     return res.json({ message: 'Signed out successfully.' });
   } catch (err) {
     return res.status(500).json({ error: 'Logout failed.' });
+  }
+});
+
+/**
+ * Create a new device session (used after Firebase authentication)
+ * POST /api/auth/session
+ */
+router.post('/session', requireAuth, async (req, res) => {
+  try {
+    const { deviceName } = req.body;
+    let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
+    
+    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const newSession = {
+      id: sessionId,
+      deviceName: deviceName || req.headers['user-agent'] || 'Unknown Device',
+      createdAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
+      revokedAt: null
+    };
+    
+    sessions.unshift(newSession);
+    await saveAccountData(req.user.id, 'sessions.json', sessions.slice(0, 10)); // keep last 10
+    
+    await logSecurityEvent(req.user.id, 'new_login', { device: newSession.deviceName, ip: req.ip });
+
+    return res.json({ sessionId });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to create session.' });
+  }
+});
+
+/**
+ * Revoke all other sessions (used on password change)
+ * POST /api/auth/session/revoke-others
+ */
+router.post('/session/revoke-others', requireAuth, async (req, res) => {
+  try {
+    const currentSessionId = req.headers['x-session-id'];
+    if (!currentSessionId) {
+      return res.status(400).json({ error: 'Missing current session ID.' });
+    }
+    
+    let sessions = (await getAccountData(req.user.id, 'sessions.json')) || [];
+    const now = new Date().toISOString();
+    
+    sessions = sessions.map(s => {
+      if (s.id !== currentSessionId && !s.revokedAt) {
+        return { ...s, revokedAt: now };
+      }
+      return s;
+    });
+    
+    await saveAccountData(req.user.id, 'sessions.json', sessions);
+    return res.json({ message: 'Other sessions have been revoked.' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to revoke other sessions.' });
   }
 });
 

@@ -1,3 +1,4 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,28 @@ import Avatar from './Avatar';
 import { resolveMediaUrl,  api } from '../services/api';
 import { Users, QrCode, Share2, Radio, MessageCircle, Heart, X, Copy, Send, Check, ChevronRight, Layers, Image as ImageIcon, Camera, MoreHorizontal, Download, Plus, Bell, LogOut, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
 
-export default function SocialView({ onPlayTrack, onNavigate, activeHuddle, setActiveHuddle, setShowHuddleRoom, fusionsList = [], setFusionsList }) {
+export default function SocialView({  onNavigate, activeHuddle, setActiveHuddle, setShowHuddleRoom, fusionsList = [], setFusionsList }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const { user, shelf , catalog} = useAuth();
   const [activeSubTab, setActiveSubTab] = useState('Friends & Profile');
   const [showStartHuddleModal, setShowStartHuddleModal] = useState(false);

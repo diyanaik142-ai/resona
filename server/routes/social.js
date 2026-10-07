@@ -1,5 +1,6 @@
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { requireFeature } from '../middleware/entitlements.js';
 import { getAccountData, saveAccountData } from '../db/storage.js';
 import { getPlatformSettings } from '../services/platformSettings.js';
 import { getAllRealUsers, getRealUserProfile } from '../services/userService.js';
@@ -224,7 +225,7 @@ router.post('/notifications/:id/action', async (req, res) => {
  * GET /api/social/fusions
  * Get all Fusions for the current user
  */
-router.get('/fusions', async (req, res) => {
+router.get('/fusions', requireFeature('fusion'), async (req, res) => {
   try {
     const fusions = await fusionService.getUserFusions(req.user.id);
     
@@ -249,7 +250,7 @@ router.get('/fusions', async (req, res) => {
  * POST /api/social/fusions
  * Create a new Fusion with selected friends
  */
-router.post('/fusions', async (req, res) => {
+router.post('/fusions', requireFeature('fusion'), async (req, res) => {
   try {
     const { participantIds } = req.body;
     if (!Array.isArray(participantIds) || participantIds.length === 0) {
@@ -259,6 +260,9 @@ router.post('/fusions', async (req, res) => {
     const newFusion = await fusionService.createFusion(req.user.id, participantIds);
     return res.json({ fusion: newFusion });
   } catch (err) {
+    if (err.code === 'RECIPIENT_FEATURE_NOT_ENABLED') {
+      return res.status(403).json({ error: err.message, code: err.code });
+    }
     return res.status(500).json({ error: err.message });
   }
 });
@@ -267,7 +271,7 @@ router.post('/fusions', async (req, res) => {
  * GET /api/social/fusions/:id
  * Get a specific Fusion
  */
-router.get('/fusions/:id', async (req, res) => {
+router.get('/fusions/:id', requireFeature('fusion'), async (req, res) => {
   try {
     const fusion = await fusionService.getFusion(req.params.id, req.user.id);
     const participantProfiles = await Promise.all(

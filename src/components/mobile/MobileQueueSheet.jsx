@@ -1,3 +1,4 @@
+import { usePlayer } from '../../context/PlayerContext';
 import React from 'react';
 import { X, Play, Music, Trash2, Radio, GripVertical } from 'lucide-react';
 import { Reorder, useDragControls } from 'framer-motion';
@@ -62,13 +63,33 @@ function DraggableQueueItem({ t, idx, onPlayTrack, onClose, onRemoveFromQueue })
 export default function MobileQueueSheet({
   isOpen,
   onClose,
-  currentTrack,
+  
   queue = [],
-  onPlayTrack,
-  onRemoveFromQueue,
-  onClearQueue,
-  onReorderQueue
-}) {
+  
+  
+  
+  }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   if (!isOpen) return null;
 
   return (

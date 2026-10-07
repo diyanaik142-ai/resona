@@ -1,4 +1,3 @@
-import { usePlayer } from './context/PlayerContext';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import { initPushNotifications } from './services/pushService';
@@ -22,6 +21,7 @@ import HuddleView from './components/HuddleView';
 import NotificationDrawer from './components/NotificationDrawer';
 import { joinHuddleRoom, leaveHuddleRoom, subscribeHuddleEvent, registerSocketUser } from './services/huddleSocket';
 import { resolveMediaUrl,  api } from './services/api';
+import { App as CapacitorApp } from '@capacitor/app';
 
 // Dedicated Mobile Experience (< 768px)
 import MobileHeader from './components/mobile/MobileHeader';
@@ -52,9 +52,7 @@ import {
 
 
 export default function App() {
-  const { currentTrack, playTrack, setQueue } = usePlayer();
-
-  const { user, shelf, creatorData, isAuthenticated, loading, logout, toggleLikeTrack, catalog } = useAuth();
+  const { user, shelf, creatorData, isAuthenticated, loading, logout, toggleLikeTrack, catalog, refreshPlan } = useAuth();
 
   // Platform Global Config (Maintenance, Registration policy, Branding)
   const [platformConfig, setPlatformConfig] = useState(null);
@@ -145,84 +143,7 @@ export default function App() {
   }, [isAuthenticated, wasAuthenticated]);
 
   // Audio Playback State
-  const [toastMsg, setToastMsg] = useState(null);
-
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
-  };
-
-  const deepLinkResolvedRef = useRef(false);
-
-  useEffect(() => {
-    if (catalog.length > 0 && typeof window !== 'undefined' && !deepLinkResolvedRef.current) {
-      deepLinkResolvedRef.current = true;
-      const path = window.location.pathname.replace(/^\/+/, '');
-      if (path.startsWith('song/')) {
-        const trackId = path.split('/')[1];
-        const t = catalog.find(tr => tr.id === trackId);
-        if (t) {
-          playTrack(t);
-        } else {
-          showToast('Song unavailable');
-          setActiveTab('pulse');
-        }
-        // clear the URL so it doesn't loop
-        window.history.replaceState({ tab: 'onair' }, '', '/onair');
-      }
-    }
-  });
-
-  const handleAddToQueue = (track) => {
-    if (!track) return;
-    
-    try {
-      const queuedTrack = { ...track, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` };
-      setPlayQueue(prev => [...prev, queuedTrack]);
-      showToast(`Added to queue — ${track.title}`);
-    } catch (err) {
-      showToast("Couldn't add to queue");
-    }
-  };
-
-  const handleAddToHuddleQueue = async (track) => {
-    if (!track || !activeHuddle) return;
-    try {
-      await api.huddle.addToQueue(activeHuddle.id, { trackId: track.id });
-      showToast(`Added to Huddle Queue — ${track.title}`);
-      setMobileTrackAction(null);
-    } catch (err) {
-      showToast("Couldn't add to Huddle Queue");
-    }
-  };
-
-  const handleRemoveFromQueue = (identifier) => {
-    setPlayQueue(prev => {
-      const next = prev.filter(t => (t.queueItemId || t.id) !== identifier);
-      if (next.length !== prev.length) {
-        showToast("Removed from queue");
-      }
-      return next;
-    });
-  };
-
-  const handleClearQueue = () => {
-    setPlayQueue([]);
-    showToast("Queue cleared");
-  };
-
-  const handleReorderQueue = (newQueue) => {
-    setPlayQueue(newQueue);
-  };
-
-  // Synchronize Real-time Notifications & Presence
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id || user?.role === 'admin') {
-      setNotifications([]);
-      return;
-    }
-
-    // Register user presence & personal room
+      // Register user presence & personal room
     registerSocketUser(user.id);
     
     // Initialize native push notifications (Capacitor)
@@ -236,6 +157,9 @@ export default function App() {
     // Listen to real-time events
     const unsubNotif = subscribeHuddleEvent('notification_received', (newNotif) => {
       setNotifications(prev => [newNotif, ...prev.filter(n => n.id !== newNotif.id)]);
+      if (newNotif.type === 'plan_change') {
+        refreshPlan().catch(console.error);
+      }
     });
 
     const unsubInvite = subscribeHuddleEvent('huddle_invitation', (inviteData) => {
@@ -326,7 +250,9 @@ export default function App() {
     });
 
     const unsubEnded = subscribeHuddleEvent('huddle_ended', (updated) => {
-      setActiveHuddle(updated);
+      setActiveHuddle(null);
+      setShowHuddleRoom(false);
+      showToast('Huddle session has ended.');
     });
 
     return () => {
@@ -550,34 +476,47 @@ export default function App() {
   const renderCurrentView = () => {
     switch (activeTab) {
       case 'pulse':
-        return <PulseView onNavigate={setActiveTab} onOpenNotifications={() => setShowNotificationDrawer(true)} unreadCount={unreadNotificationsCount} />;
+        return <PulseView onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} onOpenNotifications={() => setShowNotificationDrawer(true)} unreadCount={unreadNotificationsCount} />;
       case 'seek':
         return (
           <SeekView
+            onPlayTrack={handlePlayTrack}
             query={searchQuery}
             setQuery={setSearchQuery}
             onNavigate={setActiveTab}
           />
         );
       case 'shelf':
-        return <ShelfView onNavigate={setActiveTab} />;
+        return <ShelfView onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
       case 'onair':
         return (
           <OnAirView
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onTogglePlay={handleTogglePlay}
             onNext={handleNextTrack}
             onPrev={handlePrevTrack}
+            onSeek={handleSeek}
             onNavigate={setActiveTab}
             activeHuddle={activeHuddle}
             setShowHuddleRoom={setShowHuddleRoom}
+            playQueue={playQueue}
+            onRemoveFromQueue={handleRemoveFromQueue}
+            onClearQueue={handleClearQueue}
+            onReorderQueue={handleReorderQueue}
+            onPlayTrack={handlePlayTrack}
           />
         );
       case 'tuned':
-        return <TunedForYouView />;
+        return <TunedForYouView onPlayTrack={handlePlayTrack} />;
       case 'curated':
-        return <CuratedExperiencesView />;
+        return <CuratedExperiencesView onPlayTrack={handlePlayTrack} />;
       case 'social':
         return (
           <SocialView
+            onPlayTrack={handlePlayTrack}
             onNavigate={setActiveTab}
             activeHuddle={activeHuddle}
             setActiveHuddle={setActiveHuddle}
@@ -588,20 +527,21 @@ export default function App() {
         );
 
       case 'creator':
-        return <CreatorHubView />;
+        return <CreatorHubView onPlayTrack={handlePlayTrack} />;
       case 'settings':
       case 'profile':
         return <SettingsView onNavigate={setActiveTab} />;
       default:
         if (activeTab.startsWith('profile/')) {
           const username = activeTab.split('/')[1];
-          return <PublicProfileView username={username} onNavigate={setActiveTab} />;
+          return <PublicProfileView username={username} onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
         }
         if (activeTab.startsWith('playlist/')) {
           const pId = activeTab.split('/')[1];
           return (
             <PlaylistView 
               playlistId={pId}
+              onPlayTrack={handlePlayTrack}
               onPlayPlaylist={(tracks, shuffle) => {
                 if (!tracks || tracks.length === 0) return;
                 let toPlay = [...tracks];
@@ -609,11 +549,13 @@ export default function App() {
                 handlePlayTrack(toPlay[0]);
                 setPlayQueue(toPlay.map(t => ({ ...t, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` })));
               }}
+              isPlaying={isPlaying}
+              currentTrack={currentTrack}
               onNavigate={setActiveTab}
             />
           );
         }
-        return <PulseView onNavigate={setActiveTab} onOpenNotifications={() => setShowNotificationDrawer(true)} unreadCount={unreadNotificationsCount} />;
+        return <PulseView onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} onOpenNotifications={() => setShowNotificationDrawer(true)} unreadCount={unreadNotificationsCount} />;
     }
   };
 
@@ -624,6 +566,7 @@ export default function App() {
         return (
           <MobilePulseView
             catalog={catalog}
+            onPlayTrack={handlePlayTrack}
             onNavigate={setActiveTab}
             onOpenTrackActions={(track) => setMobileTrackAction(track)}
           />
@@ -632,6 +575,7 @@ export default function App() {
         return (
           <MobileSeekView
             catalog={catalog}
+            onPlayTrack={handlePlayTrack}
             onOpenTrackActions={(track) => setMobileTrackAction(track)}
             query={searchQuery}
             setQuery={setSearchQuery}
@@ -643,6 +587,7 @@ export default function App() {
           <MobileShelfView
             shelf={shelf}
             catalog={catalog}
+            onPlayTrack={handlePlayTrack}
             onOpenTrackActions={(track) => setMobileTrackAction(track)}
             onNavigate={setActiveTab}
           />
@@ -650,17 +595,29 @@ export default function App() {
       case 'onair':
         return (
           <MobileOnAirView
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            onTogglePlay={handleTogglePlay}
             onNext={handleNextTrack}
             onPrev={handlePrevTrack}
+            onSeek={handleSeek}
             onNavigate={setActiveTab}
             isCurrentLiked={isCurrentLiked}
             onToggleLike={() => currentTrack && toggleLikeTrack(currentTrack.id)}
+            isShuffle={isShuffle}
             onToggleShuffle={() => setIsShuffle(!isShuffle)}
+            isLoop={isLoop}
             onToggleLoop={() => setIsLoop(!isLoop)}
             onOpenQueue={() => setShowMobileQueue(true)}
             activeHuddle={activeHuddle}
             onOpenHuddle={() => setShowHuddleRoom(true)}
             onToast={showToast}
+            playQueue={playQueue}
+            onRemoveFromQueue={handleRemoveFromQueue}
+            onClearQueue={handleClearQueue}
+            onReorderQueue={handleReorderQueue}
           />
         );
       case 'social':
@@ -671,13 +628,15 @@ export default function App() {
             activeHuddle={activeHuddle}
             setActiveHuddle={setActiveHuddle}
             setShowHuddleRoom={setShowHuddleRoom}
+            currentTrack={currentTrack}
             onOpenHuddleRoom={() => setShowHuddleRoom(true)}
             fusionsList={fusionsList}
             setFusionsList={setFusionsList}
+            onPlayTrack={handlePlayTrack}
           />
         );
       case 'creator':
-        return <MobileCreatorHubView />;
+        return <MobileCreatorHubView onPlayTrack={handlePlayTrack} />;
       case 'settings':
         return (
           <MobileSettingsView
@@ -699,13 +658,14 @@ export default function App() {
       default:
         if (activeTab.startsWith('profile/')) {
           const username = activeTab.split('/')[1];
-          return <PublicProfileView username={username} onNavigate={setActiveTab} />;
+          return <PublicProfileView username={username} onPlayTrack={handlePlayTrack} onNavigate={setActiveTab} />;
         }
         if (activeTab.startsWith('playlist/')) {
           const pId = activeTab.split('/')[1];
           return (
             <PlaylistView 
               playlistId={pId}
+              onPlayTrack={handlePlayTrack}
               onPlayPlaylist={(tracks, shuffle) => {
                 if (!tracks || tracks.length === 0) return;
                 let toPlay = [...tracks];
@@ -713,6 +673,8 @@ export default function App() {
                 handlePlayTrack(toPlay[0]);
                 setPlayQueue(toPlay.map(t => ({ ...t, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` })));
               }}
+              isPlaying={isPlaying}
+              currentTrack={currentTrack}
               onNavigate={setActiveTab}
             />
           );
@@ -720,6 +682,7 @@ export default function App() {
         return (
           <MobilePulseView
             catalog={catalog}
+            onPlayTrack={handlePlayTrack}
             onNavigate={setActiveTab}
             onOpenTrackActions={(track) => setMobileTrackAction(track)}
           />
@@ -738,7 +701,13 @@ export default function App() {
       <div className="absolute bottom-1/4 right-1/4 w-72 h-72 md:w-[450px] md:h-[450px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none z-0" />
 
       {/* HTML5 Master Audio Element */}
-      
+      <audio
+        ref={audioRef}
+        src={currentTrack?.audioUrl}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleTrackEnded}
+      />
 
       {/* ============================================================ */}
       {/* DESKTOP EXPERIENCE (>= 768px) - 100% FROZEN & UNCHANGED       */}
@@ -1192,6 +1161,7 @@ export default function App() {
                   setShowHuddleRoom(false);
                   if (activeHuddle && activeHuddle.status === 'ended') setActiveHuddle(null);
                 }}
+                onPlayTrack={handlePlayTrack}
                 catalog={catalog}
                 user={user}
               />
@@ -1243,6 +1213,9 @@ export default function App() {
         {/* Mobile Mini Player (Immediately above bottom nav) */}
         {(currentTrack || (activeHuddle && activeHuddle.status === 'active')) && activeTab !== 'onair' && (
           <MobileMiniPlayer
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            onTogglePlay={handleTogglePlay}
             onOpenOnAir={() => setActiveTab('onair')}
             isLiked={isCurrentLiked}
             onToggleLike={() => currentTrack && toggleLikeTrack(currentTrack.id)}
@@ -1281,6 +1254,7 @@ export default function App() {
                 setShowHuddleRoom(false);
                 if (activeHuddle && activeHuddle.status === 'ended') setActiveHuddle(null);
               }}
+              onPlayTrack={handlePlayTrack}
               onRefreshHuddle={fetchPlatformConfig}
             />
           </div>
@@ -1290,7 +1264,12 @@ export default function App() {
         <MobileQueueSheet
           isOpen={showMobileQueue}
           onClose={() => setShowMobileQueue(false)}
+          currentTrack={currentTrack}
           queue={playQueue.length > 0 ? playQueue : catalog}
+          onPlayTrack={handlePlayTrack}
+          onRemoveFromQueue={handleRemoveFromQueue}
+          onClearQueue={handleClearQueue}
+          onReorderQueue={handleReorderQueue}
         />
 
         {/* Mobile Track Action Sheet */}
@@ -1298,7 +1277,8 @@ export default function App() {
           isOpen={!!mobileTrackAction}
           onClose={() => setMobileTrackAction(null)}
           track={mobileTrackAction}
-          onPlayTrack={(t) => { playTrack(t); setMobileTrackAction(null); }}
+          onPlayTrack={(t) => { handlePlayTrack(t); setMobileTrackAction(null); }}
+          onAddToQueue={handleAddToQueue}
           activeHuddle={activeHuddle}
           onAddToHuddleQueue={handleAddToHuddleQueue}
           isLiked={mobileTrackAction ? shelf?.likedTrackIds?.includes(mobileTrackAction.id) : false}

@@ -1,9 +1,31 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Shuffle, Heart, MoreVertical, ListPlus, ChevronLeft, Disc } from 'lucide-react';
 import { resolveMediaUrl,  api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-export default function PlaylistView({ playlistId, onPlayTrack, onPlayPlaylist, isPlaying, currentTrack, onNavigate }) {
+export default function PlaylistView({ playlistId,  onPlayPlaylist,   onNavigate }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [playlist, setPlaylist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

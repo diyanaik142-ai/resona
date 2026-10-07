@@ -1,8 +1,30 @@
+import { usePlayer } from '../context/PlayerContext';
 import React from 'react';
 import { resolveMediaUrl,  api } from '../services/api';
 import { Play, Sparkles, Sliders } from 'lucide-react';
 
-export default function TunedForYouView({ onPlayTrack }) {
+export default function TunedForYouView({ }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [state, setState] = React.useState({ loading: true, error: '', data: null });
 
   React.useEffect(() => {

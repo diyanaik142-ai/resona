@@ -39,6 +39,7 @@ import admin from '../firebaseAdmin.js';
 import { FEATURE_REGISTRY, FEATURE_CATEGORIES, FEATURE_IDS } from '../../shared/featureRegistry.js';
 import { normalizePlans, computeEntitlements } from '../services/entitlements.js';
 import { getResonaProfile, normalizePlanId, planName } from '../services/userService.js';
+import { createNotification } from '../services/notificationService.js';
 import {
   getPlatformSettings,
   updatePlatformSettings,
@@ -386,18 +387,46 @@ router.put('/users/:id/plan', requireAdmin, async (req, res) => {
       await getAuth().setCustomUserClaims(id, { ...(userRecord.customClaims || {}), planId });
     }
     const planRequests = (await getGlobalData(PLAN_CHANGE_REQUESTS_FILE)) || [];
+    let handledViaRequest = false;
     for (const request of planRequests) {
       if (request.userId === id && request.status === 'pending') {
+        handledViaRequest = true;
         request.status = request.requestedPlan === planId ? 'approved' : 'cancelled';
         request.reviewedAt = new Date().toISOString();
         request.reviewedBy = req.admin.id;
         request.adminNote = request.status === 'approved' ? 'Plan assigned by administrator.' : 'Plan changed by administrator; request closed.';
-        const social = (await getAccountData(id, 'social.json')) || {};
-        social.notifications = Array.isArray(social.notifications) ? social.notifications : [];
-        social.notifications.unshift({ id: randomUUID(), type: 'plan_change', status: 'pending', read: false, title: request.status === 'approved' ? 'Plan change approved' : 'Plan change request closed', message: request.status === 'approved' ? `Your plan change request was approved. Your Resona plan is now ${planName(planId)}.` : `Your plan change request was closed because your plan was changed by an administrator. Your current plan is ${planName(planId)}.`, createdAt: request.reviewedAt, timestamp: request.reviewedAt });
-        await saveAccountData(id, 'social.json', social);
+        
+        await createNotification(id, {
+          type: 'PLAN_CHANGED',
+          title: request.status === 'approved' ? 'Plan change approved' : 'Plan change request closed',
+          message: request.status === 'approved' ? `Your plan change request was approved. Your Resona plan is now ${planName(planId)}.` : `Your plan change request was closed because your plan was changed by an administrator. Your current plan is ${planName(planId)}.`,
+          previousPlan: current.planId,
+          newPlan: planId,
+          timestamp: request.reviewedAt
+        });
+
+        // Still emit via websocket for immediate UX update
+        const io = req.app.get('io');
+        if (io) io.to(`user:${id}`).emit('notification_received', { type: 'PLAN_CHANGED' });
       }
     }
+    
+    if (!handledViaRequest && current.planId !== planId) {
+      const timestamp = new Date().toISOString();
+      
+      await createNotification(id, {
+        type: 'PLAN_CHANGED',
+        title: 'Plan Updated',
+        message: `An administrator has changed your plan to ${planName(planId)}.`,
+        previousPlan: current.planId,
+        newPlan: planId,
+        timestamp
+      });
+
+      const io = req.app.get('io');
+      if (io) io.to(`user:${id}`).emit('notification_received', { type: 'PLAN_CHANGED' });
+    }
+    
     await saveGlobalData(PLAN_CHANGE_REQUESTS_FILE, planRequests);
     await auditAction(req.admin.id, 'UPDATE_PLAN', id, { oldPlan: current.planId, newPlan: planId });
     res.json({ success: true, planId, planName: planName(planId) });
@@ -455,10 +484,18 @@ router.post('/plan-change-requests/:id/review', requireAdmin, async (req, res) =
     await saveGlobalData(PLAN_CHANGE_REQUESTS_FILE, requests);
     await auditAction(req.admin.id, `PLAN_CHANGE_REQUEST_${request.status.toUpperCase()}`, request.userId, { requestId: request.id, oldPlan: profile.planId, requestedPlan: request.requestedPlan, adminNote: request.adminNote });
     const updatedProfile = await getResonaProfile(request.userId) || { ...profile, planId: decision === 'approved' ? normalizePlanId(request.requestedPlan) : profile.planId };
-    const userSocial = (await getAccountData(request.userId, 'social.json')) || {};
-    userSocial.notifications = Array.isArray(userSocial.notifications) ? userSocial.notifications : [];
-    userSocial.notifications.unshift({ id: randomUUID(), type: 'plan_change', status: 'pending', read: false, title: request.status === 'approved' ? 'Plan change approved' : 'Plan change not approved', message: request.status === 'approved' ? `Your plan change request was approved. Your Resona plan is now ${planName(updatedProfile.planId)}.` : `Your plan change request was not approved. Your current plan is ${planName(updatedProfile.planId)}.${request.adminNote ? ` Reason: ${request.adminNote}` : ''}`, createdAt: request.reviewedAt, timestamp: request.reviewedAt });
-    await saveAccountData(request.userId, 'social.json', userSocial);
+    
+    await createNotification(request.userId, {
+      type: 'PLAN_CHANGED',
+      title: request.status === 'approved' ? 'Plan change approved' : 'Plan change not approved',
+      message: request.status === 'approved' ? `Your plan change request was approved. Your Resona plan is now ${planName(updatedProfile.planId)}.` : `Your plan change request was not approved. Your current plan is ${planName(updatedProfile.planId)}.${request.adminNote ? ` Reason: ${request.adminNote}` : ''}`,
+      previousPlan: profile.planId,
+      newPlan: updatedProfile.planId,
+      timestamp: request.reviewedAt
+    });
+    
+    const io = req.app.get('io');
+    if (io) io.to(`user:${request.userId}`).emit('notification_received', { type: 'PLAN_CHANGED' });
     res.json({ request, planId: updatedProfile.planId, planName: planName(updatedProfile.planId) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -636,11 +673,20 @@ router.post('/catalog', requireAdmin, upload.fields([{ name: 'audio', maxCount: 
 
     const defaultStatus = settings.catalog?.requireCatalogApproval ? 'Pending' : 'Published';
 
+    let genres = [];
+    let subgenres = [];
+    try {
+      if (req.body.genres) genres = JSON.parse(req.body.genres);
+      if (req.body.subgenres) subgenres = JSON.parse(req.body.subgenres);
+    } catch (e) {}
+
     const newTrack = {
       id: 'track_' + Date.now(),
       title: req.body.title,
       artist: req.body.artist,
       genre: genreId,
+      genres: Array.isArray(genres) ? genres : [],
+      subgenres: Array.isArray(subgenres) ? subgenres : [],
       duration: req.body.duration || '0:00',
       createdAt: new Date().toISOString(),
       streams: 0,
@@ -665,7 +711,18 @@ router.put('/catalog/:id', requireAdmin, async (req, res) => {
     if (req.body.genre && !isValidGenre(req.body.genre)) {
       return res.status(400).json({ error: 'Invalid genre ID' });
     }
-    const updated = await updateGlobalItem(CATALOG_FILE, req.params.id, req.body);
+    
+    let updateData = { ...req.body };
+    try {
+      if (updateData.genres && typeof updateData.genres === 'string') {
+        updateData.genres = JSON.parse(updateData.genres);
+      }
+      if (updateData.subgenres && typeof updateData.subgenres === 'string') {
+        updateData.subgenres = JSON.parse(updateData.subgenres);
+      }
+    } catch(e) {}
+
+    const updated = await updateGlobalItem(CATALOG_FILE, req.params.id, updateData);
     await auditAction(req.admin.id, 'UPDATE_TRACK', req.params.id, { changes: Object.keys(req.body) });
     res.json(updated);
   } catch (error) {

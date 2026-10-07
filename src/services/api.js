@@ -81,35 +81,36 @@ export const getAuthHeaders = async () => {
     return { 'Content-Type': 'application/json' };
   }
 
+  let headers = {
+    'Content-Type': 'application/json'
+  };
+
+  const sessionId = localStorage.getItem('resona_session_id');
+  if (sessionId) {
+    headers['X-Session-Id'] = sessionId;
+  }
+
   // Obtain fresh Firebase ID token if user is logged in
   if (auth?.currentUser) {
     const token = await auth.currentUser.getIdToken(true);
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
+    headers['Authorization'] = `Bearer ${token}`;
+    return headers;
   }
 
   // Backend routes derive account identity from the Resona JWT.
   const authToken = localStorage.getItem('authToken') || localStorage.getItem('resona_token');
   if (authToken) {
-    return {
-      'Authorization': `Bearer ${authToken}`,
-      'Content-Type': 'application/json'
-    };
+    headers['Authorization'] = `Bearer ${authToken}`;
+    return headers;
   }
 
   const genericToken = localStorage.getItem('token');
   if (genericToken) {
-    return {
-      'Authorization': `Bearer ${genericToken}`,
-      'Content-Type': 'application/json'
-    };
+    headers['Authorization'] = `Bearer ${genericToken}`;
+    return headers;
   }
 
-  return {
-    'Content-Type': 'application/json'
-  };
+  return headers;
 };
 
 
@@ -177,6 +178,15 @@ export const api = {
     logout: async () => {
       const headers = await getAuthHeaders();
       await fetch(`${getApiBaseUrl()}/api/auth/logout`, { method: 'POST', headers });
+    },
+    createSession: async (deviceName) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/session`, {
+        method: 'POST', headers, body: JSON.stringify({ deviceName })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to create session');
+      return json;
     }
   },
 
@@ -351,6 +361,29 @@ export const api = {
       const json = await res.json().catch(() => ([]));
       if (!res.ok) throw new Error(json.error || 'Failed to fetch sessions');
       return json;
+    },
+    getSecurityEvents: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/security/events`, { headers });
+      const json = await res.json().catch(() => ([]));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch security events');
+      return json;
+    },
+    revokeSession: async (sessionId) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/sessions/${sessionId}`, {
+        method: 'DELETE', headers
+      });
+      if (!res.ok) throw new Error('Failed to revoke session');
+      return res.json();
+    },
+    signOutOtherSessions: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/sessions/others`, {
+        method: 'DELETE', headers
+      });
+      if (!res.ok) throw new Error('Failed to sign out of other sessions');
+      return res.json();
     }
   },
 

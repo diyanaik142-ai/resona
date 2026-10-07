@@ -1,9 +1,31 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { Search, Flame, TrendingUp, Play, Mic, Music, Disc } from 'lucide-react';
 import { resolveMediaUrl,  api } from '../services/api';
 import Avatar from './Avatar';
 
-export default function SeekView({ onPlayTrack, onNavigate, query: propQuery, setQuery: propSetQuery }) {
+export default function SeekView({  onNavigate, query: propQuery, setQuery: propSetQuery }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [internalQuery, setInternalQuery] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   

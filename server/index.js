@@ -46,6 +46,7 @@ const io = new SocketIOServer(server, {
   }
 });
 
+app.set('io', io);
 huddleService.init(io);
 
 io.use(async (socket, next) => {

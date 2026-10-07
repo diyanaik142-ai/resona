@@ -1,3 +1,4 @@
+import { usePlayer } from '../context/PlayerContext';
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { 
@@ -25,10 +26,30 @@ export default function StartHuddleModal({
   onClose,
   mode = 'create', // 'create' | 'invite_more'
   activeHuddle = null,
-  currentTrack = null,
   onHuddleCreated,
   onInvited
 }) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    queue: playQueue,
+    playTrack: onPlayTrack,
+    playTrack: handlePlayTrack,
+    togglePlay: onTogglePlay,
+    togglePlay: handleTogglePlay,
+    playNext: onNextTrack,
+    playPrevious: onPrevTrack,
+    seekTo: onSeek,
+    setVolume: onVolumeChange,
+    toggleMute: onToggleMute,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop,
+    addToQueue: onAddToQueue,
+    removeFromQueue: onRemoveFromQueue,
+    setQueue: onReorderQueue,
+    setQueue
+  } = usePlayer();
+  const onClearQueue = () => setQueue([]);
+
   const [friends, setFriends] = useState([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [huddleName, setHuddleName] = useState('');
@@ -47,6 +68,7 @@ export default function StartHuddleModal({
 
   // Active Huddle conflict state
   const [huddleConflict, setHuddleConflict] = useState(null);
+  const [featureConflict, setFeatureConflict] = useState(null);
 
   // Load real friends
   const loadFriends = async () => {
@@ -70,6 +92,7 @@ export default function StartHuddleModal({
       setErrorMessage('');
       setValidationWarning('');
       setHuddleConflict(null);
+      setFeatureConflict(null);
       setShowAddFriendFlow(false);
       setSearchQuery('');
       if (mode === 'create') {
@@ -174,6 +197,7 @@ export default function StartHuddleModal({
     setIsSubmitting(true);
     setErrorMessage('');
     setHuddleConflict(null);
+    setFeatureConflict(null);
 
     try {
       if (mode === 'create') {
@@ -201,6 +225,10 @@ export default function StartHuddleModal({
         setHuddleConflict({
           message: "You're already in an active Huddle.",
           activeHuddle: err.activeHuddle
+        });
+      } else if (err.code === 'RECIPIENT_FEATURE_NOT_ENABLED') {
+        setFeatureConflict({
+          message: err.message
         });
       } else {
         setErrorMessage(err.message || 'Failed to start Huddle');
@@ -258,6 +286,19 @@ export default function StartHuddleModal({
 
         {/* Content Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
+          {/* Feature Entitlement Conflict Banner */}
+          {featureConflict && (
+            <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 flex flex-col gap-2.5">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-purple-200/90 leading-relaxed">
+                  <span className="font-semibold text-purple-300 block">Invitation Unavailable</span>
+                  {featureConflict.message}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Active Huddle Conflict Banner */}
           {huddleConflict && (
             <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col gap-2.5">

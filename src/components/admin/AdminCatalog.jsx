@@ -11,9 +11,79 @@ export default function AdminCatalog() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
-  const [newTrack, setNewTrack] = useState({ title: '', artist: '', genre: 'pop', status: 'Published', duration: '0:00' });
+  const [newTrack, setNewTrack] = useState({ title: '', artist: '', genre: 'pop', genres: [], subgenres: [], status: 'Published', duration: '0:00' });
   const [audioFile, setAudioFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
+
+  const toggleSelection = (arr, item) => arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item];
+  
+  const GenreSelector = ({ track, setTrack, disabled }) => {
+    const [search, setSearch] = useState('');
+    const allGenres = GENRES;
+    
+    const filteredGenres = allGenres.filter(g => 
+      g.name.toLowerCase().includes(search.toLowerCase()) || 
+      (g.subgenres || []).some(sg => sg.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    return (
+      <div className="space-y-4 col-span-1 md:col-span-2 bg-slate-900/30 p-4 rounded-xl border border-white/5">
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Search Genres & Subgenres</label>
+          <input 
+            type="text" 
+            placeholder="Search pop, rock, indie..." 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            disabled={disabled}
+            className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50"
+          />
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          {filteredGenres.map(g => (
+            <div key={g.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 space-y-3">
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id={`genre-${g.id}`}
+                  disabled={disabled}
+                  checked={track.genres.includes(g.id)}
+                  onChange={() => {
+                    const newGenres = toggleSelection(track.genres, g.id);
+                    setTrack({...track, genres: newGenres, genre: newGenres[0] || 'pop' }); // Keep primary genre sync
+                  }}
+                  className="w-4 h-4 rounded border-white/20 text-purple-500 focus:ring-purple-500/50 bg-slate-900"
+                />
+                <label htmlFor={`genre-${g.id}`} className="text-sm font-bold text-white cursor-pointer">{g.name}</label>
+              </div>
+              
+              {(g.subgenres || []).length > 0 && (
+                <div className="pl-6 space-y-2">
+                  {g.subgenres.filter(sg => sg.toLowerCase().includes(search.toLowerCase()) || g.name.toLowerCase().includes(search.toLowerCase())).map(sg => (
+                    <div key={sg} className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id={`sub-${sg}`}
+                        disabled={disabled}
+                        checked={track.subgenres.includes(sg)}
+                        onChange={() => setTrack({...track, subgenres: toggleSelection(track.subgenres, sg)})}
+                        className="w-3.5 h-3.5 rounded border-white/20 text-pink-500 focus:ring-pink-500/50 bg-slate-900"
+                      />
+                      <label htmlFor={`sub-${sg}`} className="text-xs text-slate-300 cursor-pointer">{sg}</label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {track.genres.length === 0 && (
+          <p className="text-xs text-amber-500 mt-2">Please select at least one genre.</p>
+        )}
+      </div>
+    );
+  };
 
   const handleAudioChange = (e) => {
     const file = e.target.files[0];
@@ -62,7 +132,9 @@ export default function AdminCatalog() {
     const formData = new FormData();
     formData.append('title', newTrack.title);
     formData.append('artist', newTrack.artist);
-    formData.append('genre', newTrack.genre);
+    formData.append('genre', newTrack.genre || newTrack.genres[0] || 'pop');
+    formData.append('genres', JSON.stringify(newTrack.genres));
+    formData.append('subgenres', JSON.stringify(newTrack.subgenres));
     formData.append('status', newTrack.status);
     formData.append('duration', newTrack.duration);
     if (audioFile) formData.append('audio', audioFile);
@@ -75,7 +147,7 @@ export default function AdminCatalog() {
         setIsAdding(false);
         setUploadSuccess('');
       }, 1500);
-      setNewTrack({ title: '', artist: '', genre: 'pop', status: 'Published', duration: '0:00' });
+      setNewTrack({ title: '', artist: '', genre: 'pop', genres: [], subgenres: [], status: 'Published', duration: '0:00' });
       setAudioFile(null);
       setCoverFile(null);
       fetchCatalog();
@@ -154,15 +226,9 @@ export default function AdminCatalog() {
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Artist</label>
               <input disabled={isUploading} required value={newTrack.artist} onChange={e => setNewTrack({...newTrack, artist: e.target.value})} type="text" className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50" placeholder="Artist name..." />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Genre</label>
-              <select disabled={isUploading} required value={newTrack.genre} onChange={e => setNewTrack({...newTrack, genre: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50">
-                {GENRES.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
+            <GenreSelector track={newTrack} setTrack={setNewTrack} disabled={isUploading} />
+            
+            <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Status</label>
               <select disabled={isUploading} value={newTrack.status} onChange={e => setNewTrack({...newTrack, status: e.target.value})} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500/50 outline-none disabled:opacity-50">
                 <option value="Published">Published</option>
