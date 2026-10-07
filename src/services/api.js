@@ -319,6 +319,61 @@ export const api = {
       });
       if (!res.ok) throw new Error('Failed to sign out of other sessions');
       return res.json();
+    },
+    exportStatus: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/export/status`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch export status');
+      return json;
+    },
+    requestExport: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/export/request`, { method: 'POST', headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to request export');
+      return json;
+    },
+    downloadExport: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/export/download`, { headers });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'Failed to download export');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Get filename from content-disposition header if available, else default
+      let filename = 'resona_export.zip';
+      const disposition = res.headers.get('content-disposition');
+      if (disposition && disposition.includes('filename=')) {
+        filename = disposition.split('filename=')[1].replace(/"/g, '');
+      }
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    },
+    deactivateAccount: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/deactivate`, { method: 'POST', headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to deactivate account');
+      return json;
+    },
+    deleteAccount: async (phrase) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/user/delete/confirm`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ phrase })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to delete account');
+      return json;
     }
   },
 
@@ -1208,6 +1263,26 @@ export const api = {
            audioUrl: resolveMediaUrl(t.audioUrl),
            cover: resolveMediaUrl(t.cover)
       }));
+    }
+  },
+
+  // Creator
+  creator: {
+    getDashboard: async () => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/creator`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch creator dashboard');
+      return json;
+    },
+    apply: async (artistName) => {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${getApiBaseUrl()}/api/creator/apply`, {
+        method: 'POST', headers, body: JSON.stringify({ artistName })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || 'Failed to apply');
+      return json;
     }
   },
 

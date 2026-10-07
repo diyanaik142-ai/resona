@@ -1,4 +1,4 @@
-﻿import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config.js';
 import { findAccountById, getAccountData } from '../db/storage.js';
 import { getAuth } from 'firebase-admin/auth';
@@ -53,6 +53,10 @@ export async function requireAuth(req, res, next) {
         await db.collection('users').doc(decodedFirebase.uid).set({ email: decodedFirebase.email || profile.email || '', emailLower: String(decodedFirebase.email || profile.email || '').toLowerCase(), updatedAt: new Date().toISOString() }, { merge: true });
       }
 
+      if (profile.status === 'deactivated') {
+        return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' });
+      }
+
       req.user = {
         id: decodedFirebase.uid,
         email: decodedFirebase.email || '',
@@ -90,6 +94,9 @@ export async function requireAuth(req, res, next) {
 
           if (account) {
             const accProfile = (await getAccountData(account.id, 'profile.json')) || {};
+            if (accProfile.status === 'deactivated') {
+              return res.status(403).json({ error: 'ACCOUNT_DEACTIVATED' });
+            }
             req.user = {
               id: account.id,
               email: account.email,

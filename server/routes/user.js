@@ -2,7 +2,7 @@ import express from 'express';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 import { formatUid, findUserByUid, getResonaProfile } from '../services/userService.js';
 import { normalizeProfileAvatar } from '../services/mediaUrls.js';
-import { getAccountData, saveAccountData, normalizeUid, findAccountById, addGlobalItem } from '../db/storage.js';
+import { getAccountData, saveAccountData, normalizeUid, findAccountById, addGlobalItem, deleteUserAccount } from '../db/storage.js';
 import { getGlobalData, saveGlobalData, getAllProfiles } from '../db/storage.js';
 import { PLAN_CHANGE_REQUESTS_FILE, AUDIT_FILE, CATALOG_FILE } from '../config.js';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +18,7 @@ import multer from 'multer';
 import { createNotification } from '../services/notificationService.js';
 import { logSecurityEvent } from '../services/securityService.js';
 import { userStatusTracker } from '../services/userStatusTracker.js';
-
+import AdmZip from 'adm-zip';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -697,6 +697,182 @@ router.delete('/followers/:handle', async (req, res) => {
     try {
       const events = (await getAccountData(req.user.id, 'security_events.json')) || [];
       return res.json(events);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/user/export/status
+   */
+  router.get('/export/status', async (req, res) => {
+    try {
+      const exportState = (await getAccountData(req.user.id, 'export_status.json')) || { status: 'none' };
+      
+      // Safety against stuck preparing state (restarts)
+      if (exportState.status === 'preparing' && exportState.requestedAt) {
+        const reqTime = new Date(exportState.requestedAt).getTime();
+        if (Date.now() - reqTime > 5 * 60 * 1000) {
+          exportState.status = 'failed';
+          exportState.error = 'Export timed out due to server restart. Please try again.';
+          await saveAccountData(req.user.id, 'export_status.json', exportState);
+        }
+      }
+
+      return res.json(exportState);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/user/export/request
+   */
+  router.post('/export/request', async (req, res) => {
+    try {
+      const current = (await getAccountData(req.user.id, 'export_status.json')) || { status: 'none' };
+      if (current.status === 'preparing') {
+        return res.status(400).json({ error: 'Export is already preparing.' });
+      }
+
+      const exportId = `export_${req.user.id}_${Date.now()}`;
+      const state = { status: 'preparing', exportId, requestedAt: new Date().toISOString() };
+      await saveAccountData(req.user.id, 'export_status.json', state);
+
+      // Async worker
+      setTimeout(async () => {
+        try {
+          const profile = await getAccountData(req.user.id, 'profile.json');
+          const preferences = await getAccountData(req.user.id, 'preferences.json');
+          const shelf = await getAccountData(req.user.id, 'shelf.json');
+          const creator = await getAccountData(req.user.id, 'creator.json');
+          const social = await getAccountData(req.user.id, 'social.json');
+          let sessions = await getAccountData(req.user.id, 'sessions.json');
+          if (sessions && Array.isArray(sessions)) {
+            sessions = sessions.map(s => ({
+              deviceName: s.deviceName,
+              location: s.location,
+              lastActive: s.lastActive,
+              createdAt: s.id ? new Date(parseInt(s.id.split('_')[1] || Date.now())).toISOString() : s.lastActive
+            }));
+          }
+          
+          const zip = new AdmZip();
+          if (profile) zip.addFile('profile.json', Buffer.from(JSON.stringify(profile, null, 2)));
+          if (preferences) zip.addFile('preferences.json', Buffer.from(JSON.stringify(preferences, null, 2)));
+          if (shelf) zip.addFile('shelf.json', Buffer.from(JSON.stringify(shelf, null, 2)));
+          if (creator) zip.addFile('creator.json', Buffer.from(JSON.stringify(creator, null, 2)));
+          if (social) zip.addFile('social.json', Buffer.from(JSON.stringify(social, null, 2)));
+          if (sessions) zip.addFile('sessions.json', Buffer.from(JSON.stringify(sessions, null, 2)));
+          zip.addFile('README.txt', Buffer.from('This archive contains your Resona account data.\n'));
+
+          const exportDir = path.join(process.cwd(), 'data', 'exports');
+          await fs.mkdir(exportDir, { recursive: true });
+          const zipPath = path.join(exportDir, `${exportId}.zip`);
+          
+          // Cleanup old export if exists
+          if (current.exportId) {
+            const oldPath = path.join(exportDir, `${current.exportId}.zip`);
+            try { await fs.unlink(oldPath); } catch (e) {}
+          }
+
+          zip.writeZip(zipPath);
+
+          await saveAccountData(req.user.id, 'export_status.json', { 
+            status: 'ready', 
+            exportId, 
+            requestedAt: state.requestedAt,
+            completedAt: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error('Export error', e);
+          await saveAccountData(req.user.id, 'export_status.json', { status: 'failed', error: 'Failed to generate export.' }).catch(()=>{});
+        }
+      }, 500);
+
+      return res.json(state);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/user/export/download
+   */
+  router.get('/export/download', async (req, res) => {
+    try {
+      const current = await getAccountData(req.user.id, 'export_status.json');
+      if (!current || current.status !== 'ready' || !current.exportId) {
+        return res.status(404).json({ error: 'No export available for download.' });
+      }
+
+      const zipPath = path.join(process.cwd(), 'data', 'exports', `${current.exportId}.zip`);
+      
+      try {
+        await fs.access(zipPath);
+        res.download(zipPath, `resona_export_${req.user.id}.zip`);
+      } catch (e) {
+        return res.status(404).json({ error: 'Export file not found.' });
+      }
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+  /**
+   * POST /api/user/deactivate
+   */
+  router.post('/deactivate', requireAuth, async (req, res) => {
+    try {
+      const profile = await getAccountData(req.user.id, 'profile.json');
+      if (!profile) return res.status(404).json({ error: 'Profile not found.' });
+
+      // Mark as deactivated
+      profile.status = 'deactivated';
+      profile.updatedAt = new Date().toISOString();
+      await saveAccountData(req.user.id, 'profile.json', profile);
+
+      // Revoke all sessions
+      const sessions = await getAccountData(req.user.id, 'sessions.json') || [];
+      const revoked = sessions.map(s => ({ ...s, revokedAt: new Date().toISOString() }));
+      await saveAccountData(req.user.id, 'sessions.json', revoked);
+
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/user/delete/confirm
+   */
+  router.post('/delete/confirm', requireAuth, async (req, res) => {
+    try {
+      const { phrase } = req.body;
+      if (phrase !== 'DELETE') {
+        return res.status(400).json({ error: 'Invalid confirmation phrase.' });
+      }
+
+      // 1. Cleanup exports
+      try {
+        const exportState = await getAccountData(req.user.id, 'export_status.json');
+        if (exportState && exportState.exportId) {
+          const exportDir = path.join(process.cwd(), 'data', 'exports');
+          await fs.unlink(path.join(exportDir, `${exportState.exportId}.zip`)).catch(() => {});
+        }
+      } catch(e) {}
+
+      // 2. Delete Firebase Auth user
+      const { getAuth } = await import('firebase-admin/auth');
+      try {
+        await getAuth().deleteUser(req.user.id);
+      } catch (authErr) {
+        // ignore if not found in firebase
+      }
+
+      // 3. Delete Firestore data and subcollections (which includes profile, sessions, social, preferences, creator, etc.)
+      await deleteUserAccount(req.user.id);
+
+      return res.json({ success: true });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
