@@ -23,6 +23,7 @@ export function normalizePlaylistItems(rawItems, catalogTrackIds) {
   }
 
   const playlistItemIds = new Set();
+  const trackIds = new Set();
   return items.map((item, order) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       throw new PlaylistInputError(`Playlist item ${order + 1} is invalid.`);
@@ -35,6 +36,10 @@ export function normalizePlaylistItems(rawItems, catalogTrackIds) {
     if (!catalogTrackIds.has(trackId)) {
       throw new PlaylistInputError(`Playlist item ${order + 1} references an unknown catalog track.`);
     }
+    if (trackIds.has(trackId)) {
+      throw new PlaylistInputError(`Catalog track "${trackId}" can only be added once to a playlist.`);
+    }
+    trackIds.add(trackId);
 
     const playlistItemId = typeof item.playlistItemId === 'string' && item.playlistItemId.trim()
       ? item.playlistItemId.trim()

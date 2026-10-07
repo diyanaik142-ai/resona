@@ -882,11 +882,11 @@ router.put('/playlists/:id', requireAdmin, upload.single('cover'), async (req, r
       throw new PlaylistInputError('Playlist status must be draft or published.');
     }
     const rawTrackItems = req.body.trackItems ?? req.body.tracks;
-    let trackItems = existing.trackItems || [];
-    if (rawTrackItems !== undefined) {
-      const catalog = await getGlobalData(CATALOG_FILE) || [];
-      trackItems = normalizePlaylistItems(rawTrackItems, new Set(catalog.map(track => track.id)));
-    }
+    const catalog = await getGlobalData(CATALOG_FILE) || [];
+    const trackItems = normalizePlaylistItems(
+      rawTrackItems !== undefined ? rawTrackItems : existing.trackItems || [],
+      new Set(catalog.map(track => track.id))
+    );
     
     const updated = {
       ...existing,
