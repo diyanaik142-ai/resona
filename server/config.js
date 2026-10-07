@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const PORT = Number(process.env.PORT) || 8080;
+export const PORT = Number(process.env.PORT) || 8090;
 export const JWT_SECRET = process.env.JWT_SECRET || 'local-development-only-change-me';
 export const DATA_DIR = path.resolve(__dirname, 'data');
 export const ACCOUNTS_DIR = path.resolve(DATA_DIR, 'accounts');
