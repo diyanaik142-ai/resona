@@ -34,7 +34,7 @@ import { upload } from '../middlewares/upload.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GENRES, isValidGenre } from '../config/genres.js';
+import { GENRES, isValidGenre, isValidSubgenre } from '../../shared/config/genres.js';
 import admin from '../firebaseAdmin.js';
 import { FEATURE_REGISTRY, FEATURE_CATEGORIES, FEATURE_IDS } from '../../shared/featureRegistry.js';
 import { normalizePlans, computeEntitlements, getUserFeatureEntitlements, hasFeature } from '../services/entitlements.js';
@@ -790,27 +790,24 @@ router.post('/catalog', requireAdmin, upload.fields([{ name: 'audio', maxCount: 
       saveLocally(coverFile, 'cover')
     ]);
 
-    const genreId = req.body.genre;
+    const genreId = req.body.genreId;
     if (!isValidGenre(genreId)) {
       return res.status(400).json({ error: 'Invalid genre ID' });
     }
 
-    const defaultStatus = settings.catalog?.requireCatalogApproval ? 'Pending' : 'Published';
+    const subgenreId = req.body.subgenreId;
+    if (subgenreId && !isValidSubgenre(genreId, subgenreId)) {
+      return res.status(400).json({ error: 'Invalid subgenre ID' });
+    }
 
-    let genres = [];
-    let subgenres = [];
-    try {
-      if (req.body.genres) genres = JSON.parse(req.body.genres);
-      if (req.body.subgenres) subgenres = JSON.parse(req.body.subgenres);
-    } catch (e) {}
+    const defaultStatus = settings.catalog?.requireCatalogApproval ? 'Pending' : 'Published';
 
     const newTrack = {
       id: 'track_' + Date.now(),
       title: req.body.title,
       artist: req.body.artist,
-      genre: genreId,
-      genres: Array.isArray(genres) ? genres : [],
-      subgenres: Array.isArray(subgenres) ? subgenres : [],
+      genreId: genreId,
+      subgenreId: subgenreId || '',
       duration: req.body.duration || '0:00',
       createdAt: new Date().toISOString(),
       streams: 0,
@@ -832,19 +829,23 @@ router.post('/catalog', requireAdmin, upload.fields([{ name: 'audio', maxCount: 
 
 router.put('/catalog/:id', requireAdmin, async (req, res) => {
   try {
-    if (req.body.genre && !isValidGenre(req.body.genre)) {
+    if (req.body.genreId && !isValidGenre(req.body.genreId)) {
       return res.status(400).json({ error: 'Invalid genre ID' });
     }
     
     let updateData = { ...req.body };
-    try {
-      if (updateData.genres && typeof updateData.genres === 'string') {
-        updateData.genres = JSON.parse(updateData.genres);
+    
+    // If they update subgenre, they must provide a valid one for the track's genre
+    if (updateData.subgenreId) {
+      const gId = updateData.genreId || (await getGlobalData(CATALOG_FILE)).find(t => t.id === req.params.id)?.genreId;
+      if (gId) {
+        if (!isValidSubgenre(gId, updateData.subgenreId)) {
+          return res.status(400).json({ error: 'Invalid subgenre ID' });
+        }
+      } else {
+        return res.status(400).json({ error: 'Invalid subgenre ID: missing genre' });
       }
-      if (updateData.subgenres && typeof updateData.subgenres === 'string') {
-        updateData.subgenres = JSON.parse(updateData.subgenres);
-      }
-    } catch(e) {}
+    }
 
     const updated = await updateGlobalItem(CATALOG_FILE, req.params.id, updateData);
     await auditAction(req.admin.id, 'UPDATE_TRACK', req.params.id, { changes: Object.keys(req.body) });
@@ -1172,11 +1173,49 @@ router.post('/danger/:action', requireAdmin, async (req, res) => {
       case 'rebuild-catalog-index': {
         const catalog = (await getGlobalData(CATALOG_FILE)) || [];
         let fixed = 0;
+        let invalidCount = 0;
         const normalizedCatalog = catalog.map(t => {
           let updated = { ...t };
           if (!updated.id) { updated.id = 'track_' + Date.now() + Math.random().toString(36).slice(2, 6); fixed++; }
           if (!updated.status) { updated.status = 'Published'; fixed++; }
           if (typeof updated.streams !== 'number') { updated.streams = 0; fixed++; }
+          
+          // Migrate old fields
+          if (updated.genre && !updated.genreId) {
+            updated.genreId = updated.genre;
+            delete updated.genre;
+            fixed++;
+          }
+          if (updated.subgenres && Array.isArray(updated.subgenres) && updated.subgenres.length > 0 && !updated.subgenreId) {
+            updated.subgenreId = updated.subgenres[0];
+            delete updated.subgenres;
+            fixed++;
+          } else if (updated.subgenres) {
+            delete updated.subgenres;
+            fixed++;
+          }
+          if (updated.genres) {
+            delete updated.genres;
+            fixed++;
+          }
+
+          // Deterministic mapping (e.g. Indian Pop)
+          if (updated.genreId === 'Indian Pop' || updated.genreId === 'indian-pop') {
+            updated.genreId = 'indian';
+            updated.subgenreId = 'indian-pop';
+            fixed++;
+          }
+
+          if (!isValidGenre(updated.genreId)) {
+            updated.invalidMetadata = true;
+            invalidCount++;
+          } else if (updated.subgenreId && !isValidSubgenre(updated.genreId, updated.subgenreId)) {
+            updated.invalidMetadata = true;
+            invalidCount++;
+          } else {
+            delete updated.invalidMetadata;
+          }
+          
           return updated;
         });
         await saveGlobalData(CATALOG_FILE, normalizedCatalog);

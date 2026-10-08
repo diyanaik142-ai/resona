@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, resolveMediaUrl } from '../../services/api';
 import { Music, Plus, Search, Trash2, Edit2, Play, Check, X, Upload } from 'lucide-react';
-import { GENRES } from '../../config/genres';
+import { GENRES } from '../../../shared/config/genres';
 
 export default function AdminCatalog() {
   const [catalog, setCatalog] = useState([]);
@@ -11,7 +11,7 @@ export default function AdminCatalog() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
-  const [newTrack, setNewTrack] = useState({ title: '', artist: '', genre: 'pop', genres: [], subgenres: [], status: 'Published', duration: '0:00' });
+  const [newTrack, setNewTrack] = useState({ title: '', artist: '', genreId: 'pop', subgenreId: '', status: 'Published', duration: '0:00' });
   const [audioFile, setAudioFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
 
@@ -23,13 +23,28 @@ export default function AdminCatalog() {
     
     const filteredGenres = allGenres.filter(g => 
       g.name.toLowerCase().includes(search.toLowerCase()) || 
-      (g.subgenres || []).some(sg => sg.toLowerCase().includes(search.toLowerCase()))
+      (g.subgenres || []).some(sg => sg.name.toLowerCase().includes(search.toLowerCase()))
     );
+
+    const handleGenreSelect = (genreId) => {
+      if (track.genreId === genreId) {
+        setTrack({ ...track, genreId: '', subgenreId: '' });
+      } else {
+        setTrack({ ...track, genreId, subgenreId: '' });
+      }
+    };
+
+    const handleSubgenreSelect = (subId) => {
+      setTrack({ ...track, subgenreId: subId });
+    };
+
+    const selectedGenre = allGenres.find(g => g.id === track.genreId);
+    const subgenresToDisplay = selectedGenre ? selectedGenre.subgenres : [];
 
     return (
       <div className="space-y-4 col-span-1 md:col-span-2 bg-slate-900/30 p-4 rounded-xl border border-white/5">
         <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Search Genres & Subgenres</label>
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Primary Genre & Subgenre</label>
           <input 
             type="text" 
             placeholder="Search pop, rock, indie..." 
@@ -40,46 +55,63 @@ export default function AdminCatalog() {
           />
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-          {filteredGenres.map(g => (
-            <div key={g.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 space-y-3">
-              <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  id={`genre-${g.id}`}
-                  disabled={disabled}
-                  checked={track.genres.includes(g.id)}
-                  onChange={() => {
-                    const newGenres = toggleSelection(track.genres, g.id);
-                    setTrack({...track, genres: newGenres, genre: newGenres[0] || 'pop' }); // Keep primary genre sync
-                  }}
-                  className="w-4 h-4 rounded border-white/20 text-purple-500 focus:ring-purple-500/50 bg-slate-900"
-                />
-                <label htmlFor={`genre-${g.id}`} className="text-sm font-bold text-white cursor-pointer">{g.name}</label>
-              </div>
-              
-              {(g.subgenres || []).length > 0 && (
-                <div className="pl-6 space-y-2">
-                  {g.subgenres.filter(sg => sg.toLowerCase().includes(search.toLowerCase()) || g.name.toLowerCase().includes(search.toLowerCase())).map(sg => (
-                    <div key={sg} className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        id={`sub-${sg}`}
-                        disabled={disabled}
-                        checked={track.subgenres.includes(sg)}
-                        onChange={() => setTrack({...track, subgenres: toggleSelection(track.subgenres, sg)})}
-                        className="w-3.5 h-3.5 rounded border-white/20 text-pink-500 focus:ring-pink-500/50 bg-slate-900"
-                      />
-                      <label htmlFor={`sub-${sg}`} className="text-xs text-slate-300 cursor-pointer">{sg}</label>
-                    </div>
-                  ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[400px] overflow-hidden">
+          {/* Genre Column */}
+          <div className="flex flex-col space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[350px]">
+            <h4 className="text-xs font-bold text-slate-500 uppercase sticky top-0 bg-slate-900/90 py-1 z-10">Genres</h4>
+            {filteredGenres.map(g => {
+              const isSelected = track.genreId === g.id;
+              return (
+                <div 
+                  key={g.id} 
+                  onClick={() => !disabled && handleGenreSelect(g.id)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isSelected ? 'bg-purple-500/10 border-purple-500/50' : 'bg-slate-950/50 border-white/5 hover:border-white/20'}`}
+                >
+                  <span className={`font-bold text-sm ${isSelected ? 'text-purple-400' : 'text-white'}`}>{g.name}</span>
+                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-purple-500 bg-purple-500' : 'border-slate-600'}`}>
+                    {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            })}
+          </div>
+
+          {/* Subgenre Column */}
+          <div className="flex flex-col space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[350px] relative">
+            <h4 className="text-xs font-bold text-slate-500 uppercase sticky top-0 bg-slate-900/90 py-1 z-10">Subgenres</h4>
+            {!track.genreId ? (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic h-32 border border-white/5 border-dashed rounded-xl">
+                Select a genre first
+              </div>
+            ) : (
+              subgenresToDisplay.map(sg => {
+                const isSubSelected = track.subgenreId === sg.id;
+                return (
+                  <div 
+                    key={sg.id} 
+                    onClick={() => !disabled && handleSubgenreSelect(sg.id)}
+                    className={`flex items-center gap-2 p-3 rounded-xl cursor-pointer transition-colors border ${isSubSelected ? 'bg-pink-500/10 border-pink-500/50 text-pink-400' : 'bg-slate-950/50 border-white/5 hover:border-white/20 text-slate-300'}`}
+                  >
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center border ${isSubSelected ? 'border-pink-500 bg-pink-500' : 'border-slate-600'}`}>
+                      {isSubSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                    </div>
+                    <span className="text-sm font-medium">{sg.name}</span>
+                  </div>
+                );
+              })
+            )}
+            {track.genreId && subgenresToDisplay.length === 0 && (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic h-32 border border-white/5 border-dashed rounded-xl">
+                No subgenres available
+              </div>
+            )}
+          </div>
         </div>
-        {track.genres.length === 0 && (
-          <p className="text-xs text-amber-500 mt-2">Please select at least one genre.</p>
+        {!track.genreId && (
+          <p className="text-xs text-amber-500 mt-2">Please select a primary genre.</p>
+        )}
+        {track.genreId && subgenresToDisplay.length > 0 && !track.subgenreId && (
+          <p className="text-xs text-amber-500 mt-2">Please select a subgenre.</p>
         )}
       </div>
     );
@@ -132,9 +164,8 @@ export default function AdminCatalog() {
     const formData = new FormData();
     formData.append('title', newTrack.title);
     formData.append('artist', newTrack.artist);
-    formData.append('genre', newTrack.genre || newTrack.genres[0] || 'pop');
-    formData.append('genres', JSON.stringify(newTrack.genres));
-    formData.append('subgenres', JSON.stringify(newTrack.subgenres));
+    formData.append('genreId', newTrack.genreId);
+    formData.append('subgenreId', newTrack.subgenreId);
     formData.append('status', newTrack.status);
     formData.append('duration', newTrack.duration);
     if (audioFile) formData.append('audio', audioFile);
@@ -147,7 +178,7 @@ export default function AdminCatalog() {
         setIsAdding(false);
         setUploadSuccess('');
       }, 1500);
-      setNewTrack({ title: '', artist: '', genre: 'pop', genres: [], subgenres: [], status: 'Published', duration: '0:00' });
+      setNewTrack({ title: '', artist: '', genreId: 'pop', subgenreId: '', status: 'Published', duration: '0:00' });
       setAudioFile(null);
       setCoverFile(null);
       fetchCatalog();

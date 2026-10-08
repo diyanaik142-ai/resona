@@ -5,7 +5,7 @@ import { getAllRealUsers } from '../services/userService.js';
 
 const router = express.Router();
 
-import { GENRES } from '../config/genres.js';
+import { GENRES } from '../../shared/config/genres.js';
 
 async function getFullCatalog() {
   try {
