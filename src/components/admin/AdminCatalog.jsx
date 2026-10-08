@@ -21,25 +21,35 @@ export default function AdminCatalog() {
     const [search, setSearch] = useState('');
     const allGenres = GENRES;
     
-    const filteredGenres = allGenres.filter(g => 
-      g.name.toLowerCase().includes(search.toLowerCase()) || 
-      (g.subgenres || []).some(sg => sg.name.toLowerCase().includes(search.toLowerCase()))
-    );
+    // When a genre is selected, search applies to its subgenres.
+    // Otherwise, search applies to main genres.
+    const hasSelectedGenre = Boolean(track.genreId);
+    const selectedGenre = allGenres.find(g => g.id === track.genreId);
+    const allSubgenresForSelected = selectedGenre ? selectedGenre.subgenres : [];
+
+    const filteredMainGenres = hasSelectedGenre 
+      ? [selectedGenre] 
+      : allGenres.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
+
+    const filteredSubgenres = hasSelectedGenre
+      ? allSubgenresForSelected.filter(sg => sg.name.toLowerCase().includes(search.toLowerCase()))
+      : [];
 
     const handleGenreSelect = (genreId) => {
-      if (track.genreId === genreId) {
-        setTrack({ ...track, genreId: '', subgenreId: '' });
-      } else {
-        setTrack({ ...track, genreId, subgenreId: '' });
-      }
+      // Set the genre, clear subgenre, and clear search to allow fresh search of subgenres
+      setTrack({ ...track, genreId, subgenreId: '' });
+      setSearch('');
+    };
+
+    const handleClearGenre = (e) => {
+      e.stopPropagation();
+      setTrack({ ...track, genreId: '', subgenreId: '' });
+      setSearch('');
     };
 
     const handleSubgenreSelect = (subId) => {
       setTrack({ ...track, subgenreId: subId });
     };
-
-    const selectedGenre = allGenres.find(g => g.id === track.genreId);
-    const subgenresToDisplay = selectedGenre ? selectedGenre.subgenres : [];
 
     return (
       <div className="space-y-4 col-span-1 md:col-span-2 bg-slate-900/30 p-4 rounded-xl border border-white/5">
@@ -47,7 +57,7 @@ export default function AdminCatalog() {
           <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Primary Genre & Subgenre</label>
           <input 
             type="text" 
-            placeholder="Search pop, rock, indie..." 
+            placeholder={hasSelectedGenre ? `Search ${selectedGenre.name} subgenres...` : "Search pop, rock, indie..."} 
             value={search}
             onChange={e => setSearch(e.target.value)}
             disabled={disabled}
@@ -59,18 +69,31 @@ export default function AdminCatalog() {
           {/* Genre Column */}
           <div className="flex flex-col space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[350px]">
             <h4 className="text-xs font-bold text-slate-500 uppercase sticky top-0 bg-slate-900/90 py-1 z-10">Genres</h4>
-            {filteredGenres.map(g => {
+            {filteredMainGenres.map(g => {
               const isSelected = track.genreId === g.id;
               return (
                 <div 
                   key={g.id} 
-                  onClick={() => !disabled && handleGenreSelect(g.id)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isSelected ? 'bg-purple-500/10 border-purple-500/50' : 'bg-slate-950/50 border-white/5 hover:border-white/20'}`}
+                  onClick={() => !disabled && !isSelected && handleGenreSelect(g.id)}
+                  className={`p-3 rounded-xl border transition-all ${!isSelected && !disabled ? 'cursor-pointer hover:border-white/20' : ''} flex items-center justify-between ${isSelected ? 'bg-purple-500/10 border-purple-500/50' : 'bg-slate-950/50 border-white/5'}`}
                 >
                   <span className={`font-bold text-sm ${isSelected ? 'text-purple-400' : 'text-white'}`}>{g.name}</span>
-                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-purple-500 bg-purple-500' : 'border-slate-600'}`}>
-                    {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
-                  </div>
+                  {isSelected ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center border-purple-500 bg-purple-500">
+                        <Check className="w-2.5 h-2.5 text-white" />
+                      </div>
+                      <button 
+                        onClick={handleClearGenre}
+                        disabled={disabled}
+                        className="text-xs text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 rounded-md px-2 py-1 transition-colors flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-4 h-4 rounded-full border-2 border-slate-600 flex items-center justify-center"></div>
+                  )}
                 </div>
               );
             })}
@@ -79,12 +102,12 @@ export default function AdminCatalog() {
           {/* Subgenre Column */}
           <div className="flex flex-col space-y-2 overflow-y-auto pr-2 custom-scrollbar max-h-[350px] relative">
             <h4 className="text-xs font-bold text-slate-500 uppercase sticky top-0 bg-slate-900/90 py-1 z-10">Subgenres</h4>
-            {!track.genreId ? (
+            {!hasSelectedGenre ? (
               <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic h-32 border border-white/5 border-dashed rounded-xl">
                 Select a genre first
               </div>
-            ) : (
-              subgenresToDisplay.map(sg => {
+            ) : filteredSubgenres.length > 0 ? (
+              filteredSubgenres.map(sg => {
                 const isSubSelected = track.subgenreId === sg.id;
                 return (
                   <div 
@@ -99,18 +122,17 @@ export default function AdminCatalog() {
                   </div>
                 );
               })
-            )}
-            {track.genreId && subgenresToDisplay.length === 0 && (
+            ) : (
               <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic h-32 border border-white/5 border-dashed rounded-xl">
-                No subgenres available
+                No matching subgenres
               </div>
             )}
           </div>
         </div>
-        {!track.genreId && (
+        {!hasSelectedGenre && (
           <p className="text-xs text-amber-500 mt-2">Please select a primary genre.</p>
         )}
-        {track.genreId && subgenresToDisplay.length > 0 && !track.subgenreId && (
+        {hasSelectedGenre && allSubgenresForSelected.length > 0 && !track.subgenreId && (
           <p className="text-xs text-amber-500 mt-2">Please select a subgenre.</p>
         )}
       </div>
