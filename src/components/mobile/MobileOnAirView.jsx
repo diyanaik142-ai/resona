@@ -1,56 +1,42 @@
 import { usePlayer } from '../../context/PlayerContext';
 import React, { useState } from 'react';
 import {
-  ChevronDown, MoreVertical, Play, Pause, SkipBack, SkipForward,
-  Shuffle, Repeat, Heart, ListMusic, Share2, Plus, QrCode, Music
+  ChevronDown, Play, Pause, SkipBack, SkipForward,
+  Shuffle, Repeat, Heart, ListMusic, QrCode, Music
 } from 'lucide-react';
-import MobileQueueSheet from './MobileQueueSheet';
 import BeatCodeQR from '../BeatCodeQR';
 
 import { resolveMediaUrl } from '../../services/api';
 export default function MobileOnAirView({
-  
-  
-  
+
+
+
   onNext,
   onPrev,
   onClose,
-      
+
   isLiked,
   onToggleLike,
-  
-  
-  
-  
+
+
+
+
   onToast,
   onNavigate,
-    
-  
-  }) {
-  const {
-    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
-    queue: playQueue,
-    playTrack: onPlayTrack,
-    playTrack: handlePlayTrack,
-    togglePlay: onTogglePlay,
-    togglePlay: handleTogglePlay,
-    playNext: onNextTrack,
-    playPrevious: onPrevTrack,
-    seekTo: onSeek,
-    setVolume: onVolumeChange,
-    toggleMute: onToggleMute,
-    toggleShuffle: onToggleShuffle,
-    toggleLoop: onToggleLoop,
-    addToQueue: onAddToQueue,
-    removeFromQueue: onRemoveFromQueue,
-    setQueue: onReorderQueue,
-    setQueue
-  } = usePlayer();
-  const onClearQueue = () => setQueue([]);
+  onOpenQueue,
 
-  const [showQueue, setShowQueue] = useState(false);
+
+}) {
+  const {
+    currentTrack, isPlaying, currentTime, duration, isShuffle, isLoop, isRepeatAll,
+    queue: playQueue,
+    togglePlay: onTogglePlay,
+    seekTo: onSeek,
+    toggleShuffle: onToggleShuffle,
+    toggleLoop: onToggleLoop
+  } = usePlayer();
+
   const [showBeatCode, setShowBeatCode] = useState(false);
-  const [activeTab, setActiveTab] = useState('Player'); // 'Player' | 'Lyrics'
 
   if (!currentTrack) {
     return (
@@ -104,14 +90,30 @@ export default function MobileOnAirView({
           <p className="text-xs font-semibold text-slate-300 truncate max-w-[200px]">{currentTrack.album || 'Resona Master'}</p>
         </div>
 
-        <button
-          onClick={() => setShowBeatCode(true)}
-          className="w-10 h-10 rounded-full glass-card border border-white/10 flex items-center justify-center text-teal-300 hover:text-white active:scale-90 transition"
-          title="Beat Code"
-          aria-label="Beat Code"
-        >
-          <QrCode className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenQueue}
+            className="relative w-10 h-10 rounded-full glass-card border border-white/10 flex items-center justify-center text-slate-300 hover:text-white active:scale-90 transition"
+            title="Open queue"
+            aria-label="Open queue"
+          >
+            <ListMusic className="w-4 h-4" />
+            {playQueue?.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-4 px-1 flex items-center justify-center rounded-full bg-teal-400 text-[9px] font-black text-slate-950">
+                {playQueue.length > 99 ? '99+' : playQueue.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setShowBeatCode(true)}
+            className="w-10 h-10 rounded-full glass-card border border-white/10 flex items-center justify-center text-teal-300 hover:text-white active:scale-90 transition"
+            title="Beat Code"
+            aria-label="Beat Code"
+          >
+            <QrCode className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* CENTER: LARGE ARTWORK */}
@@ -139,9 +141,8 @@ export default function MobileOnAirView({
           </div>
           <button
             onClick={() => onToggleLike && onToggleLike(currentTrack.id)}
-            className={`p-3 rounded-full glass-card border border-white/10 transition active:scale-90 ${
-              isLiked ? 'text-rose-500 bg-rose-500/10 border-rose-500/30' : 'text-slate-300'
-            }`}
+            className={`p-3 rounded-full glass-card border border-white/10 transition active:scale-90 ${isLiked ? 'text-rose-500 bg-rose-500/10 border-rose-500/30' : 'text-slate-300'
+              }`}
             aria-label="Like Track"
           >
             <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
@@ -174,9 +175,8 @@ export default function MobileOnAirView({
         <div className="flex items-center justify-between px-2">
           <button
             onClick={onToggleShuffle}
-            className={`p-2 transition active:scale-90 ${
-              isShuffle ? 'text-teal-400' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`p-2 transition active:scale-90 ${isShuffle ? 'text-teal-400' : 'text-slate-400 hover:text-white'
+              }`}
             aria-label="Shuffle"
           >
             <Shuffle className="w-5 h-5" />
@@ -212,19 +212,19 @@ export default function MobileOnAirView({
 
           <button
             onClick={onToggleLoop}
-            className={`p-2 transition active:scale-90 ${
-              isLoop ? 'text-teal-400' : 'text-slate-400 hover:text-white'
-            }`}
-            aria-label="Repeat"
+            className={`relative p-2 transition active:scale-90 ${isLoop || isRepeatAll ? 'text-teal-400' : 'text-slate-400 hover:text-white'
+              }`}
+            aria-label={isLoop ? 'Repeat one' : isRepeatAll ? 'Repeat all' : 'Repeat off'}
           >
             <Repeat className="w-5 h-5" />
+            {isLoop && <span className="absolute right-0 top-0 text-[8px] font-black">1</span>}
           </button>
         </div>
 
         {/* Secondary Utility Controls: Queue, Lyrics toggle */}
         <div className="flex items-center justify-center gap-4 pt-1">
           <button
-            onClick={() => setShowQueue(true)}
+            onClick={onOpenQueue}
             className="flex items-center gap-2 py-2 px-4 rounded-xl glass-card text-xs font-bold text-slate-300 hover:text-white border border-white/10 active:scale-95 transition"
           >
             <ListMusic className="w-4 h-4 text-teal-400" />
@@ -232,18 +232,6 @@ export default function MobileOnAirView({
           </button>
         </div>
       </div>
-
-      {/* Queue Bottom Sheet */}
-      <MobileQueueSheet
-        isOpen={showQueue}
-        onClose={() => setShowQueue(false)}
-        currentTrack={currentTrack}
-        queue={playQueue}
-        onPlayTrack={onSeek ? (t) => onSeek(0) : undefined}
-        onRemoveFromQueue={onRemoveFromQueue}
-        onClearQueue={onClearQueue}
-        onReorderQueue={onReorderQueue}
-      />
 
       {/* Beat Code Modal */}
       {showBeatCode && (
@@ -288,7 +276,7 @@ export default function MobileOnAirView({
               >
                 Share Beat Code
               </button>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={async () => {

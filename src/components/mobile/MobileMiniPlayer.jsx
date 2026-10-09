@@ -4,35 +4,18 @@ import { Play, Pause, Heart, Music, Radio } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/api';
 export default function MobileMiniPlayer({
-  
-  
-  
   onOpenOnAir,
+  onOpenQueue,
   isLiked,
   onToggleLike,
   activeHuddle,
   onOpenHuddleRoom
 }) {
   const {
-    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    currentTrack, isPlaying,
     queue: playQueue,
-    playTrack: onPlayTrack,
-    playTrack: handlePlayTrack,
-    togglePlay: onTogglePlay,
-    togglePlay: handleTogglePlay,
-    playNext: onNextTrack,
-    playPrevious: onPrevTrack,
-    seekTo: onSeek,
-    setVolume: onVolumeChange,
-    toggleMute: onToggleMute,
-    toggleShuffle: onToggleShuffle,
-    toggleLoop: onToggleLoop,
-    addToQueue: onAddToQueue,
-    removeFromQueue: onRemoveFromQueue,
-    setQueue: onReorderQueue,
-    setQueue
+    togglePlay: onTogglePlay
   } = usePlayer();
-  const onClearQueue = () => setQueue([]);
 
   if (!currentTrack && !activeHuddle) return null;
 
@@ -86,10 +69,23 @@ export default function MobileMiniPlayer({
         {currentTrack && (
           <>
             <button
+              onClick={onOpenQueue}
+              className="relative p-2.5 rounded-full text-slate-300 hover:text-white transition active:scale-90"
+              title="Open queue"
+              aria-label="Open queue"
+            >
+              <Music className="w-4 h-4" />
+              {playQueue?.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[1.05rem] h-4 px-1 flex items-center justify-center rounded-full bg-teal-400 text-[9px] font-black text-slate-950">
+                  {playQueue.length > 99 ? '99+' : playQueue.length}
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => onToggleLike && onToggleLike(currentTrack.id)}
-              className={`p-2.5 rounded-full transition active:scale-90 ${
-                isLiked ? 'text-rose-400' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`p-2.5 rounded-full transition active:scale-90 ${isLiked ? 'text-rose-400' : 'text-slate-400 hover:text-white'
+                }`}
               title="Like Track"
               aria-label="Like Track"
             >

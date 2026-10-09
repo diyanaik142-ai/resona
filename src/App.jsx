@@ -23,7 +23,7 @@ import MaintenanceScreen from './components/MaintenanceScreen';
 import HuddleView from './components/HuddleView';
 import NotificationDrawer from './components/NotificationDrawer';
 import { joinHuddleRoom, leaveHuddleRoom, subscribeHuddleEvent, registerSocketUser } from './services/huddleSocket';
-import { resolveMediaUrl,  api } from './services/api';
+import { resolveMediaUrl, api } from './services/api';
 
 // Dedicated Mobile Experience (< 768px)
 import MobileHeader from './components/mobile/MobileHeader';
@@ -58,8 +58,8 @@ import {
 
 export default function App() {
   const {
-    currentTrack, queue: playQueue, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
-    playTrack, setQueue, togglePlay, playNext, playPrevious, seekTo, setVolume,
+    currentTrack, queue: playQueue, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop, isRepeatAll,
+    playTrack, addToQueue, addNextToQueue, togglePlay, playNext, playPrevious, seekTo, setVolume,
     toggleMute, toggleShuffle, toggleLoop
   } = usePlayer();
 
@@ -243,19 +243,19 @@ export default function App() {
 
   // Global Navigation Rule: Enforce Pulse on Startup / Account Switch
   const startupHandledRef = useRef(false);
-  
+
   useEffect(() => {
     // 1. App Startup Rule
     if (!loading && isAuthenticated && !startupHandledRef.current) {
       startupHandledRef.current = true;
       if (user?.role === 'admin') {
-         if (typeof window !== 'undefined' && window.history) {
-           window.history.replaceState({ tab: 'admin', subTab: null }, '', '/admin');
-         }
+        if (typeof window !== 'undefined' && window.history) {
+          window.history.replaceState({ tab: 'admin', subTab: null }, '', '/admin');
+        }
       } else {
-         if (typeof window !== 'undefined' && window.history) {
-           window.history.replaceState({ tab: 'pulse', subTab: null }, '', '/pulse');
-         }
+        if (typeof window !== 'undefined' && window.history) {
+          window.history.replaceState({ tab: 'pulse', subTab: null }, '', '/pulse');
+        }
       }
     }
   }, [loading, isAuthenticated, user]);
@@ -263,18 +263,18 @@ export default function App() {
   useEffect(() => {
     // 2. Account Switch Rule
     const handleAccountSwitched = () => {
-       if (user?.role === 'admin') {
-         if (typeof window !== 'undefined' && window.history) {
-           window.history.replaceState({ tab: 'admin', subTab: null }, '', '/admin');
-         }
-       } else {
-         setActiveTabState('pulse');
-         setActiveSubTabState(null);
-         tabHistoryRef.current = [{ tab: 'pulse', subTab: null }];
-         if (typeof window !== 'undefined' && window.history) {
-           window.history.replaceState({ tab: 'pulse', subTab: null }, '', '/pulse');
-         }
-       }
+      if (user?.role === 'admin') {
+        if (typeof window !== 'undefined' && window.history) {
+          window.history.replaceState({ tab: 'admin', subTab: null }, '', '/admin');
+        }
+      } else {
+        setActiveTabState('pulse');
+        setActiveSubTabState(null);
+        tabHistoryRef.current = [{ tab: 'pulse', subTab: null }];
+        if (typeof window !== 'undefined' && window.history) {
+          window.history.replaceState({ tab: 'pulse', subTab: null }, '', '/pulse');
+        }
+      }
     };
     window.addEventListener('resona:account-switched', handleAccountSwitched);
     return () => window.removeEventListener('resona:account-switched', handleAccountSwitched);
@@ -288,7 +288,7 @@ export default function App() {
         setActiveTabState(prev.tab);
         setActiveSubTabState(prev.subTab);
         if (typeof window !== 'undefined' && window.history) {
-           window.history.back(); 
+          window.history.back();
         }
       } else {
         setActiveTabState('pulse');
@@ -309,7 +309,7 @@ export default function App() {
     if (current.tab !== mainTab || current.subTab !== subTab) {
       tabHistoryRef.current.push({ tab: mainTab, subTab });
     }
-    
+
     setActiveTabState(mainTab);
     setActiveSubTabState(subTab);
 
@@ -349,11 +349,31 @@ export default function App() {
 
   // Audio Playback State
   const [toastMsg, setToastMsg] = useState(null);
+  const [toastKind, setToastKind] = useState('success');
+  const toastTimeoutRef = useRef(null);
 
   const showToast = (msg) => {
+    setToastKind('success');
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    window.clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => setToastMsg(null), 3000);
   };
+
+  useEffect(() => {
+    const handlePlayerFeedback = (event) => {
+      const { message, kind = 'success' } = event.detail || {};
+      if (!message) return;
+      setToastKind(kind);
+      setToastMsg(message);
+      window.clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = window.setTimeout(() => setToastMsg(null), 3000);
+    };
+    window.addEventListener('resona:player-feedback', handlePlayerFeedback);
+    return () => {
+      window.removeEventListener('resona:player-feedback', handlePlayerFeedback);
+      window.clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   const recordActivity = (event) => {
     api.user.recordActivity(event).catch(err => {
@@ -382,18 +402,6 @@ export default function App() {
     }
   });
 
-  const handleAddToQueue = (track) => {
-    if (!track) return;
-    
-    try {
-      const queuedTrack = { ...track, queueItemId: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` };
-      setQueue(prev => [...prev, queuedTrack]);
-      showToast(`Added to queue — ${track.title}`);
-    } catch (err) {
-      showToast("Couldn't add to queue");
-    }
-  };
-
   const handleAddToHuddleQueue = async (track) => {
     if (!track || !activeHuddle) return;
     try {
@@ -403,25 +411,6 @@ export default function App() {
     } catch (err) {
       showToast("Couldn't add to Huddle Queue");
     }
-  };
-
-  const handleRemoveFromQueue = (identifier) => {
-    setQueue(prev => {
-      const next = prev.filter(t => (t.queueItemId || t.id) !== identifier);
-      if (next.length !== prev.length) {
-        showToast("Removed from queue");
-      }
-      return next;
-    });
-  };
-
-  const handleClearQueue = () => {
-    setQueue([]);
-    showToast("Queue cleared");
-  };
-
-  const handleReorderQueue = (newQueue) => {
-    setQueue(newQueue);
   };
 
   // Synchronize Real-time Notifications & Presence
@@ -434,7 +423,7 @@ export default function App() {
 
     // Register user presence & personal room
     registerSocketUser(user.id);
-    
+
     // Initialize native push notifications (Capacitor)
     initPushNotifications();
 
@@ -606,7 +595,7 @@ export default function App() {
           setActiveHuddle(res.huddle);
           // If Huddle has a nowPlaying track and current player is empty, sync it
           if (res.huddle.nowPlaying && (!currentTrack || currentTrack.id !== res.huddle.nowPlaying.trackId)) {
-              playTrack(res.huddle.nowPlaying);
+            playTrack(res.huddle.nowPlaying);
           }
         } else {
           setActiveHuddle(null);
@@ -827,7 +816,7 @@ export default function App() {
         if (activeTab.startsWith('playlist/')) {
           const pId = activeTab.split('/')[1];
           return (
-            <PlaylistView 
+            <PlaylistView
               playlistId={pId}
               onPlayPlaylist={(tracks, shuffle) => {
                 if (!tracks || tracks.length === 0) return;
@@ -935,7 +924,7 @@ export default function App() {
         if (activeTab.startsWith('playlist/')) {
           const pId = activeTab.split('/')[1];
           return (
-            <PlaylistView 
+            <PlaylistView
               playlistId={pId}
               onPlayPlaylist={(tracks, shuffle) => {
                 if (!tracks || tracks.length === 0) return;
@@ -968,7 +957,7 @@ export default function App() {
       <div className="absolute bottom-1/4 right-1/4 w-72 h-72 md:w-[450px] md:h-[450px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none z-0" />
 
       {/* HTML5 Master Audio Element */}
-      
+
 
       {/* ============================================================ */}
       {/* DESKTOP EXPERIENCE (>= 768px) - 100% FROZEN & UNCHANGED       */}
@@ -1198,10 +1187,10 @@ export default function App() {
                         {isApprovedCreator ? 'Creator Studio' : isPending ? 'Creator Application' : 'Become a Creator'}
                       </p>
                       <p className="text-[10px] text-slate-400 truncate">
-                        {isApprovedCreator 
-                          ? `${creatorData?.uploads?.length || 0} Releases` 
-                          : isPending 
-                            ? 'Under Review' 
+                        {isApprovedCreator
+                          ? `${creatorData?.uploads?.length || 0} Releases`
+                          : isPending
+                            ? 'Under Review'
                             : 'Apply to publish'}
                       </p>
                     </div>
@@ -1317,11 +1306,12 @@ export default function App() {
 
                   <button
                     onClick={toggleLoop}
-                    className={`p-1.5 transition ${!currentTrack ? 'text-slate-700 cursor-not-allowed' : isLoop ? 'text-teal-400' : 'text-slate-500 hover:text-white'}`}
-                    title="Repeat"
+                    className={`relative p-1.5 transition ${!currentTrack ? 'text-slate-700 cursor-not-allowed' : isLoop || isRepeatAll ? 'text-teal-400' : 'text-slate-500 hover:text-white'}`}
+                    title={isLoop ? 'Repeat one' : isRepeatAll ? 'Repeat all' : 'Repeat off'}
                     disabled={!currentTrack}
                   >
                     <Repeat className="w-4 h-4" />
+                    {isLoop && <span className="absolute -right-0.5 -top-0.5 text-[7px] font-black">1</span>}
                   </button>
                 </div>
 
@@ -1368,6 +1358,20 @@ export default function App() {
 
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowMobileQueue(true)}
+                    className="relative p-2 rounded-xl text-slate-400 hover:text-white transition glass-card"
+                    title="Open queue"
+                    aria-label="Open queue"
+                  >
+                    <Music className="w-4 h-4" />
+                    {playQueue?.length > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-4 px-1 flex items-center justify-center rounded-full bg-teal-400 text-[9px] font-black text-slate-950">
+                        {playQueue.length > 99 ? '99+' : playQueue.length}
+                      </span>
+                    )}
+                  </button>
+
                   <button
                     onClick={handleToggleMute}
                     className="text-slate-400 hover:text-white transition"
@@ -1452,13 +1456,12 @@ export default function App() {
         {/* Mobile Scrollable Page Content */}
         <main
           id="mobile-main-content"
-          className={`w-full max-w-[100vw] overflow-x-clip overscroll-x-none min-h-[calc(100dvh-3.5rem)] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${
-            activeTab === 'onair'
+          className={`w-full max-w-[100vw] overflow-x-clip overscroll-x-none min-h-[calc(100dvh-3.5rem)] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${activeTab === 'onair'
               ? 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]'
               : currentTrack
-              ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))]'
-              : 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]'
-          }`}
+                ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom,0px))]'
+                : 'pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]'
+            }`}
         >
           {renderMobileView()}
         </main>
@@ -1467,6 +1470,7 @@ export default function App() {
         {(currentTrack || (activeHuddle && activeHuddle.status === 'active')) && activeTab !== 'onair' && (
           <MobileMiniPlayer
             onOpenOnAir={() => setActiveTab('onair')}
+            onOpenQueue={() => setShowMobileQueue(true)}
             isLiked={isCurrentLiked}
             onToggleLike={() => currentTrack && toggleLikeTrack(currentTrack.id)}
             activeHuddle={activeHuddle}
@@ -1513,18 +1517,14 @@ export default function App() {
         )}
 
         {/* Mobile Queue Bottom Sheet */}
-        <MobileQueueSheet
-          isOpen={showMobileQueue}
-          onClose={() => setShowMobileQueue(false)}
-          queue={playQueue.length > 0 ? playQueue : catalog}
-        />
-
         {/* Mobile Track Action Sheet */}
         <MobileTrackActionSheet
           isOpen={!!mobileTrackAction}
           onClose={() => setMobileTrackAction(null)}
           track={mobileTrackAction}
           onPlayTrack={(t) => { playTrack(t); setMobileTrackAction(null); }}
+          onPlayNext={addNextToQueue}
+          onAddToQueue={addToQueue}
           activeHuddle={activeHuddle}
           onAddToHuddleQueue={handleAddToHuddleQueue}
           isLiked={mobileTrackAction ? shelf?.likedTrackIds?.includes(mobileTrackAction.id) : false}
@@ -1532,9 +1532,14 @@ export default function App() {
         />
       </div>
 
+      <MobileQueueSheet
+        isOpen={showMobileQueue}
+        onClose={() => setShowMobileQueue(false)}
+      />
+
       {/* Toast Notification */}
       {toastMsg && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-slate-900 border border-white/10 shadow-2xl px-4 py-2 rounded-xl flex items-center justify-center animate-in slide-in-from-bottom-2 fade-in duration-300">
+        <div role={toastKind === 'error' ? 'alert' : 'status'} aria-live={toastKind === 'error' ? 'assertive' : 'polite'} className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] border shadow-2xl px-4 py-2 rounded-xl flex items-center justify-center animate-in slide-in-from-bottom-2 fade-in duration-300 ${toastKind === 'error' ? 'bg-rose-950 border-rose-400/30' : 'bg-slate-900 border-white/10'}`}>
           <span className="text-white text-xs font-bold whitespace-nowrap">{toastMsg}</span>
         </div>
       )}

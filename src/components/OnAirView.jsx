@@ -2,28 +2,35 @@ import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
 import BeatCodeQR from './BeatCodeQR';
-import { resolveMediaUrl,  api } from '../services/api';
+import { resolveMediaUrl, api } from '../services/api';
 import { Play, Pause, SkipBack, SkipForward, Heart, Repeat, Shuffle, Share2, X, Copy, Check, QrCode, Camera, MoreHorizontal, Radio, Layers, Image as ImageIcon, Download, ChevronRight, Plus, Bell, AlertCircle, Trash2, GripVertical } from 'lucide-react';
 import { Reorder, useDragControls } from 'framer-motion';
 
-function DraggableQueueItem({ t, idx, onPlayTrack, onRemoveFromQueue }) {
+function DraggableQueueItem({ t, idx, onPlayTrack, onRemoveFromQueue, onBeginDrag, onEndDrag }) {
   const controls = useDragControls();
 
   return (
-    <Reorder.Item 
-      value={t} 
+    <Reorder.Item
+      value={t}
       dragListener={false}
       dragControls={controls}
+      onDragStart={onBeginDrag}
+      onDragEnd={onEndDrag}
       className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white/5 group transition-colors"
     >
-      <div 
-        onPointerDown={(e) => controls.start(e)}
+      <div
+        onPointerDown={(e) => {
+          onBeginDrag();
+          controls.start(e);
+        }}
+        onPointerUp={() => window.setTimeout(onEndDrag, 0)}
+        onPointerCancel={() => window.setTimeout(onEndDrag, 0)}
         className="flex items-center gap-1 cursor-grab active:cursor-grabbing text-slate-500 hover:text-white px-1"
         style={{ touchAction: 'none' }}
       >
         <GripVertical className="w-4 h-4" />
       </div>
-      <div className="flex items-center gap-2 flex-1 cursor-pointer ml-1" onClick={() => { if(onPlayTrack) onPlayTrack(t); }}>
+      <div className="flex items-center gap-2 flex-1 cursor-pointer ml-1" onClick={() => { if (onPlayTrack) onPlayTrack(t); }}>
         <img src={resolveMediaUrl(t.cover || t.artwork)} alt={t.title} className="w-8 h-8 rounded-md object-cover" />
         <div className="min-w-0">
           <p className="font-bold text-white text-xs truncate group-hover:text-teal-300 transition">{t.title}</p>
@@ -40,11 +47,11 @@ function DraggableQueueItem({ t, idx, onPlayTrack, onRemoveFromQueue }) {
     </Reorder.Item>
   );
 }
-export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle, setShowHuddleRoom,    }) {
+export default function OnAirView({ onNext, onPrev, onNavigate, activeHuddle, setShowHuddleRoom, }) {
   const {
-    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop,
+    currentTrack, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isLoop, isRepeatAll,
     queue: playQueue,
-    playTrack: onPlayTrack,
+    playQueuedTrack: onPlayTrack,
     playTrack: handlePlayTrack,
     togglePlay: onTogglePlay,
     togglePlay: handleTogglePlay,
@@ -57,22 +64,25 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
     toggleLoop: onToggleLoop,
     addToQueue: onAddToQueue,
     removeFromQueue: onRemoveFromQueue,
-    setQueue: onReorderQueue,
-    setQueue
+    reorderQueue: onReorderQueue,
+    beginQueueReorder,
+    finishQueueReorder,
+    clearQueue: onClearQueue
   } = usePlayer();
-  const onClearQueue = () => setQueue([]);
 
   const { user, catalog } = useAuth();
   const track = currentTrack || (catalog.length > 0 ? catalog[0] : null);
-  if (!track) return <div className="p-8 text-center text-slate-400 mt-20">No track playing</div>;
   const [activeTab, setActiveTab] = useState('Lyrics'); // Lyrics, About, Related
-  const [isLiked, setIsLiked] = useState(track.liked || false);
+  const [showClearQueueConfirm, setShowClearQueueConfirm] = useState(false);
+  const [isLiked, setIsLiked] = useState(track?.liked || false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showBeatCodeModal, setShowBeatCodeModal] = useState(false);
   const [showStoryCardModal, setShowStoryCardModal] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState('');
   const [beatColorHex, setBeatColorHex] = useState('#ec4899');
   const [copied, setCopied] = useState(false);
+
+  if (!track) return <div className="p-8 text-center text-slate-400 mt-20">No track playing</div>;
 
   const triggerNotification = (msg) => {
     setNotificationMsg(msg);
@@ -330,79 +340,79 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
               <BeatCodeQR trackId={track.id} cover={track.cover} primaryColor={beatColorHex} />
             </div>
 
-              <div className="flex flex-col gap-2 w-full mt-4">
+            <div className="flex flex-col gap-2 w-full mt-4">
+              <button
+                onClick={async () => {
+                  const url = `https://resona.anchorlyhms.com/song/${track.id}`;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: `Listen to ${track.title} on Resona`,
+                        text: `Listen to ${track.title} by ${track.artist} on Resona`,
+                        url
+                      });
+                      triggerNotification('Shared successfully');
+                    } catch (err) {
+                      console.log('Share canceled', err);
+                    }
+                  } else {
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      triggerNotification('Link copied');
+                    } catch (err) {
+                      triggerNotification("Couldn't copy link");
+                    }
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl glass-button-primary text-xs font-bold"
+              >
+                Share Beat Code
+              </button>
+
+              <div className="flex gap-2">
                 <button
                   onClick={async () => {
                     const url = `https://resona.anchorlyhms.com/song/${track.id}`;
-                    if (navigator.share) {
-                      try {
-                        await navigator.share({
-                          title: `Listen to ${track.title} on Resona`,
-                          text: `Listen to ${track.title} by ${track.artist} on Resona`,
-                          url
-                        });
-                        triggerNotification('Shared successfully');
-                      } catch (err) {
-                        console.log('Share canceled', err);
-                      }
-                    } else {
-                      try {
-                        await navigator.clipboard.writeText(url);
-                        triggerNotification('Link copied');
-                      } catch (err) {
-                        triggerNotification("Couldn't copy link");
-                      }
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      triggerNotification('Link copied');
+                    } catch (err) {
+                      triggerNotification("Couldn't copy link");
                     }
                   }}
-                  className="w-full py-2.5 rounded-xl glass-button-primary text-xs font-bold"
+                  className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
                 >
-                  Share Beat Code
+                  Copy Link
                 </button>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      const url = `https://resona.anchorlyhms.com/song/${track.id}`;
-                      try {
-                        await navigator.clipboard.writeText(url);
-                        triggerNotification('Link copied');
-                      } catch (err) {
-                        triggerNotification("Couldn't copy link");
-                      }
-                    }}
-                    className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
-                  >
-                    Copy Link
-                  </button>
-                  <button
-                    onClick={() => {
-                      const svg = document.getElementById('beatcode-qr-svg');
-                      if (!svg) return;
-                      const svgData = new XMLSerializer().serializeToString(svg);
-                      const canvas = document.createElement("canvas");
-                      const ctx = canvas.getContext("2d");
-                      const img = new Image();
-                      img.onload = () => {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(img, 0, 0);
-                        const pngFile = canvas.toDataURL("image/png");
-                        const downloadLink = document.createElement("a");
-                        downloadLink.download = `Resona-BeatCode-${track.id}.png`;
-                        downloadLink.href = pngFile;
-                        downloadLink.click();
-                        triggerNotification('Beat Code saved');
-                      };
-                      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-                    }}
-                    className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
-                  >
-                    Save Beat Code
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    const svg = document.getElementById('beatcode-qr-svg');
+                    if (!svg) return;
+                    const svgData = new XMLSerializer().serializeToString(svg);
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    const img = new Image();
+                    img.onload = () => {
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      ctx.fillStyle = "#ffffff";
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      ctx.drawImage(img, 0, 0);
+                      const pngFile = canvas.toDataURL("image/png");
+                      const downloadLink = document.createElement("a");
+                      downloadLink.download = `Resona-BeatCode-${track.id}.png`;
+                      downloadLink.href = pngFile;
+                      downloadLink.click();
+                      triggerNotification('Beat Code saved');
+                    };
+                    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                  }}
+                  className="flex-1 py-2.5 rounded-xl glass-card border border-white/10 text-xs font-bold text-white hover:bg-white/5"
+                >
+                  Save Beat Code
+                </button>
               </div>
+            </div>
 
             <div className="flex gap-3 pt-1">
               <button
@@ -449,7 +459,7 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
 
       {/* Progress & Scrub Bar */}
       <div className="space-y-1.5 z-10 px-1">
-        <div 
+        <div
           onClick={(e) => {
             if (!onSeek || !duration) return;
             const rect = e.currentTarget.getBoundingClientRect();
@@ -468,7 +478,11 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
 
       {/* Controls Bar */}
       <div className="flex items-center justify-between px-4 z-10">
-        <button className="text-slate-400 hover:text-white transition">
+        <button
+          onClick={onToggleShuffle}
+          className={`transition ${isShuffle ? 'text-teal-400' : 'text-slate-400 hover:text-white'}`}
+          aria-label={isShuffle ? 'Turn shuffle off' : 'Turn shuffle on'}
+        >
           <Shuffle className="w-5 h-5" />
         </button>
         <button onClick={onPrev} className="text-slate-200 hover:text-white transition p-2">
@@ -487,8 +501,13 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
         <button onClick={onNext} className="text-slate-200 hover:text-white transition p-2">
           <SkipForward className="w-7 h-7 fill-current" />
         </button>
-        <button className="text-slate-400 hover:text-white transition">
+        <button
+          onClick={onToggleLoop}
+          className={`relative transition ${isLoop || isRepeatAll ? 'text-teal-400' : 'text-slate-400 hover:text-white'}`}
+          aria-label={isLoop ? 'Repeat one' : isRepeatAll ? 'Repeat all' : 'Repeat off'}
+        >
           <Repeat className="w-5 h-5" />
+          {isLoop && <span className="absolute -right-1 -top-1 text-[8px] font-black">1</span>}
         </button>
       </div>
 
@@ -498,9 +517,8 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition ${
-              activeTab === tab ? 'bg-teal-400 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition ${activeTab === tab ? 'bg-teal-400 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+              }`}
           >
             {tab}
           </button>
@@ -573,34 +591,52 @@ export default function OnAirView({   onNext, onPrev,  onNavigate, activeHuddle,
               <>
                 <div className="flex items-center justify-between pb-1 border-b border-white/5 mb-2">
                   <span className="text-[10px] text-slate-400 uppercase font-bold">Up Next Queue ({playQueue.length})</span>
-                  {onClearQueue && playQueue.length > 0 && (
+                  {playQueue.length > 0 && (
                     <button
-                      onClick={() => {
-                        if (window.confirm("Are you sure you want to clear the upcoming queue?")) {
-                          onClearQueue();
-                        }
-                      }}
+                      onClick={() => setShowClearQueueConfirm(true)}
                       className="px-2 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30 rounded bg-rose-500/10 hover:bg-rose-500/20 uppercase tracking-wider"
                     >
                       Clear
                     </button>
                   )}
                 </div>
+                <div className="flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/5 p-2">
+                  <img src={resolveMediaUrl(track.cover || track.coverUrl || track.artwork)} alt={track.title} className="h-9 w-9 rounded-md object-cover" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-teal-400">Now Playing</p>
+                    <p className="truncate text-xs font-bold text-white">{track.title}</p>
+                    <p className="truncate text-[10px] text-slate-400">{track.artist}</p>
+                  </div>
+                </div>
                 {playQueue.length > 0 ? (
                   <Reorder.Group axis="y" values={playQueue} onReorder={onReorderQueue} className="space-y-1">
-                  {playQueue.map((t, idx) => (
-                    <DraggableQueueItem
-                      key={t.queueItemId || t.id || idx}
-                      t={t}
-                      idx={idx}
-                      onPlayTrack={onPlayTrack}
-                      onRemoveFromQueue={onRemoveFromQueue}
-                    />
-                  ))}
+                    {playQueue.map((t, idx) => (
+                      <DraggableQueueItem
+                        key={t.queueItemId || t.id || idx}
+                        t={t}
+                        idx={idx}
+                        onPlayTrack={onPlayTrack}
+                        onRemoveFromQueue={onRemoveFromQueue}
+                        onBeginDrag={beginQueueReorder}
+                        onEndDrag={finishQueueReorder}
+                      />
+                    ))}
                   </Reorder.Group>
                 ) : (
                   <div className="py-4 text-center">
                     <p className="text-xs text-slate-400">No tracks in queue.</p>
+                  </div>
+                )}
+                {showClearQueueConfirm && (
+                  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-4" role="alertdialog" aria-modal="true" aria-labelledby="desktop-clear-queue-title">
+                    <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-2xl">
+                      <h3 id="desktop-clear-queue-title" className="text-sm font-bold text-white">Clear upcoming queue?</h3>
+                      <p className="mt-1 text-xs text-slate-400">The current track will keep playing.</p>
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button type="button" onClick={() => setShowClearQueueConfirm(false)} className="rounded-lg px-3 py-2 text-xs text-slate-300 hover:bg-white/10">Cancel</button>
+                        <button type="button" onClick={() => { onClearQueue(); setShowClearQueueConfirm(false); }} className="rounded-lg bg-rose-500/15 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/25">Clear queue</button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </>
