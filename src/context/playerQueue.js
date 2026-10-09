@@ -147,3 +147,13 @@ export function handleAudioEnded(audio, repeatOne, playNext, onRepeatError) {
   }
   playNext?.(true);
 }
+
+export function runEndedTransition(lock, transition) {
+  if (lock.current) return Promise.resolve(false);
+  lock.current = true;
+  return Promise.resolve()
+    .then(transition)
+    .finally(() => {
+      lock.current = false;
+    });
+}

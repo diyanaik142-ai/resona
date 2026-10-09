@@ -10,7 +10,8 @@ import {
   selectAutoplayTracks,
   takeNextQueueItem,
   tryAutoplayCandidates,
-  handleAudioEnded
+  handleAudioEnded,
+  runEndedTransition
 } from './playerQueue';
 
 const PlayerContext = createContext(null);
@@ -213,7 +214,6 @@ export const PlayerProvider = ({ children }) => {
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
     const handleDurationChange = () => setDuration(audio.duration);
     const handlePlay = () => {
-      endedTransitionRef.current = false;
       setIsPlaying(true);
       setIsLoading(false);
       setIsBuffering(false);
@@ -362,108 +362,110 @@ export const PlayerProvider = ({ children }) => {
     });
   }, [catalog, preferences?.autoplay, user?.id, user?.role]);
 
-  const playNext = useCallback(async (fromEnded = false) => {
-    if (fromEnded && endedTransitionRef.current) return;
-    if (fromEnded) endedTransitionRef.current = true;
-
-    const transition = fromEnded
-      ? getEndedPlaybackAction({
-        repeatMode: isLoop ? 'one' : isRepeatAll ? 'all' : 'off',
-        currentTrack: trackRef.current,
-        queue: queueRef.current,
-        repeatSequence: repeatSequenceRef.current
-      })
-      : (() => {
-        const next = takeNextQueueItem(queueRef.current);
-        if (next) return { type: 'queue', ...next };
-        return isRepeatAll
+  const playNext = useCallback((fromEnded = false) => {
+    const executeTransition = async () => {
+      const transition = fromEnded
         ? getEndedPlaybackAction({
-          repeatMode: 'all',
+          repeatMode: isLoop ? 'one' : isRepeatAll ? 'all' : 'off',
           currentTrack: trackRef.current,
-          queue: [],
+          queue: queueRef.current,
           repeatSequence: repeatSequenceRef.current
         })
-          : { type: 'stop', queue: [] };
-      })();
-    if (transition.type === 'repeat-all') {
+        : (() => {
+          const next = takeNextQueueItem(queueRef.current);
+          if (next) return { type: 'queue', ...next };
+          return isRepeatAll
+            ? getEndedPlaybackAction({
+              repeatMode: 'all',
+              currentTrack: trackRef.current,
+              queue: [],
+              repeatSequence: repeatSequenceRef.current
+            })
+            : { type: 'stop', queue: [] };
+        })();
+      if (transition.type === 'repeat-all') {
         setQueue(transition.queue);
         playbackHistoryRef.current = [...playbackHistoryRef.current.slice(-20), trackRef.current].filter(Boolean);
         const started = await loadAndPlayTrack(transition.track, true);
         if (!started) publishQueueFeedback("Couldn't repeat queue track.", 'error');
         return;
-    }
-    if (transition.type !== 'queue') {
-      if (!fromEnded) {
-        setIsPlaying(false);
-        audioRef.current.pause();
-        return;
       }
-      if (preferences?.autoplay === false) {
-        setIsPlaying(false);
-        return;
-      }
-
-      const endedTrack = trackRef.current;
-      const requestId = playRequestRef.current;
-      try {
-        const recommendations = await findAutoplayTracks(endedTrack);
-        if (
-          requestId !== playRequestRef.current ||
-          trackRef.current?.id !== endedTrack?.id
-        ) return;
-        if (recommendations.length === 0) {
+      if (transition.type !== 'queue') {
+        if (!fromEnded) {
           setIsPlaying(false);
-          setError(null);
-          publishQueueFeedback('No more tracks to play.', 'status');
+          audioRef.current.pause();
+          return;
+        }
+        if (preferences?.autoplay === false) {
+          setIsPlaying(false);
           return;
         }
 
-        let expectedRequestId = requestId;
-        let expectedTrackId = endedTrack?.id;
-        const attempt = await tryAutoplayCandidates(
-          recommendations,
-          () => (
-            expectedRequestId === playRequestRef.current &&
-            trackRef.current?.id === expectedTrackId
-          ),
-          async (candidate) => {
-            const started = await loadAndPlayTrack(candidate, true);
-            expectedRequestId = playRequestRef.current;
-            expectedTrackId = candidate.id;
-            return started;
+        const endedTrack = trackRef.current;
+        const requestId = playRequestRef.current;
+        try {
+          const recommendations = await findAutoplayTracks(endedTrack);
+          if (
+            requestId !== playRequestRef.current ||
+            trackRef.current?.id !== endedTrack?.id
+          ) return;
+          if (recommendations.length === 0) {
+            setIsPlaying(false);
+            setError(null);
+            publishQueueFeedback('No more tracks to play.', 'status');
+            return;
           }
-        );
-        recentAutoplayIdsRef.current = [
-          ...recentAutoplayIdsRef.current,
-          ...attempt.failedIds,
-          ...(attempt.track ? [String(attempt.track.id)] : [])
-        ].slice(-30);
-        if (attempt.aborted) return;
-        if (!attempt.track) {
-          setIsPlaying(false);
-          setError("Couldn't continue playback. Try another track.");
-          publishQueueFeedback("Couldn't continue playback. Try another track.", 'error');
-          return;
-        }
-        setQueue(recommendations.slice(attempt.index + 1));
-        repeatSequenceRef.current = [attempt.track, ...recommendations.slice(attempt.index + 1)];
-      } catch (err) {
-        console.warn('[Autoplay] Could not load related tracks:', err.message);
-        if (requestId === playRequestRef.current && trackRef.current?.id === endedTrack?.id) {
-          setIsPlaying(false);
-          setError("Couldn't load related tracks.");
-          publishQueueFeedback("Couldn't load related tracks.", 'error');
-        }
-      }
-      return;
-    }
 
-    const { track: nextTrack, queue: remainingQueue } = transition;
-    playbackHistoryRef.current = [...playbackHistoryRef.current.slice(-20), trackRef.current].filter(Boolean);
-    setQueue(remainingQueue);
-    setQueueIndex(0);
-    const started = await loadAndPlayTrack(nextTrack, true);
-    if (!started) publishQueueFeedback("Couldn't play queued track.", 'error');
+          let expectedRequestId = requestId;
+          let expectedTrackId = endedTrack?.id;
+          const attempt = await tryAutoplayCandidates(
+            recommendations,
+            () => (
+              expectedRequestId === playRequestRef.current &&
+              trackRef.current?.id === expectedTrackId
+            ),
+            async (candidate) => {
+              const started = await loadAndPlayTrack(candidate, true);
+              expectedRequestId = playRequestRef.current;
+              expectedTrackId = candidate.id;
+              return started;
+            }
+          );
+          recentAutoplayIdsRef.current = [
+            ...recentAutoplayIdsRef.current,
+            ...attempt.failedIds,
+            ...(attempt.track ? [String(attempt.track.id)] : [])
+          ].slice(-30);
+          if (attempt.aborted) return;
+          if (!attempt.track) {
+            setIsPlaying(false);
+            setError("Couldn't continue playback. Try another track.");
+            publishQueueFeedback("Couldn't continue playback. Try another track.", 'error');
+            return;
+          }
+          setQueue(recommendations.slice(attempt.index + 1));
+          repeatSequenceRef.current = [attempt.track, ...recommendations.slice(attempt.index + 1)];
+        } catch (err) {
+          console.warn('[Autoplay] Could not load related tracks:', err.message);
+          if (requestId === playRequestRef.current && trackRef.current?.id === endedTrack?.id) {
+            setIsPlaying(false);
+            setError("Couldn't load related tracks.");
+            publishQueueFeedback("Couldn't load related tracks.", 'error');
+          }
+        }
+        return;
+      }
+
+      const { track: nextTrack, queue: remainingQueue } = transition;
+      playbackHistoryRef.current = [...playbackHistoryRef.current.slice(-20), trackRef.current].filter(Boolean);
+      setQueue(remainingQueue);
+      setQueueIndex(0);
+      const started = await loadAndPlayTrack(nextTrack, true);
+      if (!started) publishQueueFeedback("Couldn't play queued track.", 'error');
+    };
+    return fromEnded
+      ? runEndedTransition(endedTransitionRef, executeTransition)
+      : executeTransition();
   }, [findAutoplayTracks, isLoop, isRepeatAll, loadAndPlayTrack, preferences?.autoplay, setQueue]);
 
   const playPrevious = useCallback(() => {

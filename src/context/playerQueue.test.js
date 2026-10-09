@@ -9,7 +9,8 @@ import {
   reorderQueueItems,
   selectAutoplayTracks,
   takeNextQueueItem,
-  tryAutoplayCandidates
+  tryAutoplayCandidates,
+  runEndedTransition
 } from './playerQueue.js';
 
 const makeTrack = (id, overrides = {}) => ({
@@ -215,4 +216,79 @@ test('autoplay tries later candidates after failures and stops after one bounded
   assert.equal(failedAttemptCount, candidates.length);
   assert.equal(allFailed.track, null);
   assert.deepEqual(allFailed.failedIds, candidates.map((track) => track.id));
+});
+
+test('ended transitions suppress concurrent work and release the guard after completion or failure', async () => {
+  const lock = { current: false };
+  let resolveTransition;
+  let calls = 0;
+  const transition = () => {
+    calls += 1;
+    return new Promise((resolve) => {
+      resolveTransition = resolve;
+    });
+  };
+
+  const inFlight = runEndedTransition(lock, transition);
+  const duplicate = await runEndedTransition(lock, transition);
+  assert.equal(duplicate, false);
+  assert.equal(calls, 1);
+  assert.equal(lock.current, true);
+  resolveTransition('played');
+  assert.equal(await inFlight, 'played');
+  assert.equal(lock.current, false);
+
+  await assert.rejects(runEndedTransition(lock, async () => {
+    throw new Error('transition failed');
+  }), /transition failed/);
+  assert.equal(lock.current, false);
+  assert.equal(await runEndedTransition(lock, async () => 'retry'), 'retry');
+});
+
+test('empty-queue ended event fetches a playable recommendation and starts it', async () => {
+  const [current] = normalizeQueueItems([makeTrack('current')]);
+  const recommended = makeTrack('recommended', { artist: 'Another Artist' });
+  const audio = new EventTarget();
+  const lock = { current: false };
+  let activeTrack = current;
+  let queue = [];
+  let recommendationCalls = 0;
+  let isPlaying = false;
+  let transitionPromise;
+
+  audio.addEventListener('ended', () => {
+    transitionPromise = runEndedTransition(lock, async () => {
+      const action = getEndedPlaybackAction({
+        repeatMode: 'off',
+        currentTrack: activeTrack,
+        queue,
+        repeatSequence: [current]
+      });
+      assert.equal(action.type, 'autoplay');
+      recommendationCalls += 1;
+      const response = { enabled: true, recommendations: [recommended] };
+      const candidates = selectAutoplayTracks({
+        recommendationResponse: response,
+        catalog: [current, recommended],
+        endedTrack: current
+      });
+      const attempt = await tryAutoplayCandidates(
+        candidates,
+        () => true,
+        async (track) => {
+          activeTrack = track;
+          isPlaying = true;
+          return true;
+        }
+      );
+      assert.equal(attempt.track, recommended);
+    });
+  });
+
+  audio.dispatchEvent(new Event('ended'));
+  await transitionPromise;
+  assert.equal(recommendationCalls, 1);
+  assert.equal(activeTrack.id, 'recommended');
+  assert.deepEqual(queue, []);
+  assert.equal(isPlaying, true);
 });
