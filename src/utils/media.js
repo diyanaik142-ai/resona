@@ -11,7 +11,7 @@ export function getApiBaseUrl() {
 
     if (isCapacitor) return 'https://resona.anchorlyhms.com';
     if (window.location.hostname === 'localhost' && window.location.port !== '') {
-      return 'http://localhost:8080';
+      return 'http://localhost:8090';
     }
     return window.location.origin.replace(/\/+$/, '');
   }

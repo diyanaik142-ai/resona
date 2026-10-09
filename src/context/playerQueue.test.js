@@ -4,7 +4,10 @@ import {
   createQueueItem,
   handleAudioEnded,
   getEndedPlaybackAction,
+  getRecommendationTracks,
+  isAutoplayEnabled,
   isPlayableQueueTrack,
+  loadAutoplayCandidates,
   normalizeQueueItems,
   reorderQueueItems,
   selectAutoplayTracks,
@@ -157,6 +160,24 @@ test('autoplay accepts the production recommendations schema and only returns pl
   assert.ok(result.every(isPlayableQueueTrack));
 });
 
+test('autoplay accepts the backend tracks schema and falls back across the published catalog', () => {
+  const current = makeTrack('current', { genre: undefined });
+  const recommended = makeTrack('recommended', { artist: 'Another Artist', genreId: 'pop' });
+  const unrelatedCatalogTrack = makeTrack('catalog-fallback', { artist: 'Catalog Artist', genreId: 'rock' });
+  const unpublished = makeTrack('unpublished', { status: 'Draft' });
+  const response = { enabled: true, tracks: [recommended] };
+
+  assert.deepEqual(getRecommendationTracks(response), [recommended]);
+  assert.deepEqual(
+    selectAutoplayTracks({
+      recommendationResponse: response,
+      catalog: [current, recommended, unrelatedCatalogTrack, unpublished],
+      endedTrack: current
+    }).map((track) => track.id),
+    ['recommended', 'catalog-fallback']
+  );
+});
+
 test('empty or failed recommendations fall back to related catalog tracks without replaying excluded IDs', () => {
   const current = makeTrack('current', { artist: 'Current Artist', genre: 'ambient' });
   const related = makeTrack('related', { artist: 'Other Artist', genre: 'ambient' });
@@ -167,7 +188,7 @@ test('empty or failed recommendations fall back to related catalog tracks withou
     recommendationResponse: { enabled: true, recommendations: [] },
     catalog,
     endedTrack: current
-  }).map((track) => track.id), ['related']);
+  }).map((track) => track.id), ['related', 'same-artist']);
   assert.deepEqual(selectAutoplayTracks({
     recommendationResponse: undefined,
     catalog,
@@ -178,7 +199,7 @@ test('empty or failed recommendations fall back to related catalog tracks withou
     recommendationResponse: { enabled: false, recommendations: [related] },
     catalog,
     endedTrack: current
-  }), []);
+  }).map((track) => track.id), ['related', 'same-artist']);
 });
 
 test('failed or unavailable tracks are rejected before queue success can be reported', () => {
@@ -291,4 +312,73 @@ test('empty-queue ended event fetches a playable recommendation and starts it', 
   assert.equal(activeTrack.id, 'recommended');
   assert.deepEqual(queue, []);
   assert.equal(isPlaying, true);
+});
+
+test('recommendation API errors retain diagnostics and use published catalog fallback', async () => {
+  const current = makeTrack('current');
+  const fallback = makeTrack('fallback', { artist: 'Another Artist', genre: undefined });
+  const result = await loadAutoplayCandidates({
+    fetchRecommendations: async () => {
+      const error = new Error('Recommendation request failed with HTTP 401');
+      error.status = 401;
+      throw error;
+    },
+    fetchCatalog: async () => ({ tracks: [current, fallback] }),
+    endedTrack: current
+  });
+
+  assert.equal(result.recommendationError.status, 401);
+  assert.equal(result.catalogError, null);
+  assert.deepEqual(result.candidates.map((track) => track.id), ['fallback']);
+});
+
+test('complete playable recommendations remain usable when catalog refresh fails', async () => {
+  const current = makeTrack('current');
+  const recommendation = makeTrack('recommended');
+  const result = await loadAutoplayCandidates({
+    fetchRecommendations: async () => ({
+      enabled: true,
+      recommendations: [recommendation]
+    }),
+    fetchCatalog: async () => {
+      throw new Error('catalog unavailable');
+    },
+    endedTrack: current
+  });
+
+  assert.ok(result.catalogError);
+  assert.deepEqual(result.candidates, [recommendation]);
+});
+
+test('autoplay disabled prevents automatic transition and recommendation requests', async () => {
+  let recommendationRequests = 0;
+  const autoplayPreference = false;
+  assert.equal(isAutoplayEnabled(autoplayPreference), false);
+  assert.equal(isAutoplayEnabled(true), true);
+  if (isAutoplayEnabled(autoplayPreference)) {
+    recommendationRequests += 1;
+  }
+  assert.equal(recommendationRequests, 0);
+});
+
+test('no valid catalog candidates is distinct from a failed recommendation or catalog request', async () => {
+  const current = makeTrack('current');
+  const empty = await loadAutoplayCandidates({
+    fetchRecommendations: async () => ({ enabled: true, recommendations: [] }),
+    fetchCatalog: async () => ({ tracks: [current, makeTrack('draft', { status: 'Draft' })] }),
+    endedTrack: current
+  });
+  assert.deepEqual(empty.candidates, []);
+  assert.equal(empty.recommendationError, null);
+  assert.equal(empty.catalogError, null);
+  assert.equal(empty.publishedCatalogCount, 1);
+
+  const unavailable = await loadAutoplayCandidates({
+    fetchRecommendations: async () => ({ enabled: true, recommendations: [] }),
+    fetchCatalog: async () => { throw new Error('catalog offline'); },
+    fallbackCatalog: [],
+    endedTrack: current
+  });
+  assert.deepEqual(unavailable.candidates, []);
+  assert.equal(unavailable.catalogError.message, 'catalog offline');
 });

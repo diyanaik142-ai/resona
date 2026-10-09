@@ -4,14 +4,15 @@ import { useAuth } from './AuthContext';
 import {
   createQueueItem,
   getEndedPlaybackAction,
+  isAutoplayEnabled,
   normalizeQueueItems,
   reorderQueueItems,
   isPlayableQueueTrack,
-  selectAutoplayTracks,
   takeNextQueueItem,
   tryAutoplayCandidates,
   handleAudioEnded,
-  runEndedTransition
+  runEndedTransition,
+  loadAutoplayCandidates
 } from './playerQueue';
 
 const PlayerContext = createContext(null);
@@ -339,28 +340,31 @@ export const PlayerProvider = ({ children }) => {
   }, [checkCache, user?.id, user?.role]);
 
   const findAutoplayTracks = useCallback(async (endedTrack) => {
-    if (preferences?.autoplay === false || user?.role === 'admin') return [];
-
-    let recommendationResponse;
-    if (user?.id) {
-      try {
-        recommendationResponse = await api.user.getRecommendations({ limit: 30 });
-      } catch (err) {
-        console.warn('[Autoplay] Recommendation API unavailable; using related catalog tracks:', err.message);
-      }
-    }
-
     const unavailableIds = new Set([
       ...playbackHistoryRef.current.slice(-8).map((track) => String(track.id)),
       ...recentAutoplayIdsRef.current
     ]);
-    return selectAutoplayTracks({
-      recommendationResponse,
-      catalog,
+    const result = await loadAutoplayCandidates({
+      fetchRecommendations: () => user?.id && user?.role !== 'admin'
+        ? api.user.getRecommendations({ limit: 30 })
+        : Promise.resolve({ enabled: false, recommendations: [] }),
+      fetchCatalog: () => api.tracks.getAllForPlayback(),
+      fallbackCatalog: catalog,
       endedTrack,
       excludedIds: [...unavailableIds]
     });
-  }, [catalog, preferences?.autoplay, user?.id, user?.role]);
+    if (import.meta.env?.DEV && result.recommendationError) {
+      console.warn('[Autoplay] Recommendation service unavailable; trying published catalog tracks.', {
+        status: result.recommendationError.status || 'network-or-response'
+      });
+    }
+    if (import.meta.env?.DEV && result.catalogError) {
+      console.warn('[Autoplay] Could not refresh the published catalog; trying cached catalog tracks.', {
+        status: result.catalogError.status || 'network-or-response'
+      });
+    }
+    return result;
+  }, [catalog, user?.id, user?.role]);
 
   const playNext = useCallback((fromEnded = false) => {
     const executeTransition = async () => {
@@ -396,7 +400,7 @@ export const PlayerProvider = ({ children }) => {
           audioRef.current.pause();
           return;
         }
-        if (preferences?.autoplay === false) {
+        if (!isAutoplayEnabled(preferences?.autoplay)) {
           setIsPlaying(false);
           return;
         }
@@ -404,15 +408,24 @@ export const PlayerProvider = ({ children }) => {
         const endedTrack = trackRef.current;
         const requestId = playRequestRef.current;
         try {
-          const recommendations = await findAutoplayTracks(endedTrack);
+          const autoplayResult = await findAutoplayTracks(endedTrack);
           if (
             requestId !== playRequestRef.current ||
             trackRef.current?.id !== endedTrack?.id
           ) return;
+          const recommendations = autoplayResult.candidates;
           if (recommendations.length === 0) {
             setIsPlaying(false);
-            setError(null);
-            publishQueueFeedback('No more tracks to play.', 'status');
+            if (autoplayResult.recommendationError || autoplayResult.catalogError) {
+              const message = autoplayResult.catalogError
+                ? "Couldn't load recommendations or playable catalog tracks."
+                : "Couldn't load recommendations; no playable catalog tracks were found.";
+              setError(message);
+              publishQueueFeedback(message, 'error');
+            } else {
+              setError(null);
+              publishQueueFeedback('No more tracks to play.', 'status');
+            }
             return;
           }
 

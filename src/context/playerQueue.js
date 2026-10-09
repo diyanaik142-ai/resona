@@ -64,34 +64,55 @@ export function getEndedPlaybackAction({ repeatMode, currentTrack, queue, repeat
   return { type: 'autoplay', queue: [] };
 }
 
+export function isAutoplayEnabled(autoplayPreference) {
+  return autoplayPreference !== false;
+}
+
 export function isPlayableQueueTrack(track) {
   return Boolean(
     track?.id &&
     typeof track.audioUrl === 'string' &&
     track.audioUrl.trim() &&
     track.deleted !== true &&
-    (!track.status || track.status === 'Published') &&
+    (!track.status || track.status.toLowerCase() === 'published') &&
     track.isPublished !== false &&
     track.available !== false &&
     track.isAvailable !== false
   );
 }
 
+export function getRecommendationTracks(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) {
+    throw new TypeError('Invalid recommendation response');
+  }
+  const tracks = Array.isArray(response.recommendations)
+    ? response.recommendations
+    : response.tracks;
+  if (!Array.isArray(tracks)) {
+    throw new TypeError('Recommendation response did not contain a tracks array');
+  }
+  return response.enabled === false ? [] : tracks;
+}
+
 export function selectAutoplayTracks({
   recommendationResponse,
   catalog,
   endedTrack,
-  excludedIds = []
+  excludedIds = [],
+  allowStandaloneRecommendations = false
 }) {
-  if (recommendationResponse?.enabled === false) return [];
-
   const availableCatalog = Array.isArray(catalog) ? catalog.filter(isPlayableQueueTrack) : [];
   const catalogById = new Map(availableCatalog.map((track) => [String(track.id), track]));
-  const recommended = Array.isArray(recommendationResponse?.recommendations)
-    ? recommendationResponse.recommendations
-      .map((track) => catalogById.get(String(track?.id)))
-      .filter(Boolean)
+  const recommendationTracks = recommendationResponse
+    ? getRecommendationTracks(recommendationResponse)
     : [];
+  const recommended = recommendationTracks
+    .map((track) => {
+      const catalogTrack = catalogById.get(String(track?.id));
+      if (catalogTrack) return catalogTrack;
+      return allowStandaloneRecommendations && isPlayableQueueTrack(track) ? track : null;
+    })
+    .filter(Boolean);
   const relatedCatalog = () => {
     const genreKeys = new Set([
       endedTrack?.genre,
@@ -113,19 +134,67 @@ export function selectAutoplayTracks({
         Number(left.artist === endedTrack?.artist) - Number(right.artist === endedTrack?.artist)
       ));
   };
+  const relatedIds = new Set(relatedCatalog().map((track) => String(track.id)));
+  const catalogFallback = availableCatalog
+    .filter((track) => String(track.id) !== String(endedTrack?.id))
+    .sort((left, right) => {
+      const leftRelated = relatedIds.has(String(left.id));
+      const rightRelated = relatedIds.has(String(right.id));
+      if (leftRelated !== rightRelated) return Number(rightRelated) - Number(leftRelated);
+      return Number(left.artist === endedTrack?.artist) - Number(right.artist === endedTrack?.artist);
+    });
 
   const excluded = new Set([String(endedTrack?.id), ...excludedIds.map(String)]);
   const uniqueCandidates = (candidates) => [...new Map(
     candidates.map((track) => [String(track.id), track])
   ).values()];
-  let filtered = uniqueCandidates(recommended).filter((track) => !excluded.has(String(track.id)));
-  if (filtered.length === 0) {
-    filtered = uniqueCandidates(relatedCatalog()).filter((track) => !excluded.has(String(track.id)));
+  const isEligible = (track) => !excluded.has(String(track.id));
+  const recommendedCandidates = uniqueCandidates(recommended).filter(isEligible);
+  const catalogCandidates = uniqueCandidates(catalogFallback).filter(isEligible);
+  return uniqueCandidates([...recommendedCandidates, ...catalogCandidates]).slice(0, 20);
+}
+
+export async function loadAutoplayCandidates({
+  fetchRecommendations,
+  fetchCatalog,
+  fallbackCatalog = [],
+  endedTrack,
+  excludedIds = []
+}) {
+  let recommendationResponse = null;
+  let recommendationError = null;
+  try {
+    recommendationResponse = await fetchRecommendations();
+    getRecommendationTracks(recommendationResponse);
+  } catch (error) {
+    recommendationError = error;
+    recommendationResponse = null;
   }
-  if (filtered.some((track) => track.artist !== endedTrack?.artist)) {
-    filtered = filtered.filter((track) => track.artist !== endedTrack?.artist);
+
+  let catalog = fallbackCatalog;
+  let catalogError = null;
+  try {
+    const result = await fetchCatalog();
+    catalog = Array.isArray(result) ? result : result?.tracks;
+    if (!Array.isArray(catalog)) {
+      throw new TypeError('Catalog response did not contain a tracks array');
+    }
+  } catch (error) {
+    catalogError = error;
   }
-  return filtered.slice(0, 10);
+
+  return {
+    candidates: selectAutoplayTracks({
+      recommendationResponse,
+      catalog,
+      endedTrack,
+      excludedIds,
+      allowStandaloneRecommendations: Boolean(catalogError)
+    }),
+    recommendationError,
+    catalogError,
+    publishedCatalogCount: Array.isArray(catalog) ? catalog.filter(isPlayableQueueTrack).length : 0
+  };
 }
 
 export async function tryAutoplayCandidates(candidates, canContinue, playTrack) {

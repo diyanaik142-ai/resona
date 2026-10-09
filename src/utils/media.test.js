@@ -56,6 +56,21 @@ test('API base URL follows the active production origin', () => {
   assert.equal(getApiBaseUrl(), 'https://resona.anchorlyhms.com');
 });
 
+test('local development uses the backend default port', () => {
+  const originalLocation = globalThis.window.location;
+  try {
+    globalThis.window.location = {
+      protocol: 'http:',
+      origin: 'http://localhost:5173',
+      hostname: 'localhost',
+      port: '5173'
+    };
+    assert.equal(getApiBaseUrl(), 'http://localhost:8090');
+  } finally {
+    globalThis.window.location = originalLocation;
+  }
+});
+
 test.after(() => {
   if (previousWindow === undefined) delete globalThis.window;
   else globalThis.window = previousWindow;

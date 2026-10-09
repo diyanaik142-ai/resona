@@ -55,6 +55,25 @@ export const getAuthHeaders = async () => {
   return headers;
 };
 
+async function fetchCatalogTracks() {
+  const res = await fetch(`${getApiBaseUrl()}/api/tracks`);
+  if (!res.ok) throw new Error(`Catalog request failed with HTTP ${res.status}`);
+  let rawTracks;
+  try {
+    rawTracks = await res.json();
+  } catch {
+    throw new Error('Catalog response was not valid JSON');
+  }
+  if (!Array.isArray(rawTracks)) {
+    throw new TypeError('Catalog response was not a tracks array');
+  }
+  return rawTracks.map((track) => ({
+    ...track,
+    audioUrl: resolveMediaUrl(track.audioUrl),
+    cover: resolveMediaUrl(track.cover)
+  }));
+}
+
 
 export const api = {
   // Auth
@@ -185,10 +204,40 @@ export const api = {
     },
     getRecommendations: async ({ limit = 12, force = false } = {}) => {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${getApiBaseUrl()}/api/user/recommendations?limit=${encodeURIComponent(limit)}&force=${force ? 'true' : 'false'}`, { headers });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || 'Failed to load recommendations');
-      return json;
+      let res;
+      try {
+        res = await fetch(`${getApiBaseUrl()}/api/user/recommendations?limit=${encodeURIComponent(limit)}&force=${force ? 'true' : 'false'}`, { headers });
+      } catch (error) {
+        if (import.meta.env?.DEV) console.warn('[Recommendations] Request failed before receiving a response.');
+        throw new Error('Recommendation request failed', { cause: error });
+      }
+      if (!res.ok) {
+        let detail = '';
+        try {
+          detail = (await res.json())?.error || '';
+        } catch {
+          // Keep the HTTP status as the useful error when the response body is not JSON.
+        }
+        if (import.meta.env?.DEV) console.warn(`[Recommendations] Request failed with HTTP ${res.status}.`);
+        const error = new Error(detail || `Recommendation request failed with HTTP ${res.status}`);
+        error.status = res.status;
+        throw error;
+      }
+      let response;
+      try {
+        response = await res.json();
+      } catch {
+        throw new Error('Recommendation response was not valid JSON');
+      }
+      if (
+        !response ||
+        typeof response !== 'object' ||
+        Array.isArray(response) ||
+        !Array.isArray(response.recommendations) && !Array.isArray(response.tracks)
+      ) {
+        throw new TypeError('Recommendation response did not contain a tracks array');
+      }
+      return response;
     },
     getDailyDose: async ({ force = false } = {}) => {
       const headers = await getAuthHeaders();
@@ -917,20 +966,13 @@ export const api = {
   tracks: {
     getAll: async () => {
       try {
-        const res = await fetch(`${getApiBaseUrl()}/api/tracks`);
-        if (!res.ok) throw new Error('Failed to fetch tracks');
-        const rawTracks = await res.json();
-        const tracks = Array.isArray(rawTracks) ? rawTracks.map(t => ({
-          ...t,
-          audioUrl: resolveMediaUrl(t.audioUrl),
-          cover: resolveMediaUrl(t.cover)
-        })) : [];
-        return { tracks };
+        return { tracks: await fetchCatalogTracks() };
       } catch (err) {
         console.warn('Could not fetch tracks from backend:', err.message);
         return { tracks: [] };
       }
     },
+    getAllForPlayback: async () => ({ tracks: await fetchCatalogTracks() }),
     create: async (trackData) => {
       throw new Error('Please use the Admin Dashboard to upload tracks.');
     },
