@@ -188,7 +188,7 @@ test('empty or failed recommendations fall back to related catalog tracks withou
     recommendationResponse: { enabled: true, recommendations: [] },
     catalog,
     endedTrack: current
-  }).map((track) => track.id), ['related', 'same-artist']);
+  }).map((track) => track.id), ['same-artist', 'related']);
   assert.deepEqual(selectAutoplayTracks({
     recommendationResponse: undefined,
     catalog,
@@ -199,7 +199,28 @@ test('empty or failed recommendations fall back to related catalog tracks withou
     recommendationResponse: { enabled: false, recommendations: [related] },
     catalog,
     endedTrack: current
-  }).map((track) => track.id), ['related', 'same-artist']);
+  }).map((track) => track.id), ['same-artist', 'related']);
+});
+
+test('catalog fallback orders subgenre and genre matches before unrelated tracks', () => {
+  const current = makeTrack('current', {
+    genre: undefined,
+    genreId: 'pop',
+    subgenreId: 'indie-pop'
+  });
+  const genreMatch = makeTrack('genre-match', { genre: undefined, genreId: 'pop' });
+  const subgenreMatch = makeTrack('subgenre-match', {
+    genre: undefined,
+    genreId: 'pop',
+    subgenreId: 'indie-pop'
+  });
+  const unrelated = makeTrack('unrelated', { genre: undefined, genreId: 'rock' });
+
+  assert.deepEqual(selectAutoplayTracks({
+    recommendationResponse: { enabled: true, recommendations: [] },
+    catalog: [current, genreMatch, unrelated, subgenreMatch],
+    endedTrack: current
+  }).map((track) => track.id), ['subgenre-match', 'genre-match', 'unrelated']);
 });
 
 test('failed or unavailable tracks are rejected before queue success can be reported', () => {

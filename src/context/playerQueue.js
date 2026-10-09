@@ -94,6 +94,28 @@ export function getRecommendationTracks(response) {
   return response.enabled === false ? [] : tracks;
 }
 
+function relatednessScore(seed, candidate) {
+  const values = (track, keys) => keys.flatMap((key) => {
+    const value = track?.[key];
+    return (Array.isArray(value) ? value : [value])
+      .filter(Boolean)
+      .map((entry) => String(entry).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+  });
+  const matches = (keys) => {
+    const seedValues = new Set(values(seed, keys));
+    return values(candidate, keys).some((value) => seedValues.has(value));
+  };
+
+  return (
+    (matches(['artist', 'artists', 'relatedArtists']) ? 100 : 0) +
+    (matches(['subgenre', 'subgenreId', 'subgenres']) ? 55 : 0) +
+    (matches(['genre', 'genreId', 'genres']) ? 35 : 0) +
+    (matches(['language', 'languages']) ? 25 : 0) +
+    (matches(['mood', 'moods']) ? 12 : 0) +
+    (matches(['style', 'styles']) ? 10 : 0)
+  );
+}
+
 export function selectAutoplayTracks({
   recommendationResponse,
   catalog,
@@ -113,36 +135,9 @@ export function selectAutoplayTracks({
       return allowStandaloneRecommendations && isPlayableQueueTrack(track) ? track : null;
     })
     .filter(Boolean);
-  const relatedCatalog = () => {
-    const genreKeys = new Set([
-      endedTrack?.genre,
-      ...(Array.isArray(endedTrack?.genres) ? endedTrack.genres : []),
-      ...(Array.isArray(endedTrack?.subgenres) ? endedTrack.subgenres : [])
-    ].filter(Boolean).map((value) => String(value).toLowerCase()));
-    return availableCatalog
-      .filter((track) => {
-        if (String(track.id) === String(endedTrack?.id)) return false;
-        const trackGenres = [
-          track.genre,
-          ...(Array.isArray(track.genres) ? track.genres : []),
-          ...(Array.isArray(track.subgenres) ? track.subgenres : [])
-        ].filter(Boolean).map((value) => String(value).toLowerCase());
-        return track.artist === endedTrack?.artist ||
-          trackGenres.some((genre) => genreKeys.has(genre));
-      })
-      .sort((left, right) => (
-        Number(left.artist === endedTrack?.artist) - Number(right.artist === endedTrack?.artist)
-      ));
-  };
-  const relatedIds = new Set(relatedCatalog().map((track) => String(track.id)));
   const catalogFallback = availableCatalog
     .filter((track) => String(track.id) !== String(endedTrack?.id))
-    .sort((left, right) => {
-      const leftRelated = relatedIds.has(String(left.id));
-      const rightRelated = relatedIds.has(String(right.id));
-      if (leftRelated !== rightRelated) return Number(rightRelated) - Number(leftRelated);
-      return Number(left.artist === endedTrack?.artist) - Number(right.artist === endedTrack?.artist);
-    });
+    .sort((left, right) => relatednessScore(endedTrack, right) - relatednessScore(endedTrack, left));
 
   const excluded = new Set([String(endedTrack?.id), ...excludedIds.map(String)]);
   const uniqueCandidates = (candidates) => [...new Map(

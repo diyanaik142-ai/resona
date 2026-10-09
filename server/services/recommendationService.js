@@ -3,6 +3,7 @@ import { getAccountData, getGlobalData, saveAccountData, saveGlobalData } from '
 import { computeEntitlements, normalizePlans } from './entitlements.js';
 import { getGlobalFeatureMap, getPlatformSettings } from './platformSettings.js';
 import { getResonaProfile, planName } from './userService.js';
+import { rankRelatedTracks } from './relatedTrackRanking.js';
 
 const EVENT_LIMIT = 500;
 const RECENT_WINDOW_MS = 1000 * 60 * 60 * 24 * 45;
@@ -283,7 +284,7 @@ export async function recordListeningEvent(userId, { trackId, type, position = 0
   return { event, shelf };
 }
 
-export async function getRecommendations(userId, { limit = 12, force = false } = {}) {
+export async function getRecommendations(userId, { limit = 12, force = false, trackId = null } = {}) {
   const entitlements = await getEntitlement(userId);
   if (!entitlements.features?.[PLAN_FEATURES.recommendations]) {
     return { enabled: false, ...limitedState('feature_unavailable'), planId: entitlements.planId, planName: entitlements.planName };
@@ -292,6 +293,27 @@ export async function getRecommendations(userId, { limit = 12, force = false } =
   const catalog = await getPublishedCatalog();
   const shelf = normalizeShelf(await getAccountData(userId, 'shelf.json'));
   const taste = buildTasteProfile(shelf, catalog);
+  if (trackId) {
+    const seedTrack = catalog.find((track) => String(track.id) === String(trackId));
+    if (!seedTrack) {
+      const error = new Error('Recommendation seed track is not available.');
+      error.status = 404;
+      throw error;
+    }
+    const recommendations = rankRelatedTracks(seedTrack, catalog, {
+      tasteScores: Object.fromEntries(
+        scoreCatalog(catalog, shelf, taste).map((track) => [String(track.id), Math.min(5, track.score * 0.1)])
+      )
+    }).slice(0, Math.max(1, Math.min(50, Number(limit) || 12)));
+    return {
+      enabled: true,
+      personalized: true,
+      seedTrackId: seedTrack.id,
+      generatedAt: new Date().toISOString(),
+      catalogSize: catalog.length,
+      recommendations
+    };
+  }
   if (catalog.length < 2 || taste.positiveSignals < MIN_SIGNALS) {
     return { enabled: true, planId: entitlements.planId, planName: entitlements.planName, catalogSize: catalog.length, signals: taste, ...limitedState() };
   }

@@ -199,7 +199,8 @@ router.get('/recommendations', async (req, res) => {
   try {
     const force = req.query.force === 'true';
     const limit = Number(req.query.limit || 12);
-    return res.json(await getRecommendations(req.user.id, { limit, force }));
+    const trackId = typeof req.query.trackId === 'string' ? req.query.trackId.trim() : null;
+    return res.json(await getRecommendations(req.user.id, { limit, force, trackId: trackId || null }));
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message });
   }

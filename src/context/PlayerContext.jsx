@@ -346,7 +346,7 @@ export const PlayerProvider = ({ children }) => {
     ]);
     const result = await loadAutoplayCandidates({
       fetchRecommendations: () => user?.id && user?.role !== 'admin'
-        ? api.user.getRecommendations({ limit: 30 })
+        ? api.user.getRecommendations({ limit: 30, force: true, trackId: endedTrack?.id })
         : Promise.resolve({ enabled: false, recommendations: [] }),
       fetchCatalog: () => api.tracks.getAllForPlayback(),
       fallbackCatalog: catalog,

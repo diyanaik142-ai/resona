@@ -202,11 +202,16 @@ export const api = {
       if (!res.ok) throw new Error(json.error || 'Failed to cancel plan request');
       return json;
     },
-    getRecommendations: async ({ limit = 12, force = false } = {}) => {
+    getRecommendations: async ({ limit = 12, force = false, trackId = null } = {}) => {
       const headers = await getAuthHeaders();
+      const query = new URLSearchParams({
+        limit: String(limit),
+        force: force ? 'true' : 'false'
+      });
+      if (trackId) query.set('trackId', String(trackId));
       let res;
       try {
-        res = await fetch(`${getApiBaseUrl()}/api/user/recommendations?limit=${encodeURIComponent(limit)}&force=${force ? 'true' : 'false'}`, { headers });
+        res = await fetch(`${getApiBaseUrl()}/api/user/recommendations?${query}`, { headers });
       } catch (error) {
         if (import.meta.env?.DEV) console.warn('[Recommendations] Request failed before receiving a response.');
         throw new Error('Recommendation request failed', { cause: error });
